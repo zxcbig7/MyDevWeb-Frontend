@@ -14,7 +14,7 @@
 // ============================================================
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import type { RuleData } from "./types";
+import type { BlockType, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
 import { MOCK_VAR_SOURCES } from "./devMock";
 import type { VariableSource } from "./devMock";
@@ -113,14 +113,14 @@ function findVarDefBlocks(varName: string, rules: RuleData[]): RuleData[] {
 }
 
 // ─── Block Type 樣式 ──────────────────────────────────────────
-const BLOCK_TYPE_STYLE: Record<string, { badge: string; border: string }> = {
+const BLOCK_TYPE_STYLE: Partial<Record<BlockType, { badge: string; border: string }>> = {
   START:    { badge: "bg-purple-500/20 text-purple-300 border border-purple-500/30", border: "border-purple-500/30" },
   END:      { badge: "bg-slate-400/20  text-slate-400 border border-slate-400/20",  border: "border-slate-400/20" },
   DECISION: { badge: "bg-amber-500/20  text-amber-300  border border-amber-500/30", border: "border-amber-500/30" },
   PROCESS:  { badge: "bg-blue-500/20   text-blue-300   border border-blue-500/30",  border: "border-blue-500/30" },
 };
-function getBlockStyle(type: string) {
-  return BLOCK_TYPE_STYLE[type] ?? BLOCK_TYPE_STYLE["PROCESS"];
+function getBlockStyle(type: BlockType) {
+  return BLOCK_TYPE_STYLE[type] ?? BLOCK_TYPE_STYLE["PROCESS"]!;
 }
 
 // ─── 反藍 Log 標籤 ────────────────────────────────────────────
@@ -235,7 +235,7 @@ function BlockCard({
   onCol1Click: (v: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const style = getBlockStyle(block.BLOCK_TYPE);
+  const style = getBlockStyle(block.BLOCK_TYPE as BlockType);
   const logRe = activeLogName
     ? new RegExp(`\\[?\\$${escapeRegex(activeLogName)}\\$\\]?`)
     : null;

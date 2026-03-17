@@ -23,7 +23,10 @@ const IS_DEV = APP_ENV === "DEV";
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE,
-  headers: { CID: "ruleviewer-frontend" },
+  headers: { 
+    CID: "ruleviewer-frontend",
+    Account: "ruleviewer-frontend",
+  },
 });
 
 // ── Mock 實作 ────────────────────────────────────────────────
@@ -49,7 +52,7 @@ async function mockLoadRuleNamesByPhase(phase: string): Promise<string[]> {
   return MOCK_PHASE_RULES[phase] ?? [];
 }
 
-async function mockLoadRuleData(ruleName: string): Promise<RuleData[]> {
+async function mockLoadRuleData(_phase: string, ruleName: string): Promise<RuleData[]> {
   return MOCK_RULE_LOOKUP[ruleName] ?? [];
 }
 
@@ -67,9 +70,9 @@ async function apiLoadRuleNamesByPhase(phase: string): Promise<string[]> {
   return res.data;
 }
 
-async function apiLoadRuleData(ruleName: string): Promise<RuleData[]> {
+async function apiLoadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
   const res = await client.get<RuleDTO[]>(
-    `/api/RuleViewer/${encodeURIComponent(ruleName)}`
+    `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
   );
   return convertDtosToData(res.data);
 }

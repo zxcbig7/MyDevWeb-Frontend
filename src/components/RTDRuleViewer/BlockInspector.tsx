@@ -13,7 +13,7 @@
 // ============================================================
 
 import React, { useEffect, useRef } from "react";
-import type { Block, BlockValue, RuleData } from "./types";
+import type { Block, BlockType, BlockValue, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
 
 // ─────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ type BlockCategory = "input" | "tableop" | "function" | "output" | "general";
 
 // 依照 RTDIconsNew 圖片背景色分類
 // 橘色: Input  綠色: TableOperation  藍色: Function  黃色: Output
-const TYPE_CATEGORY: Record<string, BlockCategory> = {
+const TYPE_CATEGORY: Partial<Record<BlockType, BlockCategory>> = {
   // Input (橘色) — Row 0
   Data: "input", DataSource: "input", Import: "input", MacroImport: "input",
   MacroParameter: "input", Repository: "input", SQL: "input", Tag: "input",
@@ -64,18 +64,18 @@ const TYPE_CATEGORY: Record<string, BlockCategory> = {
 };
 
 const CATEGORY_ACCENT: Record<BlockCategory, TypeAccent> = {
-  input:   { headerBg: "bg-orange-50",  borderLeft: "border-l-orange-500", badgeClasses: "bg-orange-100 text-orange-700" },
-  tableop: { headerBg: "bg-green-50",   borderLeft: "border-l-green-500",  badgeClasses: "bg-green-100 text-green-700" },
-  function:{ headerBg: "bg-blue-50",    borderLeft: "border-l-blue-500",   badgeClasses: "bg-blue-100 text-blue-700" },
-  output:  { headerBg: "bg-yellow-50",  borderLeft: "border-l-yellow-500", badgeClasses: "bg-yellow-100 text-yellow-700" },
-  general: { headerBg: "bg-gray-50",    borderLeft: "border-l-gray-400",   badgeClasses: "bg-gray-100 text-gray-600" },
+  input: { headerBg: "bg-orange-50", borderLeft: "border-l-orange-500", badgeClasses: "bg-orange-100 text-orange-700" },
+  tableop: { headerBg: "bg-green-50", borderLeft: "border-l-green-500", badgeClasses: "bg-green-100 text-green-700" },
+  function: { headerBg: "bg-blue-50", borderLeft: "border-l-blue-500", badgeClasses: "bg-blue-100 text-blue-700" },
+  output: { headerBg: "bg-yellow-50", borderLeft: "border-l-yellow-500", badgeClasses: "bg-yellow-100 text-yellow-700" },
+  general: { headerBg: "bg-gray-50", borderLeft: "border-l-gray-400", badgeClasses: "bg-gray-100 text-gray-600" },
 };
 
-function getAccent(type: string): TypeAccent {
+function getAccent(type: BlockType): TypeAccent {
   return CATEGORY_ACCENT[TYPE_CATEGORY[type] ?? "general"];
 }
 
-function getCategory(type: string): BlockCategory {
+function getCategory(type: BlockType): BlockCategory {
   return TYPE_CATEGORY[type] ?? "general";
 }
 
@@ -150,6 +150,7 @@ export function BlockInspector({
       let x = dragRef.current.originX + (mx - dragRef.current.startX);
       let y = dragRef.current.originY + (my - dragRef.current.startY);
       const panelRect = panel.getBoundingClientRect();
+      // 限制面板不超出 wrapper 範圍（可微調允許部分超出以利拖曳）
       x = Math.max(0, Math.min(x, rect.width - panelRect.width));
       y = Math.max(0, Math.min(y, rect.height - panelRect.height));
       panel.style.transform = `translate(${x}px, ${y}px)`;
@@ -256,6 +257,7 @@ export function BlockInspector({
 // Shared Primitives
 // ─────────────────────────────────────────────────────────────
 
+// 區塊標題
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10px] font-bold tracking-wider text-gray-400 uppercase mt-1">
@@ -264,6 +266,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// MetaRow：顯示一行欄位標籤 + 值，沒有值則不顯示
 function MetaRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
@@ -274,12 +277,13 @@ function MetaRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+// 前置 Block 小徽章，顯示在 Inspector 的 PreBlocks 區塊中
 function PreBlockBadge({ name, isPrimary }: { name: string; isPrimary: boolean }) {
   return (
     <span className={cn("text-[11px] px-2 py-0.5 rounded border font-mono", isPrimary
-      ? "border-gray-700 text-gray-700 bg-gray-50"
-      : "border-orange-600 text-orange-600 bg-orange-50"
-      )}>
+      ? "border-orange-600 text-orange-600 bg-orange-50"
+      : "border-gray-700 text-gray-700 bg-gray-50"
+    )}>
       {isPrimary ? "●" : "○"} {name}
     </span>
   );
@@ -301,10 +305,11 @@ function ColField({ label, value, labelCls = "text-gray-400", valueCls = "text-g
 // ── 共用 Value 卡片（ProcessBody / FunctionBody 都用） ────────
 type ValueCardTheme = { border: string; bg: string; indexCls: string; };
 const VALUE_CARD_THEMES: Record<"gray" | "blue", ValueCardTheme> = {
-  gray: { border: "border-gray-200", bg: "bg-gray-50",      indexCls: "text-gray-400" },
-  blue: { border: "border-blue-100", bg: "bg-blue-50/40",   indexCls: "text-blue-300" },
+  gray: { border: "border-gray-200", bg: "bg-gray-50", indexCls: "text-gray-400" },
+  blue: { border: "border-blue-100", bg: "bg-blue-50/40", indexCls: "text-blue-300" },
 };
 
+// ValueCard：顯示一個條件值的卡片，包含欄位標籤、值，以及可選的箭頭（表示與前置 Block 的連線）
 function ValueCard({ index, v, theme = "gray", col1Label, col2Label, showArrow = false }: {
   index: number; v: BlockValue;
   theme?: "gray" | "blue";
@@ -349,6 +354,7 @@ function tokenize(code: string): Token[] {
   let m: RegExpExecArray | null;
   HIGHLIGHT_RE.lastIndex = 0;
 
+  // 迭代所有匹配，根據捕獲群組判斷 token 類型，並將未匹配的部分作為普通文本
   while ((m = HIGHLIGHT_RE.exec(code)) !== null) {
     if (m.index > last) result.push({ type: "text", text: code.slice(last, m.index) });
     if (m[1]) result.push({ type: "string", text: m[1] });
@@ -388,12 +394,40 @@ function HighlightedValue({ code }: { code: string }) {
 // #region Body Design (每一個都是獨立的 React Component)
 
 // ─────────────────────────────────────────────────────────────
-// Body Factory
+// Body Registry — 在這裡指定哪個 type 用哪個模板
 // ─────────────────────────────────────────────────────────────
+type BodyComponent = React.ComponentType<{ r: RuleData }>;
+
+// 明確指定特定 type 的模板（未列出的 type 走 DEFAULT_BODY）
+const BODY_REGISTRY: Partial<Record<string, BodyComponent>> = {
+  // Input
+  // Data:        ProcessBody,
+
+  // TableOperation
+  // Join:        FunctionBody,
+
+  // Function
+  // Filter:      FunctionBody,
+
+  // Output
+  // Table:       ProcessBody,
+};
+
+// 依 category 決定預設模板（當 BODY_REGISTRY 沒有對應 type 時使用）
+const CATEGORY_DEFAULT_BODY: Record<BlockCategory, BodyComponent> = {
+  input:    ProcessBody,
+  tableop:  FunctionBody,
+  function: FunctionBody,
+  output:   ProcessBody,
+  general:  ProcessBody,
+};
+
+// 根據 block.type 決定 InspectorBody 的內容呈現，與拖曳/縮放無關
 function InspectorBody({ block, r }: { block: Block; r: RuleData }) {
-  const cat = getCategory(block.type);
-  if (cat === "function" || cat === "tableop") return <FunctionBody r={r} />;
-  return <ProcessBody r={r} />;
+  const Body =
+    BODY_REGISTRY[block.type] ??
+    CATEGORY_DEFAULT_BODY[getCategory(block.type)];
+  return <Body r={r} />;
 }
 
 

@@ -4,7 +4,7 @@
 // 以及處理所有滑鼠互動（拖曳、縮放、hover、雙擊）
 // ============================================================
 
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,

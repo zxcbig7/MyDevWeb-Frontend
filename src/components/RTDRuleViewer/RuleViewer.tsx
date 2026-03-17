@@ -102,8 +102,8 @@ export default function RuleViewer() {
     setTrackerLogIds([]);
     setTrackerVarIds([]);
 
-    if (!selectedRule) return;
-    loadRuleData(selectedRule).then(setRules);
+    if (!selectedPhase || !selectedRule) return;
+    loadRuleData(selectedPhase, selectedRule).then(setRules);
   }, [selectedRule]);
 
   function handlePrev() {
@@ -232,9 +232,9 @@ export default function RuleViewer() {
                       setRightTab(tab);
                     }}
                     className={cn("px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors", rightTab === tab
-                        ? "bg-white/15 text-white"
-                        : "text-slate-400 hover:text-white hover:bg-white/7"
-                      )}
+                      ? "bg-white/15 text-white"
+                      : "text-slate-400 hover:text-white hover:bg-white/7"
+                    )}
                   >
                     {tab === "search" ? "Viewer" : "Tracker"}
                   </button>
@@ -299,9 +299,9 @@ export default function RuleViewer() {
                     onClick={() => handlePick(i)}
                     onDoubleClick={() => ruleViewRef.current?.openInspectorById(m.id)}
                     className={cn("text-left px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors", i === matchIndex
-                        ? "border-green-500/50 bg-green-500/10 text-white"
-                        : "border-white/10 bg-white/4 text-slate-300 hover:bg-white/8"
-                      )}
+                      ? "border-green-500/50 bg-green-500/10 text-white"
+                      : "border-white/10 bg-white/4 text-slate-300 hover:bg-white/8"
+                    )}
                   >
                     <div className="font-semibold truncate">
                       <span className="text-white/40 mr-1.5">{i + 1}.</span>

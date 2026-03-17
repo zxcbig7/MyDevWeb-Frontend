@@ -4,12 +4,8 @@ import { RuleViewer } from "./components/RTDRuleViewer";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 
-import CanvasComponent from "./components/CanvasTest/BasicCanvas";
-import RuleViewerNew from "./components/CanvasTest/RuleViewerNew";
-
 import AuthPage from "./pages/AuthPage";
 import TailwindCheatsheet from "./pages/TailwindCheatsheet";
-
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
 
@@ -37,10 +33,6 @@ function App() {
 
           {/* Rule Viewer Pages */}
           <Route path="ruleviewer" element={<RuleViewer />} />
-
-          {/* Rule Viewer New Pages */}
-          <Route path="ruleviewer/main" element={<RuleViewerNew />} />
-          <Route path="ruleviewer/legacy2" element={<CanvasComponent />} />
 
           {/* Tailwind Cheatsheet */}
           <Route path="tailwind" element={<TailwindCheatsheet />} />
