@@ -78,7 +78,26 @@ async function apiLoadRuleData(phase: string, ruleName: string): Promise<RuleDat
 }
 
 // ── 統一對外介面 ─────────────────────────────────────────────
+// DEV：先打真實 API，失敗時 fallback 到 Mock（不讓網站死掉）
+// STAGE / PROD：打真實 API，失敗時回傳空值
 
-export const loadPhases           = IS_DEV ? mockLoadPhases           : apiLoadPhases;
-export const loadRuleNamesByPhase = IS_DEV ? mockLoadRuleNamesByPhase : apiLoadRuleNamesByPhase;
-export const loadRuleData         = IS_DEV ? mockLoadRuleData         : apiLoadRuleData;
+export async function loadPhases(): Promise<string[]> {
+  const apiResult = await apiLoadPhases().then(d => Array.isArray(d) ? d : []).catch(() => []);
+  if (!IS_DEV) return apiResult;
+  const mockResult = await mockLoadPhases();
+  return [...new Set([...mockResult, ...apiResult])];
+}
+
+export async function loadRuleNamesByPhase(phase: string): Promise<string[]> {
+  const apiResult = await apiLoadRuleNamesByPhase(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
+  if (!IS_DEV) return apiResult;
+  const mockResult = await mockLoadRuleNamesByPhase(phase);
+  return [...new Set([...mockResult, ...apiResult])];
+}
+
+export async function loadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
+  const apiResult = await apiLoadRuleData(phase, ruleName).then(d => Array.isArray(d) ? d : []).catch(() => []);
+  if (!IS_DEV) return apiResult;
+  const mockResult = await mockLoadRuleData(phase, ruleName);
+  return [...mockResult, ...apiResult];
+}

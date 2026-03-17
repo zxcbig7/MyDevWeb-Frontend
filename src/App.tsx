@@ -10,6 +10,8 @@ import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
 
 
+const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
+
 function App() {
   return (
     <AuthProvider>
@@ -29,16 +31,15 @@ function App() {
           {/* 預設進來導到 dashboard */}
           <Route index element={<Navigate to="dashboard" replace />} />
 
+          {/* Dashboard */}
           <Route path="dashboard" element={<div>Dashboard</div>} />
 
-          {/* Rule Viewer Pages */}
+          {/* Rule Viewer Pages — 所有環境皆開放 */}
           <Route path="ruleviewer" element={<RuleViewer />} />
 
-          {/* Tailwind Cheatsheet */}
-          <Route path="tailwind" element={<TailwindCheatsheet />} />
-
-          {/* Sudoku Pages */}
-          <Route path="sudoku" element={<SudokuSolver />} />
+          {/* 以下只有 DEV 環境才掛載路由 */}
+          {IS_DEV && <Route path="tailwind" element={<TailwindCheatsheet />} />}
+          {IS_DEV && <Route path="sudoku" element={<SudokuSolver />} />}
 
           {/* Error Pages */}
           <Route path="*" element={<ErrorPage statusCode={404} />} />

@@ -18,7 +18,7 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "127.0.0.1";
 const IS_DEV   = import.meta.env.VITE_APP_ENV === "DEV";
 
 const MOCK_USER: AuthUser = { id: "dev", name: "開發者", email: "dev@local" };

@@ -7,12 +7,22 @@ import type { Block, BlockType, RuleData } from "./types";
 
 export const BLOCK_SIZE = 80;
 
+const LAYOUT_PADDING = 0; // 對齊後距離左上角的留白
+
 // ── 建構 Block 陣列 ─────────────────────────────────────────
 export function buildBlocks(data: RuleData[]): Block[] {
+  if (data.length === 0) return [];
+
+  // 計算所有 block 的最小 x, y，然後整體平移讓最左上角對齊 LAYOUT_PADDING
+  const minX = Math.min(...data.map((r) => r.POSX));
+  const minY = Math.min(...data.map((r) => r.POSY));
+  const dx = LAYOUT_PADDING - minX;
+  const dy = LAYOUT_PADDING - minY;
+
   return data.map((r) => ({
     id: r.BLOCK_NAME,
-    x: r.POSX,
-    y: r.POSY,
+    x: r.POSX + dx,
+    y: r.POSY + dy,
     w: BLOCK_SIZE,
     h: BLOCK_SIZE,
     type: r.BLOCK_TYPE as Block["type"],

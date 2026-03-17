@@ -42,18 +42,22 @@ function getItem(
   return { key, icon, children, label } as MenuItem;
 }
 
+const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
+
 const items: MenuItem[] = [
   getItem("Dashboard", "/dashboard", <PieChartOutlined />),
   getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
 
-  getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
-  getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
+  ...(IS_DEV ? [
+    getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
+    getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
 
-  getItem("RTD Rule Viewer", "", <DesktopOutlined />, [
-    getItem("Block Inspector", "/ruleviewer/test1", <DesktopOutlined />),
-    getItem("Rule View (Canvas)", "/ruleviewer/test2", <DesktopOutlined />),
-    getItem("Controls", "/ruleviewer/test3", <DesktopOutlined />),
-  ]),
+    getItem("RTD Rule Viewer", "", <DesktopOutlined />, [
+      getItem("Block Inspector", "/ruleviewer/test1", <DesktopOutlined />),
+      getItem("Rule View (Canvas)", "/ruleviewer/test2", <DesktopOutlined />),
+      getItem("Controls", "/ruleviewer/test3", <DesktopOutlined />),
+    ]),
+  ] : []),
 ];
 
 const HomePage = () => {
