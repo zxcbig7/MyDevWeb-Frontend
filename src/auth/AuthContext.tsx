@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthState | null>(null);
 const API_BASE      = import.meta.env.VITE_API_BASE      ?? "";
 const AUTH_BASE     = import.meta.env.VITE_AUTH_BASE     ?? API_BASE;
 const IS_DEV        = import.meta.env.VITE_APP_ENV === "DEV";
-const DISABLE_AUTH  = import.meta.env.VITE_DISABLE_AUTH  === "true";
+const DISABLE_AUTH  = import.meta.env.VITE_DISABLE_AUTH  !== "false";
 
 const MOCK_USER: AuthUser = { id: "dev", name: "開發者", email: "dev@local" };
 
