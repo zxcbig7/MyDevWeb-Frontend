@@ -4,34 +4,33 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# 安裝依賴（先 copy 兩個 lock 檔到工作目錄，利於 cache）
-COPY package.json package-lock.json ./
+# Build-time 環境變數（docker build --build-arg VITE_APP_ENV=PROD）
+ARG VITE_APP_ENV=PROD
+ARG VITE_API_BASE=""
 
-# npm ci 會嚴格依照 package-lock.json 安裝
+ENV VITE_APP_ENV=$VITE_APP_ENV
+ENV VITE_API_BASE=$VITE_API_BASE
+
+# 先只複製 lock 檔，利用 Docker layer cache 加速重複 build
+COPY package.json package-lock.json ./
 RUN npm ci
 
-# 這裡才一次複製程式碼並 build
+# 複製原始碼並 build
 COPY . .
-
-# 把前端原始碼轉成「純靜態資產」。
-# React 輸出結果會放在 /app/dist。
 RUN npm run build
 
 
 # ===============================
-# Runtime stage (Static server only)
+# Runtime stage
 # ===============================
 FROM nginx:alpine
 
-# 不放任何自訂 nginx.conf
-# 使用官方預設設定，單純 serve 靜態檔案
+# 使用自訂 nginx.conf（支援 SPA routing + gzip）
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 從名為 build 的 stage拿 /app/dist複 製到目前這個 image 的 /usr/share/nginx/html
+# 複製靜態資產
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-# 讓 Nginx 在前景執行
-# container 的 PID 1 由 Nginx 持有
-# 若 Nginx 掛掉，container 會結束，符合容器生命週期管理邏輯
 CMD ["nginx", "-g", "daemon off;"]
