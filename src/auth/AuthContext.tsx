@@ -18,8 +18,9 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "127.0.0.1";
-const IS_DEV   = import.meta.env.VITE_APP_ENV === "DEV";
+const API_BASE  = import.meta.env.VITE_API_BASE  ?? "";
+const AUTH_BASE = import.meta.env.VITE_AUTH_BASE ?? API_BASE;
+const IS_DEV    = import.meta.env.VITE_APP_ENV === "DEV";
 
 const MOCK_USER: AuthUser = { id: "dev", name: "開發者", email: "dev@local" };
 
@@ -40,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  function login()  { window.location.href = `${API_BASE}/auth/login`;  }
-  function logout() { window.location.href = `${API_BASE}/auth/logout`; }
+  function login()  { window.location.href = `${AUTH_BASE}/auth/login`;  }
+  function logout() { window.location.href = `${AUTH_BASE}/auth/logout`; }
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>

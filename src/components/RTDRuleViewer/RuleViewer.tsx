@@ -21,7 +21,7 @@ export default function RuleViewer() {
   // ── 錯誤通知 ─────────────────────────────────────────────
   const [notifApi, notifCtx] = notification.useNotification();
   const showError = (message: string) => (err: Error) =>
-    notifApi.error({ message, description: err.message, placement: "topRight", duration: 5 });
+    notifApi.error({ message, description: err.message, placement: "topRight", duration: 5, key: message });
 
   // ── 兩階段 Rule 載入 ──────────────────────────────────────
   const [phases, setPhases] = useState<string[]>([]);
