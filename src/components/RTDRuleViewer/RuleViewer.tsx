@@ -4,10 +4,11 @@
 // ============================================================
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Divider } from "antd";
+import { Divider, notification } from "antd";
 import type { RuleViewHandle, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
 import { loadPhases, loadRuleNamesByPhase, loadRuleData } from "./api";
+import { useAsync } from "../../hooks/useAsync";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
 import { RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
@@ -17,12 +18,22 @@ import { CaseQuery } from "./CaseQuery";
 type RightTab = "search" | "tracker";
 
 export default function RuleViewer() {
+  // ── 錯誤通知 ─────────────────────────────────────────────
+  const [notifApi, notifCtx] = notification.useNotification();
+  const showError = (message: string) => (err: Error) =>
+    notifApi.error({ message, description: err.message, placement: "topRight", duration: 5 });
+
   // ── 兩階段 Rule 載入 ──────────────────────────────────────
   const [phases, setPhases] = useState<string[]>([]);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [ruleNamesByPhase, setRuleNamesByPhase] = useState<string[]>([]);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleData[]>([]);
+
+  // API 錯誤時顯示通知，並在 DEV 模式下 fallback 到 Mock 資料（不讓網站死掉）
+  const { execute: fetchPhases    } = useAsync(loadPhases,           showError("無法載入 Phase 清單"));
+  const { execute: fetchRuleNames } = useAsync(loadRuleNamesByPhase, showError("無法載入 Rule 清單"));
+  const { execute: fetchRuleData  } = useAsync(loadRuleData,         showError("無法載入 Rule 資料"));
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -78,7 +89,7 @@ export default function RuleViewer() {
 
   // Phase 清單
   useEffect(() => {
-    loadPhases().then(setPhases);
+    fetchPhases().then(data => { if (data) setPhases(data); });
   }, []);
 
   // Phase 變更
@@ -89,7 +100,7 @@ export default function RuleViewer() {
     setMatchIndex(0);
 
     if (!selectedPhase) { setRuleNamesByPhase([]); return; }
-    loadRuleNamesByPhase(selectedPhase).then(setRuleNamesByPhase);
+    fetchRuleNames(selectedPhase).then(data => { if (data) setRuleNamesByPhase(data); });
   }, [selectedPhase]);
 
   // Rule 變更
@@ -103,7 +114,7 @@ export default function RuleViewer() {
     setTrackerVarIds([]);
 
     if (!selectedPhase || !selectedRule) return;
-    loadRuleData(selectedPhase, selectedRule).then(setRules);
+    fetchRuleData(selectedPhase, selectedRule).then(data => { if (data) setRules(data); });
   }, [selectedRule]);
 
   function handlePrev() {
@@ -142,6 +153,7 @@ export default function RuleViewer() {
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 p-3">
+      {notifCtx}
 
       {/* ── TopBar：Rule 選擇 ── */}
       <div className="rounded-xl px-4 py-2.5 bg-slate-800 flex items-center gap-3 shrink-0">

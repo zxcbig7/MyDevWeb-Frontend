@@ -81,23 +81,35 @@ async function apiLoadRuleData(phase: string, ruleName: string): Promise<RuleDat
 // DEV：先打真實 API，失敗時 fallback 到 Mock（不讓網站死掉）
 // STAGE / PROD：打真實 API，失敗時回傳空值
 
+// DEV  ：API + Mock 合併（API 失敗時 fallback mock，不拋錯）
+// PROD/STAGE：API only（失敗時往上拋，由 UI 層決定如何處理）
+
 export async function loadPhases(): Promise<string[]> {
-  const apiResult = await apiLoadPhases().then(d => Array.isArray(d) ? d : []).catch(() => []);
-  if (!IS_DEV) return apiResult;
-  const mockResult = await mockLoadPhases();
-  return [...new Set([...mockResult, ...apiResult])];
+  if (IS_DEV) {
+    const apiResult = await apiLoadPhases().then(d => Array.isArray(d) ? d : []).catch(() => []);
+    const mockResult = await mockLoadPhases();
+    return [...new Set([...mockResult, ...apiResult])];
+  }
+  const data = await apiLoadPhases();
+  return Array.isArray(data) ? data : [];
 }
 
 export async function loadRuleNamesByPhase(phase: string): Promise<string[]> {
-  const apiResult = await apiLoadRuleNamesByPhase(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
-  if (!IS_DEV) return apiResult;
-  const mockResult = await mockLoadRuleNamesByPhase(phase);
-  return [...new Set([...mockResult, ...apiResult])];
+  if (IS_DEV) {
+    const apiResult = await apiLoadRuleNamesByPhase(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
+    const mockResult = await mockLoadRuleNamesByPhase(phase);
+    return [...new Set([...mockResult, ...apiResult])];
+  }
+  const data = await apiLoadRuleNamesByPhase(phase);
+  return Array.isArray(data) ? data : [];
 }
 
 export async function loadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
-  const apiResult = await apiLoadRuleData(phase, ruleName).then(d => Array.isArray(d) ? d : []).catch(() => []);
-  if (!IS_DEV) return apiResult;
-  const mockResult = await mockLoadRuleData(phase, ruleName);
-  return [...mockResult, ...apiResult];
+  if (IS_DEV) {
+    const apiResult = await apiLoadRuleData(phase, ruleName).then(d => Array.isArray(d) ? d : []).catch(() => []);
+    const mockResult = await mockLoadRuleData(phase, ruleName);
+    return [...mockResult, ...apiResult];
+  }
+  const data = await apiLoadRuleData(phase, ruleName);
+  return Array.isArray(data) ? data : [];
 }
