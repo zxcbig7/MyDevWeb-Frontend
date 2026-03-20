@@ -54,7 +54,9 @@ export function decideConnectionSides(
   const dx = c2.x - c1.x;
   const dy = c2.y - c1.y;
 
-  // 水平優先（dead zone EPS 避免斜向判斷不穩定）
+  // EPS：水平 / 垂直判斷的緩衝區
+  // 只有「水平差距明顯大於垂直差距 + EPS」才走水平連線
+  // 避免兩 block 幾乎正斜 45° 時，連線方向因浮點數微差而不穩定
   const EPS = 5;
   if (Math.abs(dx) > Math.abs(dy) + EPS) {
     return dx > 0
@@ -80,6 +82,8 @@ export function drawArrow(
 
   const dx = x2 - x1;
   const dy = y2 - y1;
+  // atan2 回傳箭頭方向角（弧度），範圍 -π ~ π
+  // 以終點 (x2,y2) 為基準，朝 (dx,dy) 方向射出
   const angle = Math.atan2(dy, dx);
 
   // 線段
@@ -88,7 +92,9 @@ export function drawArrow(
   ctx.lineTo(x2, y2);
   ctx.stroke();
 
-  // 箭頭起點終點
+  // 箭頭兩翼端點
+  // 以箭頭尖端 (x2,y2) 為原點，往反方向旋轉 ±30°（π/6）延伸 headLen
+  // cos/sin(angle ± π/6) 分別算出兩翼在 x/y 軸的分量
   const xA = x2 - headLen * Math.cos(angle - Math.PI / 6);
   const yA = y2 - headLen * Math.sin(angle - Math.PI / 6);
   const xB = x2 - headLen * Math.cos(angle + Math.PI / 6);

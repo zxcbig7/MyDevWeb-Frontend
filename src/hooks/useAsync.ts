@@ -23,8 +23,12 @@ export function useAsync<T, Args extends unknown[]>(
     error: null,
   });
 
-  // 用 ref 防止已 unmount 的元件還在 setState
+  // mountedRef：防止元件已卸載（unmount）後仍呼叫 setState 造成記憶體洩漏警告
+  // React 18 之前這會報 "Can't perform a state update on an unmounted component"
   const mountedRef = useRef(true);
+
+  // onErrorRef：讓 onError callback 永遠拿到最新版本，
+  // 同時不需要將 onError 列入 useCallback 的 deps（避免重新建立 execute 函式）
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 

@@ -68,8 +68,12 @@ export function hitTestBlock(wx: number, wy: number, blocks: Block[]): Block | n
   let best: Block | null = null;
   let bestDist = Infinity;
 
+  // 為何不直接回傳第一個命中？
+  // block 可能互相重疊，用「距中心最近」而非「z-order 最上層」
+  // 能讓使用者更容易點中視覺上明顯的 block
   for (const b of blocks) {
     if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) {
+      // (dx² + dy²) 即平方距離（省略 sqrt，比較大小用途相同且較快）
       const cx = b.x + b.w / 2;
       const cy = b.y + b.h / 2;
       const d = (wx - cx) ** 2 + (wy - cy) ** 2;
@@ -96,6 +100,9 @@ export function drawBlock(
 ) {
   const R = 4; // block 圓角半徑
 
+  // 外層 save/restore：控制 globalAlpha（未命中時整體淡化至 40%）
+  // 內層 save/restore：控制 clip 範圍（只讓圖片裁切至圓角，不影響後續邊框）
+  // 兩層分開是因為 clip 狀態與透明度需要獨立管理
   ctx.save();
 
   if (!isMatched) {
@@ -153,7 +160,9 @@ export function drawBlock(
 
   ctx.restore();
 
-  // Tracker 光環（在 restore 之後繪製，不受 globalAlpha 影響）
+  // Tracker 光環刻意在外層 restore 之後繪製
+  // 原因：restore 已重設 globalAlpha，光環不會被淡化
+  // 即使 block 因「未命中搜尋」而變暗，tracker 高亮仍清晰可見
   if (trackerRole) {
     const isLog = trackerRole === "log";
     ctx.save();

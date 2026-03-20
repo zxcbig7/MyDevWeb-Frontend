@@ -120,8 +120,12 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const dpr = dprRef.current;
         const { w, h } = sizeRef.current;
 
+        // setTransform(dpr, 0, 0, dpr, 0, 0)：每次 redraw 先完整重設變換矩陣
+        // 套用 DPR（devicePixelRatio）讓 canvas 在 Retina 螢幕上不模糊
+        // 先重設再 translate/scale，避免多次 redraw 累積誤差
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
+        // 套用 pan（translate）和 zoom（scale），順序不能對調
         ctx.translate(view.translateX, view.translateY);
         ctx.scale(view.scale, view.scale);
 
@@ -153,6 +157,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         }
 
         // ── Inspector 虛線連線（切回螢幕像素空間繪製） ────
+        // 虛線連線必須在螢幕座標系繪製（不受 world scale 影響）
+        // 因此先用 setTransform 切回「只有 DPR」的狀態，再手動換算座標
         const posMap = inspectorPositionsRef.current;
         if (posMap.size > 0 && showConnectorsRef.current) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -164,11 +170,14 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             const b = blocks.find((bl) => bl.id === blockId);
             if (!b) continue;
 
-            // Block 中心的螢幕座標
+            // Block 中心換算到螢幕座標
+            // 公式：screen = translate + world * scale
             const bCx = view.translateX + (b.x + b.w / 2) * view.scale;
             const bCy = view.translateY + (b.y + b.h / 2) * view.scale;
 
-            // Inspector header 四側中點，選最近的作為連線起點
+            // Inspector header 四側中點（上 / 下 / 左 / 右）
+            // 用 Math.hypot（歐幾里得距離）找距 Block 中心最近的那個作為連線錨點
+            // 這樣連線看起來最自然，不會從 Inspector 遠端穿越過去
             const icx = pos.x + INSP_W / 2;
             const icy = pos.y + INSP_HEADER / 2;
             const candidates = [
@@ -277,6 +286,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       const canvas = canvasRef.current;
       if (!canvas) return;
 
+      // 螢幕座標 → world 座標的反變換
+      // 渲染時：screen = translate + world * scale
+      // 反推：world = (screen - translate) / scale
       function screenToWorld(mx: number, my: number) {
         const view = viewRef.current;
         return {
@@ -396,9 +408,18 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
 
+        // 以滑鼠游標位置為縮放中心（zoom-to-cursor）
+        // 步驟：
+        //   1. 記錄游標對應的 world 座標 (wx, wy)
+        //   2. 套用新的 scale
+        //   3. 反推新 translate，使 (wx, wy) 仍對應到螢幕同一位置
+        //      公式：mx = translateX + wx * newScale  → translateX = mx - wx * newScale
         const wx = (mx - view.translateX) / view.scale;
         const wy = (my - view.translateY) / view.scale;
 
+        // Math.exp(-deltaY * 0.0015)：平滑指數縮放
+        // 向上滾動 deltaY < 0 → factor > 1 → 放大；向下反之
+        // 限制在 0.05 ~ 5 倍之間
         const newScale = Math.max(0.05, Math.min(5,
           view.scale * Math.exp(-e.deltaY * 0.0015)
         ));
@@ -507,6 +528,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const view = viewRef.current;
         const { w, h } = sizeRef.current;
 
+        // 讓指定 block 的中心對齊 viewport 中心
+        // 公式：viewportCenter = translate + blockCenter * scale
+        // 反推：translate = viewportCenter - blockCenter * scale
         view.translateX = w / 2 - (b.x + b.w / 2) * view.scale;
         view.translateY = h / 2 - (b.y + b.h / 2) * view.scale;
 
@@ -546,6 +570,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     useImperativeHandle(ref, () => ({ focusBlockById, openInspectorById }), [focusBlockById, openInspectorById]);
 
     // ── 縮放按鈕 ──────────────────────────────────────────
+    // zoomBy：以 viewport 正中央為縮放中心（按鈕縮放，不跟滑鼠走）
+    // 邏輯同 onWheel，但固定以畫面中心點 (cx, cy) 為錨點
     const zoomBy = useCallback((factor: number) => {
       const ctx = ctxRef.current;
       if (!ctx) return;

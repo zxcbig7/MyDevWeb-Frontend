@@ -17,6 +17,11 @@ export function drawGrid(
   const grid = GRID_SIZE;
 
   // 反推目前可視的 world 範圍
+  // Canvas 渲染公式：screen = translateX + world * scale
+  // 反推：world = (screen - translateX) / scale
+  // screen 左邊界 = 0  → world 左邊 = -translateX / scale
+  // screen 右邊界 = w  → world 右邊 = (w - translateX) / scale
+  // floor/ceil + *grid 確保格線對齊，不會在邊緣留下半格空白
   const startX = Math.floor((-view.translateX) / view.scale / grid) * grid;
   const endX   = Math.ceil((size.w - view.translateX) / view.scale / grid) * grid;
   const startY = Math.floor((-view.translateY) / view.scale / grid) * grid;
@@ -73,6 +78,9 @@ export function drawMinimap(
   const worldW = bounds.maxX - bounds.minX;
   const worldH = bounds.maxY - bounds.minY;
 
+  // 計算讓所有 block 完整塞進 minimap canvas 的縮放比例
+  // Math.min 取較小的一邊，確保最長邊不超出 canvas
+  // * FIT_RATIO 留下一點邊距，不讓內容緊貼邊框
   const FIT_RATIO = 0.85;
   const scale = Math.min(
     canvas.width  / worldW,
@@ -82,7 +90,10 @@ export function drawMinimap(
   const worldWpx = worldW * scale;
   const worldHpx = worldH * scale;
 
-  // 置中偏移
+  // 計算 world 內容在 minimap canvas 內的置中偏移（ox, oy）
+  // (canvas.width - worldWpx) / 2   → 水平置中剩餘空間
+  // - bounds.minX * scale            → 修正 world 起點不在 (0,0) 的偏移
+  // 最終：minimap 像素 = world * scale + ox
   const ox = (canvas.width  - worldWpx) / 2 - bounds.minX * scale;
   const oy = (canvas.height - worldHpx) / 2 - bounds.minY * scale;
 
@@ -97,7 +108,9 @@ export function drawMinimap(
     );
   });
 
-  // 繪製目前視窗範圍框
+  // 將主 canvas 的可視範圍換算到 world 座標系
+  // vx,vy：視窗左上角對應的 world 座標（screen=0 → world = -translate/scale）
+  // vw,vh：視窗在 world 中的寬高（screen size / scale）
   const vx = -view.translateX / view.scale;
   const vy = -view.translateY / view.scale;
   const vw = viewportSize.w / view.scale;

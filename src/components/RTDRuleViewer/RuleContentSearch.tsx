@@ -41,10 +41,13 @@ function getSnippet(rule: RuleData, keyword: string): string {
   for (const v of rule.VALUES) {
     const val = v.VALUE;
     if (val && val.toLowerCase().includes(kw)) {
-      const flat = val.replace(/\n/g, " ");
+      const flat = val.replace(/\n/g, " "); // 換行轉空白，保持單行顯示
       const idx  = flat.toLowerCase().indexOf(kw);
+      // 擷取關鍵字前後各 18 個字元作為摘要視窗
+      // Math.max/min 確保不超出字串邊界
       const s    = Math.max(0, idx - 18);
       const e    = Math.min(flat.length, idx + kw.length + 18);
+      // 若被截斷（s > 0 或 e < length）則加上「…」提示使用者
       return (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
     }
     if (v.COLUMN1?.toLowerCase().includes(kw)) return `col: ${v.COLUMN1}`;
@@ -88,13 +91,10 @@ function topoSort(rules: RuleData[]): string[] {
     .map(([n]) => n)
     .sort(bySeq);
 
-  // 拓撲排序過程
+  // Kahn's BFS 拓撲排序
+  // 每輪從隊列取出入度為 0 的節點（無依賴），加入結果
+  // 再對其所有子節點入度 -1；入度歸 0 時插入隊列
   const result: string[] = [];
-
-  // 過程:
-  // 1. 從隊列頭取出一個節點，加入結果
-  // 2. 對其所有子節點，入度減 1；如果入度變為 0，則加入隊列（同層按 BLOCK_SEQ 排序）
-  // 3. 重複直到隊列為空
 
   while (queue.length > 0) {
     const curr = queue.shift()!;
@@ -104,6 +104,9 @@ function topoSort(rules: RuleData[]): string[] {
       const deg = (inDegree.get(child) ?? 1) - 1;
       inDegree.set(child, deg);
       if (deg === 0) {
+        // 插入隊列時維持 BLOCK_SEQ 升序
+        // findIndex 找第一個 seq 比自己大的位置並插入（insertion sort）
+        // 找不到（pos === -1）代表自己是目前最大，推到尾端
         const pos = queue.findIndex((n) => (seqOf.get(n) ?? 0) > (seqOf.get(child) ?? 0));
         pos === -1 ? queue.push(child) : queue.splice(pos, 0, child);
       }
