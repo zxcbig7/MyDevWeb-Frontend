@@ -16,6 +16,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AuthPage() {
+  // 從 AuthContext 取得 login 方法，點擊後會導向後端登入頁面（通常是公司 SSO 的 OIDC 端點）
   const { login } = useAuth();
 
   return (
