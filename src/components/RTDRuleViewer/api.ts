@@ -5,10 +5,11 @@
 // ============================================================
 
 import axios from "axios";
-import type { RuleDTO, RuleData } from "./types";
+import type { RuleDTO, RuleData, MachineRule } from "./types";
 import {
   DEV_MOCK_PHASE, DEV_MOCK_RULE_NAME, DEV_MOCK_RULE_NAME_ICON,
-  DEV_MOCK_RULES, MOCK_PHASES, MOCK_RULES_BY_PHASE, MOCK_RULE_DATA,DEV_MOCK_RULE_ICON
+  DEV_MOCK_RULES, MOCK_PHASES, MOCK_RULES_BY_PHASE, MOCK_RULE_DATA, DEV_MOCK_RULE_ICON,
+  MOCK_MACHINE_RULE_BY_PHASE,
 } from "./devMock";
 import { convertDtosToData } from "./dataTransform";
 
@@ -57,6 +58,10 @@ async function mockLoadRuleData(_phase: string, ruleName: string): Promise<RuleD
   return MOCK_RULE_LOOKUP[ruleName] ?? [];
 }
 
+async function mockLoadMachineRuleMap(phase: string): Promise<MachineRule[]> {
+  return MOCK_MACHINE_RULE_BY_PHASE[phase] ?? [];
+}
+
 // ── 真實 API 實作 ────────────────────────────────────────────
 
 async function apiLoadPhases(): Promise<string[]> {
@@ -76,6 +81,13 @@ async function apiLoadRuleData(phase: string, ruleName: string): Promise<RuleDat
     `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
   );
   return convertDtosToData(res.data);
+}
+
+async function apiLoadMachineRuleMap(phase: string): Promise<MachineRule[]> {
+  const res = await client.get<MachineRule[]>(
+    `/api/RuleViewer/${encodeURIComponent(phase)}/machines`
+  );
+  return res.data;
 }
 
 // ── 統一對外介面 ─────────────────────────────────────────────
@@ -112,5 +124,20 @@ export async function loadRuleData(phase: string, ruleName: string): Promise<Rul
     return [...mockResult, ...apiResult];
   }
   const data = await apiLoadRuleData(phase, ruleName);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function loadMachineRuleMap(phase: string): Promise<MachineRule[]> {
+  if (IS_DEV) {
+    const apiResult = await apiLoadMachineRuleMap(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
+    const mockResult = await mockLoadMachineRuleMap(phase);
+    // mock 優先，真實 API 補充（依 machineId 去重）
+    const merged = [...mockResult];
+    for (const item of apiResult) {
+      if (!merged.some((m) => m.machineId === item.machineId)) merged.push(item);
+    }
+    return merged;
+  }
+  const data = await apiLoadMachineRuleMap(phase);
   return Array.isArray(data) ? data : [];
 }

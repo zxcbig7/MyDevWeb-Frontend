@@ -140,6 +140,25 @@ export const MOCK_RULES_BY_PHASE: Record<MockPhase, string[]> = {
   APF_FORMAT: ["APF_NORMALIZER", "APF_FIELD_MAPPER", "APF_RECIPE_BUILDER"],
 };
 
+// ── 機台 ↔ Rule 對照表（各 Phase） ──────────────────────────
+export const MOCK_MACHINE_RULE_BY_PHASE: Record<string, { machineId: string; ruleName: string }[]> = {
+  [DEV_MOCK_PHASE]: [
+    { machineId: "TOOL-DEV-001", ruleName: DEV_MOCK_RULE_NAME },
+    { machineId: "TOOL-DEV-002", ruleName: DEV_MOCK_RULE_NAME_ICON },
+  ],
+  APF_CHECK: [
+    { machineId: "APF-CK-A01", ruleName: "APF_LOT_VALIDATOR" },
+    { machineId: "APF-CK-A02", ruleName: "APF_LOT_VALIDATOR" },
+    { machineId: "APF-CK-B01", ruleName: "APF_RECIPE_CHECK" },
+    { machineId: "APF-CK-C01", ruleName: "APF_LOT_SCHEDULER" },
+  ],
+  APF_FORMAT: [
+    { machineId: "APF-FMT-001", ruleName: "APF_NORMALIZER" },
+    { machineId: "APF-FMT-002", ruleName: "APF_FIELD_MAPPER" },
+    { machineId: "APF-FMT-003", ruleName: "APF_RECIPE_BUILDER" },
+  ],
+};
+
 // ── APF_CHECK / APF_LOT_VALIDATOR ────────────────────────────
 //
 // 變數依賴鏈（往前追蹤示意）：

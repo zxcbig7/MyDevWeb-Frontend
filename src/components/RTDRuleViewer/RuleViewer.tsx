@@ -7,7 +7,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Divider, notification } from "antd";
 import type { RuleViewHandle, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
-import { loadPhases, loadRuleNamesByPhase, loadRuleData } from "./api";
+import { loadPhases, loadRuleNamesByPhase, loadRuleData, loadMachineRuleMap } from "./api";
+import type { MachineRule } from "./types";
 import { useAsync } from "../../hooks/useAsync";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
@@ -27,13 +28,15 @@ export default function RuleViewer() {
   const [phases, setPhases] = useState<string[]>([]);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [ruleNamesByPhase, setRuleNamesByPhase] = useState<string[]>([]);
+  const [machineRuleMap, setMachineRuleMap] = useState<MachineRule[]>([]);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleData[]>([]);
 
   // API 錯誤時顯示通知，並在 DEV 模式下 fallback 到 Mock 資料（不讓網站死掉）
-  const { execute: fetchPhases    } = useAsync(loadPhases,           showError("無法載入 Phase 清單"));
-  const { execute: fetchRuleNames } = useAsync(loadRuleNamesByPhase, showError("無法載入 Rule 清單"));
-  const { execute: fetchRuleData  } = useAsync(loadRuleData,         showError("無法載入 Rule 資料"));
+  const { execute: fetchPhases          } = useAsync(loadPhases,           showError("無法載入 Phase 清單"));
+  const { execute: fetchRuleNames       } = useAsync(loadRuleNamesByPhase, showError("無法載入 Rule 清單"));
+  const { execute: fetchRuleData        } = useAsync(loadRuleData,         showError("無法載入 Rule 資料"));
+  const { execute: fetchMachineRuleMap  } = useAsync(loadMachineRuleMap,   showError("無法載入機台清單"));
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -99,8 +102,9 @@ export default function RuleViewer() {
     setMatchedBlockList(null);
     setMatchIndex(0);
 
-    if (!selectedPhase) { setRuleNamesByPhase([]); return; }
+    if (!selectedPhase) { setRuleNamesByPhase([]); setMachineRuleMap([]); return; }
     fetchRuleNames(selectedPhase).then(data => { if (data) setRuleNamesByPhase(data); });
+    fetchMachineRuleMap(selectedPhase).then(data => { if (data) setMachineRuleMap(data); });
   }, [selectedPhase]);
 
   // Rule 變更
@@ -161,9 +165,20 @@ export default function RuleViewer() {
           phases={phases}
           selectedPhase={selectedPhase}
           ruleNames={ruleNamesByPhase}
+          machineRuleMap={machineRuleMap}
           onPhaseChange={setSelectedPhase}
           onRuleSelect={setSelectedRule}
         />
+
+        {/* ── 當前載入的 Rule 麵包屑 ── */}
+        {selectedRule && (
+          <div className="flex items-center gap-1.5 text-xs pl-3 border-l border-white/15 min-w-0">
+            <span className="text-slate-400 shrink-0">{selectedPhase}</span>
+            <span className="text-white/30 shrink-0">/</span>
+            <span className="text-white font-semibold font-mono truncate max-w-50">{selectedRule}</span>
+          </div>
+        )}
+
         <div className="ml-auto shrink-0 flex items-center text-xs rounded border border-white/15 bg-white/5 p-0.5 gap-0.5">
           <button
             onClick={() => setUseNewIcons(true)}

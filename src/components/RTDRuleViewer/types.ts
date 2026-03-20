@@ -137,6 +137,12 @@ export type ArrowRenderStyle = {
 // ── 連線方向 ────────────────────────────────────────────────
 export type Side = "left" | "right" | "top" | "bottom";
 
+// ── 機台 ↔ Rule 對照表 ──────────────────────────────────────
+export type MachineRule = {
+  machineId: string;
+  ruleName: string;
+};
+
 // ── RuleView 暴露給父層的 handle ────────────────────────────
 export type RuleViewHandle = {
   focusBlockById: (id: string) => void;
