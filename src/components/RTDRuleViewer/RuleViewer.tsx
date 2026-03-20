@@ -31,6 +31,8 @@ export default function RuleViewer() {
   const [machineRuleMap, setMachineRuleMap] = useState<MachineRule[]>([]);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleData[]>([]);
+  // 最後一次實際載入時的 Phase，與 selectedPhase 不同步（切換 Phase 不影響它）
+  const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
 
   // API 錯誤時顯示通知，並在 DEV 模式下 fallback 到 Mock 資料（不讓網站死掉）
   const { execute: fetchPhases          } = useAsync(loadPhases,           showError("無法載入 Phase 清單"));
@@ -95,13 +97,8 @@ export default function RuleViewer() {
     fetchPhases().then(data => { if (data) setPhases(data); });
   }, []);
 
-  // Phase 變更
+  // Phase 變更：只更新搜尋清單，不清除已載入的 rule（canvas 保持顯示）
   useEffect(() => {
-    setSelectedRule(null);
-    setRules([]);
-    setMatchedBlockList(null);
-    setMatchIndex(0);
-
     if (!selectedPhase) { setRuleNamesByPhase([]); setMachineRuleMap([]); return; }
     fetchRuleNames(selectedPhase).then(data => { if (data) setRuleNamesByPhase(data); });
     fetchMachineRuleMap(selectedPhase).then(data => { if (data) setMachineRuleMap(data); });
@@ -167,13 +164,18 @@ export default function RuleViewer() {
           ruleNames={ruleNamesByPhase}
           machineRuleMap={machineRuleMap}
           onPhaseChange={setSelectedPhase}
-          onRuleSelect={setSelectedRule}
+          onRuleSelect={(ruleName) => {
+            if (ruleName !== selectedRule) {
+              setSelectedRule(ruleName);
+              setLoadedPhase(selectedPhase);
+            }
+          }}
         />
 
         {/* ── 當前載入的 Rule 麵包屑 ── */}
         {selectedRule && (
           <div className="flex items-center gap-1.5 text-xs pl-3 border-l border-white/15 min-w-0">
-            <span className="text-slate-400 shrink-0">{selectedPhase}</span>
+            <span className="text-slate-400 shrink-0">{loadedPhase}</span>
             <span className="text-white/30 shrink-0">/</span>
             <span className="text-white font-semibold font-mono truncate max-w-50">{selectedRule}</span>
           </div>
