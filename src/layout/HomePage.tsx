@@ -37,16 +37,14 @@ const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
 const items: MenuItem[] = [
   getItem("Dashboard", "/dashboard", <PieChartOutlined />),
   getItem("開發筆記", "/notes", <BookOutlined />),
-  getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
+
+  getItem("專案開發", "", <DesktopOutlined />, [
+    getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
+    getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
+  ]),
 
   ...(IS_DEV ? [
-    getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
     getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
-    getItem("RTD Rule Viewer", "", <DesktopOutlined />, [
-      getItem("Block Inspector", "/ruleviewer/test1", <DesktopOutlined />),
-      getItem("Rule View (Canvas)", "/ruleviewer/test2", <DesktopOutlined />),
-      getItem("Controls", "/ruleviewer/test3", <DesktopOutlined />),
-    ]),
   ] : []),
 ];
 

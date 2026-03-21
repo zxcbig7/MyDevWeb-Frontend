@@ -3,10 +3,10 @@
 // ============================================================
 
 const PROFILE = {
-  name: "你的名字",
-  nameEn: "Your Name",
-  title: "Software Engineer",
-  tagline: "一句話描述自己，例：熱愛解決問題的全端工程師，喜歡把複雜的事變簡單。",
+  name: "賴春伸",
+  nameEn: "Vic Lai",
+  title: "Problem Solver",
+  tagline: "只要拒絕停下，跑步跟人生一樣沒有失敗。",
   avatar: null as string | null, // 放圖片 URL，null 顯示縮寫
 
   about: `在這裡寫你的自我介紹（2–4 句）。可以描述你的背景、個性、對技術的熱情，
@@ -32,9 +32,9 @@ const PROFILE = {
 
   experience: [
     {
-      company: "公司名稱",
-      role: "職稱",
-      period: "2023/01 – 至今",
+      company: "臺灣灣積體電路製造股份有限公司",
+      role: "ISDD Engineer",
+      period: "2025/11 – 至今",
       description: [
         "描述這份工作做了什麼，用動詞開頭，例：負責前端架構設計與元件開發。",
         "說明具體成果或貢獻，例：優化 API 回應速度，提升效能 30%。",
@@ -42,9 +42,9 @@ const PROFILE = {
       ],
     },
     {
-      company: "上一份公司或實習",
-      role: "職稱 / 實習生",
-      period: "2022/07 – 2022/12",
+      company: "友達光電股份有限公司",
+      role: "實習生",
+      period: "2023/07 – 2024/12",
       description: [
         "描述這份經歷的主要負責事項。",
         "可以是實習、兼職、或專案合作。",
@@ -58,12 +58,6 @@ const PROFILE = {
       description: "生產現場規則可視化工具，使用 React + Canvas 渲染規則流程圖，支援關鍵字搜尋與機台追蹤。",
       tags: ["React", "TypeScript", "Canvas", "Ant Design"],
       link: "",
-    },
-    {
-      name: "專案名稱",
-      description: "簡短描述這個專案做什麼、解決什麼問題、你在其中的角色。",
-      tags: ["技術", "技術", "技術"],
-      link: "", // GitHub 或 Demo URL
     },
   ],
 
