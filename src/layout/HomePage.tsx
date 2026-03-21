@@ -118,7 +118,7 @@ const HomePage = () => {
   }, [location.pathname]);
 
   return (
-    <Layout style={{ height: "100vh", overflow: "hidden" }}>
+    <Layout style={{ height: "100dvh", overflow: "hidden" }}>
 
       {/* ── 桌面 Sider（手機隱藏） ─────────────────────────── */}
       {!isMobile && (
@@ -232,7 +232,9 @@ const HomePage = () => {
           const active = location.pathname;
           return (
             <div style={{
-              height: 56, flexShrink: 0,
+              height: "calc(56px + env(safe-area-inset-bottom))",
+              paddingBottom: "env(safe-area-inset-bottom)",
+              flexShrink: 0,
               background: "#001529",
               borderTop: "1px solid rgba(255,255,255,0.08)",
               display: "flex",
