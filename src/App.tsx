@@ -8,6 +8,7 @@ import AuthPage from "./pages/AuthPage";
 import TailwindCheatsheet from "./pages/TailwindCheatsheet";
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
+import Dashboard from "./pages/Dashboard";
 
 
 const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
@@ -32,7 +33,7 @@ function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
 
           {/* Dashboard */}
-          <Route path="dashboard" element={<div>Dashboard</div>} />
+          <Route path="dashboard" element={<Dashboard />} />
 
           {/* Rule Viewer Pages — 所有環境皆開放 */}
           <Route path="ruleviewer" element={<RuleViewer />} />
