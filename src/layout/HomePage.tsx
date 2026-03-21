@@ -33,7 +33,9 @@ function getItem(
   return { key, icon, children, label } as MenuItem;
 }
 
+// 
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
+const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
 
 // 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示
 function privateLabel(label: string) {
@@ -88,6 +90,7 @@ function useIsMobile(breakpoint = 768) {
 
 // ── 登出按鈕（Sider 底部共用） ──────────────────────────────
 function LogoutButton({ collapsed, onLogout }: { collapsed: boolean; onLogout: () => void }) {
+  if (IS_DEV) return null;
   return (
     <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
       <button
@@ -153,7 +156,11 @@ const HomePage = () => {
       {/* ── 桌面 Sider（手機隱藏） ─────────────────────────── */}
       {!isMobile && (
         <Sider trigger={null} collapsible collapsed={collapsed} style={{ overflow: "hidden" }}>
-          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          {/* 收合狀態：整條 Sider 可點擊展開 */}
+          <div
+            style={{ display: "flex", flexDirection: "column", height: "100%", cursor: collapsed ? "pointer" : "default" }}
+            onClick={() => { if (collapsed) setCollapsed(false); }}
+          >
 
             {/* 收合按鈕 */}
             <div style={{
@@ -244,17 +251,19 @@ const HomePage = () => {
               {currentPageLabel}
             </span>
 
-            <button
-              onClick={logout}
-              style={{
-                background: "none", border: "none",
-                color: "rgba(255,255,255,0.45)", fontSize: 16,
-                cursor: "pointer", padding: "6px 8px", borderRadius: 6,
-                display: "flex", alignItems: "center",
-              }}
-            >
-              <LogoutOutlined />
-            </button>
+            {!IS_DEV && (
+              <button
+                onClick={logout}
+                style={{
+                  background: "none", border: "none",
+                  color: "rgba(255,255,255,0.45)", fontSize: 16,
+                  cursor: "pointer", padding: "6px 8px", borderRadius: 6,
+                  display: "flex", alignItems: "center",
+                }}
+              >
+                <LogoutOutlined />
+              </button>
+            )}
           </div>
         )}
 

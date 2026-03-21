@@ -2,6 +2,8 @@
 // Homepage.tsx — 個人首頁 / 履歷
 // ============================================================
 
+const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
+
 const PROFILE = {
   name: "賴春伸",
   nameEn: "Vic Lai",
@@ -10,10 +12,12 @@ const PROFILE = {
   avatar: "/avatar.jpg" as string | null,
 
   about: `嗨，我是賴春伸 👋
-  我喜歡動手實作資訊技術，也喜歡把學到的東西整理成後分享出去。
-  這個網站就是這樣來的，放的是我一路走來所見、所聞、所學的紀錄，技術筆記、踩坑經驗、偶爾的一些想法，沒有特定主題，就是我覺得值得留下來的東西。
-  如果你在這裡找到有用的東西，那很好。如果沒有，可以找我討論看看。
-  這裡會陸陸續續記錄我所見、所聞、所學的一切，包含開發筆記、專案紀錄、學習心得，有時也有對事物的觀察與想法。`,
+  我喜歡動手實作，也喜歡把學到的東西整理分享出去。
+  這個網站就是這樣來的，未來慢慢把我過去所學的技術盡量整合在這裡，沒事的話應該會一直開發下去。
+  會放我所見、所聞、所學的事物，包含開發筆記、踩坑經驗、專案紀錄、學習心得或偶爾的一些想法。
+
+  沒有特定主題，就是覺得值得留下來的東西或者整合進來的技術。
+  如果你在這裡找到有用的東西，那很好。如果沒有，也歡迎來找我討論。`,
 
   githubUsername: "zxcbig7", // ← 只需填這個，stats 卡片會自動帶入
 
@@ -26,8 +30,7 @@ const PROFILE = {
 
   skills: [
     { category: "程式語言", items: ["C#", "TypeScript", "Python", "Oracle SQL"] },
-    { category: "前端架構", items: ["React", "Tailwind CSS", "Vite", "Ant Design"] },
-    { category: "後端架構", items: [".NET / ASP.NET Core"] },
+    { category: "網站架構", items: ["React", "Vite", ".NET / ASP.NET Core"] },
     { category: "數學規畫", items: ["CPLEX", "Gurobi"] },
     { category: "系統模擬", items: ["FlexSim", "NetLogo"] },
     { category: "其他", items: ["Git", "Docker", "Oracle"] },
@@ -39,7 +42,7 @@ const PROFILE = {
       role: "ISDD Engineer",
       period: "2025/11 – 至今",
       description: [
-        "負責全端開發，串接後端排程引擎與前端介面，讓排程邏輯對使用者透明可操作。",
+        "全端開發，將排程引擎的決策邏輯視覺化呈現，讓產線人員得以理解並分析排程依據。",
         "排程系統開發與維護，負責 Scheduling / Dispatching 系統的設計、實作與部署。",
         "需求溝通與系統落地直接與晶圓廠使用者溝通需求，完成從定義、設計到上線的完整流程。"
       ],
@@ -49,8 +52,9 @@ const PROFILE = {
       role: "Intern",
       period: "2024/07 – 2024/09",
       description: [
-        "應用數學規劃最佳化方法，設計動態日生產排程再規畫系統。",
-        "將排程人員每日作業時間從 30 分鐘縮短至 10 秒。",
+        "導入 CPLEX 求解器建構排程最佳化模型，開發動態日生產排程再規畫系統。", ,
+        "開發 VSTO Excel 增益集介面，讓規劃人員可直接在 Excel 中操作模型、調整例外條件，實現人機協作流程",
+        "將每日人工排程時間從 30 分鐘縮短至 10 秒。",
       ],
     },
     {
@@ -58,8 +62,8 @@ const PROFILE = {
       role: "Intern",
       period: "2022/07 – 2023/01",
       description: [
-        "利用Flexim 與 NetLogo 模擬軟體 開發 RMFS 物流倉儲模擬系統。",
-        "分析多情境下的設施規劃的運作效率 協助公司擴廠的規畫與決策 。",
+        "使用 Flexim 與 NetLogo 建構 RMFS 物流倉儲模擬系統，模擬多情境下的設施配置與作業流程。",
+        "量化各情境的運作效率指標，提供數據依據，支援公司擴廠選址與設施規劃決策。",
       ],
     },
   ],
@@ -67,23 +71,10 @@ const PROFILE = {
   projects: [
     {
       name: "Rule Viewer",
-      description: "生產現場規則可視化工具，使用 React + Canvas 渲染規則流程圖，支援關鍵字搜尋與機台追蹤。",
+      description: "全端開發可視化工具，渲染機台派工規則流程圖，將排程決策邏輯透明化，輔助人員理解與分析。",
       tags: ["React", "TypeScript", ".NET Web API"],
       link: "",
-      image: "", // 放圖片 URL 或 /images/xxx.png，留空不顯示
-    },
-    {
-      name: "最佳化工具平台框架開發",
-      description: "在.NET 的開發環境中基於多個數學最佳化求解器開發了一個模組化數學模型建構框架 。 此平台用於簡化專案開發流程減少開發人員對於求解器底層函數和語法的依賴 。 開發者只需提供必要的參數資料即可透過框架的涵式快速生成數學模型 。",
-      tags: ["C#", "CPELX", "Gurobi"],
-      link: "",
-    },
-    {
-      name: "最佳化求解器開發",
-      description: "在.NET 的開發環境中基於多個數學最佳化求解器開發了一個模組化數學模型建構框架 。 此平台用於簡化專案開發流程減少開發人員對於求解器底層函數和語法的依賴 。 開發者只需提供必要的參數資料即可透過框架的涵式快速生成數學模型 。",
-      tags: ["C#", "Linear Program"],
-      link: "",
-      image: "",
+      image: "/project/RuleViewer.png", // 放圖片 URL 或 /images/xxx.png，留空不顯示
     },
     {
       name: "代數建模語言與大型語言模型之數學規劃開發框架",
@@ -92,6 +83,20 @@ const PROFILE = {
       link: "https://ndltd.ncl.edu.tw/cgi-bin/gs32/gsweb.cgi?randomimg=egXEuM_1774073088&validpath=%2Ftmp%2F%5Enclcdr__doschk%2FegXEuM_1774073088__NDI3NTIy&validinput=427522&check=%E7%A2%BA%E5%AE%9A",
       image: "/project/paper.png",
     },
+    {
+      name: "[開發中]數學最佳化求解器抽象層框架開發",
+      description: "在 .NET 環境中開發了一個統一封裝 CPLEX 的數學最佳化框架，提供一致的開發介面以消除不同求解器間的語法差異。開發者只需透過框架的標準 API 提供模型參數即可快速建構數學模型，並在不修改業務邏輯的情況下自由切換底層求解器。此框架採模組化設計，可跨專案重複引用，顯著降低團隊溝通成本與新成員的學習曲線。",
+      tags: ["C#", "CPELX"],
+      link: "https://github.com/zxcbig7/OptimFoundation",
+    },
+    {
+      name: "[開發中]最佳化求解器開發",
+      description: "碩士期間與實驗室成員一同開發，將課程所學與論文研究中接觸到的數學最佳化演算法付諸實作，目標自行開發一套類似 CPLEX 與 Gurobi 的數學最佳化求解器(雖然求解效率上不可能贏，但至少能求解:D)。求解器基於 .NET 環境建構，目標是提供模組化、可擴充的求解核心，作為後續演算法開發研究的底層基礎。",
+      tags: ["C#", "Linear Program"],
+      link: "https://github.com/zxcbig7/Linear-Program-Solver",
+      image: "",
+    },
+
   ],
 
   education: [
@@ -337,7 +342,7 @@ export default function Homepage() {
         </section>
 
         {/* ── GitHub Stats ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
+        {SHOW_PRIVATE && <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>GitHub</SectionTitle>
           <div className="flex flex-col sm:flex-row gap-4 items-stretch">
             {/* 總覽卡片 */}
@@ -355,19 +360,7 @@ export default function Homepage() {
               style={{ objectFit: "contain" }}
             />
           </div>
-          {/* GitHub 連結 */}
-          {PROFILE.contact.github && (
-            <a
-              href={PROFILE.contact.github}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 text-xs text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              <IconGithub />
-              {PROFILE.contact.github}
-            </a>
-          )}
-        </section>
+        </section>}
 
         {/* ── Education ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
