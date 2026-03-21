@@ -72,11 +72,11 @@ const PROFILE = {
 
   projects: [
     {
-      name: "Rule Viewer",
+      name: "[開發中] Rule Viewer",
       description: "全端開發可視化工具，渲染機台派工規則流程圖，將排程決策邏輯透明化，輔助人員理解與分析。",
       tags: ["React", "TypeScript", ".NET Web API"],
       link: "",
-      image: "/project/RuleViewer.png", // 放圖片 URL 或 /images/xxx.png，留空不顯示
+      //image: "/project/RuleViewer.png", // 放圖片 URL 或 /images/xxx.png，留空不顯示
     },
     {
       name: "代數建模語言與大型語言模型之數學規劃開發框架",
