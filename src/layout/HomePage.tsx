@@ -4,8 +4,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
-import { LogoutOutlined } from "@ant-design/icons";
 
 import { ImCalculator } from "react-icons/im";
 import {
@@ -35,7 +33,6 @@ function getItem(
 
 // 
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
-const IS_DEV = import.meta.env.VITE_DISABLE_AUTH === "true";
 
 // 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示
 function privateLabel(label: string) {
@@ -88,43 +85,12 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-// ── 登出按鈕（Sider 底部共用） ──────────────────────────────
-function LogoutButton({ collapsed, onLogout }: { collapsed: boolean; onLogout: () => void }) {
-  if (IS_DEV) return null;
-  
-  return (
-    <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-      <button
-        onClick={onLogout}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          gap: 10, width: "100%", height: 48,
-          background: "none", border: "none",
-          color: "rgba(255,255,255,0.45)", fontSize: 14,
-          cursor: "pointer", transition: "color 0.2s, background 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "rgba(255,255,255,0.85)";
-          e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "rgba(255,255,255,0.45)";
-          e.currentTarget.style.background = "none";
-        }}
-      >
-        <LogoutOutlined />
-        {!collapsed && <span>登出</span>}
-      </button>
-    </div>
-  );
-}
 
 // ── 主元件 ──────────────────────────────────────────────────
 const HomePage = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuth();
   const location = useLocation();
   const isMobile = useIsMobile();
 
@@ -196,7 +162,6 @@ const HomePage = () => {
               />
             </div>
 
-            <LogoutButton collapsed={collapsed} onLogout={logout} />
           </div>
         </Sider>
       )}
@@ -219,7 +184,6 @@ const HomePage = () => {
             style={{ borderRight: 0 }}
           />
         </div>
-        <LogoutButton collapsed={false} onLogout={() => { logout(); setDrawerOpen(false); }} />
       </Drawer>
 
       <Layout style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -248,19 +212,6 @@ const HomePage = () => {
               {currentPageLabel}
             </span>
 
-            {!IS_DEV && (
-              <button
-                onClick={logout}
-                style={{
-                  background: "none", border: "none",
-                  color: "rgba(255,255,255,0.45)", fontSize: 16,
-                  cursor: "pointer", padding: "6px 8px", borderRadius: 6,
-                  display: "flex", alignItems: "center",
-                }}
-              >
-                <LogoutOutlined />
-              </button>
-            )}
           </div>
         )}
 
