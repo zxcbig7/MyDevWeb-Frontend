@@ -8,7 +8,7 @@ import AuthPage from "./pages/AuthPage";
 import TailwindCheatsheet from "./pages/TailwindCheatsheet";
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
-import Dashboard from "./pages/Dashboard";
+import Homepage from "./pages/Homepage";
 import NotesList from "./pages/Notes/NotesList";
 import NoteArticle from "./pages/Notes/NoteArticle";
 
@@ -29,17 +29,17 @@ function App() {
             </ProtectedRoute>
           }
         >
-          {/* 預設進來導到 dashboard */}
-          <Route index element={<Navigate to="dashboard" replace />} />
+          {/* 預設進來導到 homepage */}
+          <Route index element={<Navigate to="homepage" replace />} />
 
-          {/* Dashboard */}
-          <Route path="dashboard" element={<Dashboard />} />
+          {/* Homepage */}
+          <Route path="homepage" element={<Homepage />} />
 
           {/* Notes */}
           <Route path="notes" element={<NotesList />} />
           <Route path="notes/:slug" element={<NoteArticle />} />
 
-          {/* Rule Viewer Pages — 所有環境皆開放 */}
+          {/* Rule Viewer */}
           <Route path="ruleviewer" element={<RuleViewer />} />
 
           {/* 以下只有 DEV 環境才掛載路由 */}

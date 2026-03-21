@@ -55,23 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (IS_DEV || DISABLE_AUTH) {
       setUser(MOCK_USER);
-      setLoading(false); // 修正：必須設為 false，否則畫面會永遠卡在「載入中」
+      setLoading(false);
       return;
     }
 
-    // withCredentials: true：讓瀏覽器在跨來源請求時自動附上 cookie
-    //   若後端 Set-Cookie 設定了 HttpOnly cookie，前端 JS 讀不到，
-    //   但只要加這個選項，瀏覽器就會自動帶上，後端就能驗證身份
-    //   注意：後端的 CORS 設定也必須對應加上 AllowCredentials()，否則瀏覽器會擋
     axios
       .get<AuthUser>(`${API_BASE}/auth/me`, { withCredentials: true })
       .then((res) => setUser(res.data))
-      .catch(() => setUser(null))       // 401 / 網路錯誤 → 視為未登入
-      .finally(() => setLoading(false)); // 不論成功失敗，載入結束
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  // login / logout：直接用 window.location.href 做整頁跳轉
-  // 不用 React Router 的 navigate，是因為目標是後端的 SSO / OIDC 端點（跨網址）
   function login()  { window.location.href = `${AUTH_BASE}/auth/login`;  }
   function logout() { window.location.href = `${AUTH_BASE}/auth/logout`; }
 

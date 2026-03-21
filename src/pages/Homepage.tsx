@@ -1,5 +1,5 @@
 // ============================================================
-// Dashboard.tsx — 個人首頁 / 履歷
+// Homepage.tsx — 個人首頁 / 履歷
 // ============================================================
 
 const PROFILE = {
@@ -7,10 +7,13 @@ const PROFILE = {
   nameEn: "Vic Lai",
   title: "Problem Solver",
   tagline: "只要拒絕停下，跑步跟人生一樣沒有失敗。",
-  avatar: null as string | null, // 放圖片 URL，null 顯示縮寫
+  avatar: "/avatar.jpg" as string | null,
 
-  about: `在這裡寫你的自我介紹（2–4 句）。可以描述你的背景、個性、對技術的熱情，
-或者你目前正在學什麼、做什麼。讓看的人能快速認識你。`,
+  about: `嗨，我是賴春伸 👋
+  我喜歡動手實作資訊技術，也喜歡把學到的東西整理成後分享出去。
+  這個網站就是這樣來的，放的是我一路走來所見、所聞、所學的紀錄，技術筆記、踩坑經驗、偶爾的一些想法，沒有特定主題，就是我覺得值得留下來的東西。
+  如果你在這裡找到有用的東西，那很好。如果沒有，可以找我討論看看。
+  這裡會陸陸續續記錄我所見、所聞、所學的一切，包含開發筆記、專案紀錄、學習心得，有時也有對事物的觀察與想法。`,
 
   githubUsername: "zxcbig7", // ← 只需填這個，stats 卡片會自動帶入
 
@@ -22,12 +25,12 @@ const PROFILE = {
   },
 
   skills: [
-    { category: "程式語言", items: ["C#", "TypeScript", "Python", "SQL"] },
-    { category: "前端", items: ["React", "Tailwind CSS", "Vite", "Ant Design"] },
-    { category: "後端", items: [".NET / ASP.NET Core"] },
-    { category: "最佳化", items: ["CPLEX", "Gurobi"] },
+    { category: "程式語言", items: ["C#", "TypeScript", "Python", "Oracle SQL"] },
+    { category: "前端架構", items: ["React", "Tailwind CSS", "Vite", "Ant Design"] },
+    { category: "後端架構", items: [".NET / ASP.NET Core"] },
+    { category: "數學規畫", items: ["CPLEX", "Gurobi"] },
     { category: "系統模擬", items: ["FlexSim", "NetLogo"] },
-    { category: "工具 & 其他", items: ["Git", "Docker", "Oracle"] },
+    { category: "其他", items: ["Git", "Docker", "Oracle"] },
   ],
 
   experience: [
@@ -36,28 +39,58 @@ const PROFILE = {
       role: "ISDD Engineer",
       period: "2025/11 – 至今",
       description: [
-        "描述這份工作做了什麼，用動詞開頭，例：負責前端架構設計與元件開發。",
-        "說明具體成果或貢獻，例：優化 API 回應速度，提升效能 30%。",
-        "可列出使用的技術，例：使用 React + TypeScript 開發內部工具。",
+        "負責全端開發，串接後端排程引擎與前端介面，讓排程邏輯對使用者透明可操作。",
+        "排程系統開發與維護，負責 Scheduling / Dispatching 系統的設計、實作與部署。",
+        "需求溝通與系統落地直接與晶圓廠使用者溝通需求，完成從定義、設計到上線的完整流程。"
       ],
     },
     {
       company: "友達光電股份有限公司",
-      role: "實習生",
-      period: "2023/07 – 2024/12",
+      role: "Intern",
+      period: "2024/07 – 2024/09",
       description: [
-        "描述這份經歷的主要負責事項。",
-        "可以是實習、兼職、或專案合作。",
+        "應用數學規劃最佳化方法，設計動態日生產排程再規畫系統。",
+        "將排程人員每日作業時間從 30 分鐘縮短至 10 秒。",
+      ],
+    },
+    {
+      company: "永聯物流開發 (ALP)",
+      role: "Intern",
+      period: "2022/07 – 2023/01",
+      description: [
+        "利用Flexim 與 NetLogo 模擬軟體 開發 RMFS 物流倉儲模擬系統。",
+        "分析多情境下的設施規劃的運作效率 協助公司擴廠的規畫與決策 。",
       ],
     },
   ],
 
   projects: [
     {
-      name: "RTD Rule Viewer",
+      name: "Rule Viewer",
       description: "生產現場規則可視化工具，使用 React + Canvas 渲染規則流程圖，支援關鍵字搜尋與機台追蹤。",
-      tags: ["React", "TypeScript", "Canvas", "Ant Design"],
+      tags: ["React", "TypeScript", ".NET Web API"],
       link: "",
+      image: "", // 放圖片 URL 或 /images/xxx.png，留空不顯示
+    },
+    {
+      name: "最佳化工具平台框架開發",
+      description: "在.NET 的開發環境中基於多個數學最佳化求解器開發了一個模組化數學模型建構框架 。 此平台用於簡化專案開發流程減少開發人員對於求解器底層函數和語法的依賴 。 開發者只需提供必要的參數資料即可透過框架的涵式快速生成數學模型 。",
+      tags: ["C#", "CPELX", "Gurobi"],
+      link: "",
+    },
+    {
+      name: "最佳化求解器開發",
+      description: "在.NET 的開發環境中基於多個數學最佳化求解器開發了一個模組化數學模型建構框架 。 此平台用於簡化專案開發流程減少開發人員對於求解器底層函數和語法的依賴 。 開發者只需提供必要的參數資料即可透過框架的涵式快速生成數學模型 。",
+      tags: ["C#", "Linear Program"],
+      link: "",
+      image: "",
+    },
+    {
+      name: "代數建模語言與大型語言模型之數學規劃開發框架",
+      description: "數學規劃模型在各領域的決策問題中具有廣泛應用，但在模型開發過程中，溝通障礙往往成為效率的瓶頸，從而影響模型的品質和決策的效益。本研究提出一個結合代數模型語言與大型語言模型的自動化開發框架，用於協助數學規劃模型的開發流程。為了因應大型規劃問題在開發過程中的模組化與擴展需求，本研究設計混合整數線性規劃模型開發應用程式介面，透過標準化流程與物件化架構，提升數學規劃模型與程式的可讀性。實驗結果顯示，本研究提出的框架在以自然語言描述為基礎的數學規劃問題公開資料集，對269 個問題達到90.7% 的準確度，優於現有成果。此外，在語言模型處理輸入與生成回應所需的運算成本可接受的情況下，平均約需一分鐘完成最佳化任務，實現了高效且高準確性的開發流程。",
+      tags: ["Python", "C#", "Large Language Models", "Automated Modeling", "Mathematical Programming"],
+      link: "https://ndltd.ncl.edu.tw/cgi-bin/gs32/gsweb.cgi?randomimg=egXEuM_1774073088&validpath=%2Ftmp%2F%5Enclcdr__doschk%2FegXEuM_1774073088__NDI3NTIy&validinput=427522&check=%E7%A2%BA%E5%AE%9A",
+      image: "/project/paper.png",
     },
   ],
 
@@ -140,7 +173,7 @@ function ProjectTag({ label }: { label: string }) {
 
 // ── Main Component ──────────────────────────────────────────
 
-export default function Dashboard() {
+export default function Homepage() {
   const { name, nameEn, title, tagline, avatar, about, contact, skills, experience, projects, education } = PROFILE;
 
   const initials = name
@@ -151,16 +184,27 @@ export default function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
+      {/* ── Logo Banner ── */}
+      <div className="flex flex-col items-center pt-8 pb-2 gap-3">
+        <div className="flex items-center gap-2 text-sm text-slate-500 font-medium tracking-widest">
+          <span>開發</span>
+          <span className="text-slate-300">/</span>
+          <span>長跑</span>
+          <span className="text-slate-300">/</span>
+          <span>咖啡</span>
+        </div>
+      </div>
+
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
 
         {/* ── Hero ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-8 shadow-sm text-center sm:text-left">
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 shadow-sm text-center sm:text-left">
           {/* Avatar */}
-          <div className="shrink-0">
+          <div className="shrink-0 sm:w-44">
             {avatar ? (
-              <img src={avatar} alt={name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-slate-100 shadow" />
+              <img src={avatar} alt={name} className="w-28 h-28 sm:w-44 sm:h-44 rounded-2xl object-cover shadow-md mx-auto" />
             ) : (
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow">
+              <div className="w-28 h-28 sm:w-44 sm:h-44 rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-md mx-auto">
                 {initials}
               </div>
             )}
@@ -261,21 +305,31 @@ export default function Dashboard() {
         {/* ── Projects ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Projects</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
             {projects.map((proj, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 p-5 hover:border-blue-200 hover:shadow-sm transition-all group">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{proj.name}</h3>
-                  {proj.link && (
-                    <a href={proj.link} target="_blank" rel="noreferrer"
-                      className="text-slate-400 hover:text-blue-500 shrink-0 transition-colors">
-                      <IconLink />
-                    </a>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed mb-3">{proj.description}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {proj.tags.map((t) => <ProjectTag key={t} label={t} />)}
+              <div key={i} className="rounded-xl border border-slate-200 overflow-hidden hover:border-blue-200 hover:shadow-sm transition-all group flex flex-col">
+                {/* 封面圖（選填） */}
+                {proj.image && (
+                  <img
+                    src={proj.image}
+                    alt={proj.name}
+                    className="w-full h-36 object-contain bg-slate-50"
+                  />
+                )}
+                <div className="p-4 flex flex-col flex-1">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors leading-snug">{proj.name}</h3>
+                    {proj.link && (
+                      <a href={proj.link} target="_blank" rel="noreferrer"
+                        className="text-slate-400 hover:text-blue-500 shrink-0 transition-colors mt-0.5">
+                        <IconLink />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-3 flex-1 line-clamp-4">{proj.description}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {proj.tags.map((t) => <ProjectTag key={t} label={t} />)}
+                  </div>
                 </div>
               </div>
             ))}

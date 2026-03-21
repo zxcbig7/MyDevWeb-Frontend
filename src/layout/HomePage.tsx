@@ -35,14 +35,12 @@ function getItem(
 const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
 
 const items: MenuItem[] = [
-  getItem("Dashboard", "/dashboard", <PieChartOutlined />),
+  getItem("首頁", "/homepage", <PieChartOutlined />),
   getItem("開發筆記", "/notes", <BookOutlined />),
-
   getItem("專案開發", "", <DesktopOutlined />, [
     getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
     getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
   ]),
-
   ...(IS_DEV ? [
     getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
   ] : []),

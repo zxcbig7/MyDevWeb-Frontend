@@ -16,22 +16,14 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AuthPage() {
-  // 從 AuthContext 取得 login 方法，點擊後會導向後端登入頁面（通常是公司 SSO 的 OIDC 端點）
   const { login } = useAuth();
 
   return (
     <AuthLayout>
       {/* Logo / Brand */}
       <div className="mb-8 flex flex-col items-center gap-2">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1677ff]/20 border border-[#1677ff]/30">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1677ff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <path d="M14 17h7M17.5 14v7" />
-          </svg>
-        </div>
-        <h1 className="text-xl font-bold text-white tracking-tight">RTD Rule Viewer</h1>
+        <img src="/icon-transparent.svg" alt="Logo" className="h-14 w-auto mb-1" />
+        <h1 className="text-xl font-bold text-white tracking-tight">Vic Lai</h1>
         <p className="text-sm text-[#8b9ab8]">登入以繼續使用</p>
       </div>
 
