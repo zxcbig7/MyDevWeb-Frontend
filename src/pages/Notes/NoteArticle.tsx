@@ -34,7 +34,7 @@ export default function NoteArticle() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="max-w-3xl mx-auto px-6 py-10">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
         {/* 返回按鈕 */}
         <button
@@ -82,7 +82,7 @@ export default function NoteArticle() {
           prose-ul:text-slate-600 prose-li:my-1
           prose-blockquote:border-l-4 prose-blockquote:border-blue-400 prose-blockquote:bg-blue-50/50 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:text-slate-600
           prose-table:text-sm prose-th:bg-slate-100 prose-th:text-slate-700
-          bg-white rounded-2xl border border-slate-200 p-8 shadow-sm
+          bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm
         ">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

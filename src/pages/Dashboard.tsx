@@ -157,16 +157,16 @@ export default function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
 
         {/* ── Hero ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 flex items-center gap-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-8 shadow-sm text-center sm:text-left">
           {/* Avatar */}
           <div className="shrink-0">
             {avatar ? (
-              <img src={avatar} alt={name} className="w-24 h-24 rounded-full object-cover border-4 border-slate-100 shadow" />
+              <img src={avatar} alt={name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-slate-100 shadow" />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow">
                 {initials}
               </div>
             )}
@@ -175,16 +175,16 @@ export default function Dashboard() {
           {/* Info */}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-1">{title}</p>
-            <h1 className="text-3xl font-bold text-slate-800">{name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">{name}</h1>
             <p className="text-sm text-slate-400 font-medium mb-3">{nameEn}</p>
             <p className="text-sm text-slate-500 leading-relaxed">{tagline}</p>
 
             {/* Contact Links */}
-            <div className="flex flex-wrap gap-2 mt-4">
+            <div className="flex flex-wrap gap-2 mt-4 justify-center sm:justify-start">
               {contact.email && (
                 <a href={`mailto:${contact.email}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200">
-                  <IconMail />{contact.email}
+                  <IconMail /><span className="hidden sm:inline">{contact.email}</span><span className="sm:hidden">Email</span>
                 </a>
               )}
               {contact.github && (
@@ -210,18 +210,18 @@ export default function Dashboard() {
         </section>
 
         {/* ── About ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>About Me</SectionTitle>
           <p className="text-sm text-slate-600 leading-7 whitespace-pre-line">{about}</p>
         </section>
 
         {/* ── Skills ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Skills</SectionTitle>
           <div className="space-y-4">
             {skills.map((group) => (
-              <div key={group.category} className="flex items-start gap-4">
-                <span className="shrink-0 w-28 text-xs font-semibold text-slate-400 pt-0.5">{group.category}</span>
+              <div key={group.category} className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-4">
+                <span className="shrink-0 sm:w-28 text-xs font-semibold text-slate-400 sm:pt-0.5">{group.category}</span>
                 <div className="flex flex-wrap gap-2">
                   {group.items.map((s) => <SkillTag key={s} label={s} />)}
                 </div>
@@ -231,7 +231,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── Experience ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Experience</SectionTitle>
           <div className="space-y-8">
             {experience.map((exp, i) => (
@@ -265,7 +265,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── Projects ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Projects</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {projects.map((proj, i) => (
@@ -289,7 +289,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── GitHub Stats ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>GitHub</SectionTitle>
           <div className="flex flex-col sm:flex-row gap-4 items-stretch">
             {/* 總覽卡片 */}
@@ -322,7 +322,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── Education ── */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Education</SectionTitle>
           <div className="space-y-4">
             {education.map((edu, i) => (
