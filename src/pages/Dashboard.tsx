@@ -15,17 +15,19 @@ const PROFILE = {
   githubUsername: "zxcbig7", // ← 只需填這個，stats 卡片會自動帶入
 
   contact: {
-    email: "zxcbig7email.com",
+    email: "zxcbig7@gamil.com",
     github: "https://github.com/zxcbig7",
     linkedin: "https://www.linkedin.com/in/chun-sheng-lai-b8640a195/",
     website: "", // 個人網站（可留空）
   },
 
   skills: [
-    { category: "程式語言", items: ["TypeScript", "C#", "Python", "SQL"] },
+    { category: "程式語言", items: ["C#", "TypeScript", "Python", "SQL"] },
     { category: "前端", items: ["React", "Tailwind CSS", "Vite", "Ant Design"] },
-    { category: "後端", items: [".NET / ASP.NET Core", "REST API"] },
-    { category: "工具 & 其他", items: ["Git", "Docker", "VS Code", "Linux"] },
+    { category: "後端", items: [".NET / ASP.NET Core"] },
+    { category: "最佳化", items: ["CPLEX", "Gurobi"] },
+    { category: "系統模擬", items: ["FlexSim", "NetLogo"] },
+    { category: "工具 & 其他", items: ["Git", "Docker", "Oracle"] },
   ],
 
   experience: [
@@ -67,9 +69,15 @@ const PROFILE = {
 
   education: [
     {
-      school: "學校名稱",
-      degree: "學士 / 碩士",
-      major: "資訊工程學系",
+      school: "國立陽明交通大學",
+      degree: "碩士",
+      major: "工業工程系",
+      period: "2023 – 2025",
+    },
+    {
+      school: "國立臺灣科技大學",
+      degree: "學士",
+      major: "工業管理系",
       period: "2019 – 2023",
     },
   ],
