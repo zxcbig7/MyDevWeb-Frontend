@@ -36,6 +36,7 @@ jobs:
           VITE_APP_ENV: ${{ vars.VITE_APP_ENV }}
           VITE_API_BASE: ${{ vars.VITE_API_BASE }}
           VITE_AUTH_BASE: ${{ vars.VITE_AUTH_BASE }}
+          VITE_SHOW_PRIVATE: ${{ vars.VITE_SHOW_PRIVATE }}
           VITE_DISABLE_AUTH: ${{ vars.VITE_DISABLE_AUTH }}
 
   close_pull_request_job:
