@@ -13,8 +13,6 @@ import NotesList from "./pages/Notes/NotesList";
 import NoteArticle from "./pages/Notes/NoteArticle";
 
 
-const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
-
 function App() {
   return (
     <AuthProvider>
@@ -45,8 +43,9 @@ function App() {
           <Route path="ruleviewer" element={<RuleViewer />} />
 
           {/* 以下只有 DEV 環境才掛載路由 */}
-          {IS_DEV && <Route path="tailwind" element={<TailwindCheatsheet />} />}
-          {IS_DEV && <Route path="sudoku" element={<SudokuSolver />} />}
+          {<Route path="sudoku" element={<SudokuSolver />} />}
+          
+          {<Route path="tailwind" element={<TailwindCheatsheet />} />}
 
           {/* Error Pages */}
           <Route path="*" element={<ErrorPage statusCode={404} />} />
