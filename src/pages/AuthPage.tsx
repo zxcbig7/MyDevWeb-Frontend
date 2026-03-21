@@ -3,6 +3,8 @@
 // 登入頁：點擊按鈕後跳轉後端 OIDC 端點，前端不處理任何 token
 // ============================================================
 
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -16,7 +18,13 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AuthPage() {
-  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { user, login } = useAuth();
+
+  // DEV 環境 user 已自動設定，直接跳過登入頁
+  useEffect(() => {
+    if (user) navigate("/homepage", { replace: true });
+  }, [user]);
 
   return (
     <AuthLayout>
@@ -30,14 +38,14 @@ export default function AuthPage() {
       {/* Card */}
       <div className="rounded-2xl border border-white/8 bg-[#161b2e] p-8 shadow-2xl flex flex-col gap-4">
         <p className="text-sm text-[#8b9ab8] text-center">
-          透過公司帳號 (tSSO) 登入
+          透過 SSO 登入
         </p>
         <button
           onClick={login}
           className="h-10 w-full rounded-lg bg-[#1677ff] text-sm font-semibold text-white
             transition-colors hover:bg-[#4096ff] cursor-pointer"
         >
-          使用 SSO 登入
+          登入
         </button>
       </div>
     </AuthLayout>

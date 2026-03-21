@@ -15,6 +15,7 @@ import {
   MenuUnfoldOutlined,
   MenuOutlined,
   BookOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 
 import type { MenuProps } from "antd";
@@ -32,18 +33,45 @@ function getItem(
   return { key, icon, children, label } as MenuItem;
 }
 
-const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
+const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
+
+// 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示
+function privateLabel(label: string) {
+  if (SHOW_PRIVATE) return label;
+  return (
+    <span className="flex items-center justify-between gap-1 w-full opacity-50">
+      {label}
+      <LockOutlined style={{ fontSize: 11 }} />
+    </span>
+  );
+}
 
 const items: MenuItem[] = [
   getItem("首頁", "/homepage", <PieChartOutlined />),
   getItem("開發筆記", "/notes", <BookOutlined />),
-  getItem("專案開發", "", <DesktopOutlined />, [
-    getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
-    getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
-  ]),
-  ...(IS_DEV ? [
-    getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
-  ] : []),
+
+  { type: "divider" } as MenuItem,
+
+  {
+    key: "專案開發",
+    icon: <DesktopOutlined />,
+    label: privateLabel("專案開發"),
+    disabled: !SHOW_PRIVATE,
+    children: [
+      getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
+      getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
+    ],
+  } as MenuItem,
+
+  {
+    key: "開發輔助工具",
+    icon: <ImCalculator />,
+    label: privateLabel("開發輔助工具"),
+    disabled: !SHOW_PRIVATE,
+    children: [
+      getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
+    ],
+  } as MenuItem,
 ];
 
 // ── 響應式偵測 hook ─────────────────────────────────────────
