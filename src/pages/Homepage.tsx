@@ -2,6 +2,7 @@
 // Homepage.tsx — 個人首頁 / 履歷
 // ============================================================
 
+import { useState } from "react";
 
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
 
@@ -177,6 +178,40 @@ function ProjectTag({ label }: { label: string }) {
   );
 }
 
+function ProjectCard({ proj }: { proj: typeof PROFILE.projects[number] }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-xl border border-slate-200 overflow-hidden hover:border-blue-200 hover:shadow-sm transition-all group flex flex-col">
+      {proj.image && (
+        <img src={proj.image} alt={proj.name} className="w-full h-36 object-contain bg-slate-50" />
+      )}
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors leading-snug">{proj.name}</h3>
+          {proj.link && (
+            <a href={proj.link} target="_blank" rel="noreferrer"
+              className="text-slate-400 hover:text-blue-500 shrink-0 transition-colors mt-0.5">
+              <IconLink />
+            </a>
+          )}
+        </div>
+        <p className={`text-xs text-slate-500 leading-relaxed mb-1 flex-1 ${expanded ? "" : "line-clamp-4"}`}>
+          {proj.description}
+        </p>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[11px] text-blue-400 hover:text-blue-600 text-left mb-2 transition-colors"
+        >
+          {expanded ? "收合" : "展開"}
+        </button>
+        <div className="flex flex-wrap gap-1.5">
+          {proj.tags.map((t) => <ProjectTag key={t} label={t} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ──────────────────────────────────────────
 
 export default function Homepage() {
@@ -313,31 +348,7 @@ export default function Homepage() {
           <SectionTitle>Projects</SectionTitle>
           <div className="flex flex-col gap-4">
             {projects.map((proj, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 overflow-hidden hover:border-blue-200 hover:shadow-sm transition-all group flex flex-col">
-                {/* 封面圖（選填） */}
-                {proj.image && (
-                  <img
-                    src={proj.image}
-                    alt={proj.name}
-                    className="w-full h-36 object-contain bg-slate-50"
-                  />
-                )}
-                <div className="p-4 flex flex-col flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors leading-snug">{proj.name}</h3>
-                    {proj.link && (
-                      <a href={proj.link} target="_blank" rel="noreferrer"
-                        className="text-slate-400 hover:text-blue-500 shrink-0 transition-colors mt-0.5">
-                        <IconLink />
-                      </a>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed mb-3 flex-1 line-clamp-4">{proj.description}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {proj.tags.map((t) => <ProjectTag key={t} label={t} />)}
-                  </div>
-                </div>
-              </div>
+              <ProjectCard key={i} proj={proj} />
             ))}
           </div>
         </section>
