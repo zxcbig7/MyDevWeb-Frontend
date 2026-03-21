@@ -15,6 +15,7 @@ import {
   PieChartOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BookOutlined,
 } from "@ant-design/icons";
 
 // 模板
@@ -46,6 +47,7 @@ const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
 
 const items: MenuItem[] = [
   getItem("Dashboard", "/dashboard", <PieChartOutlined />),
+  getItem("開發筆記", "/notes", <BookOutlined />),
   getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
 
   ...(IS_DEV ? [

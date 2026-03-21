@@ -12,12 +12,12 @@ const PROFILE = {
   about: `在這裡寫你的自我介紹（2–4 句）。可以描述你的背景、個性、對技術的熱情，
 或者你目前正在學什麼、做什麼。讓看的人能快速認識你。`,
 
-  githubUsername: "yourname", // ← 只需填這個，stats 卡片會自動帶入
+  githubUsername: "zxcbig7", // ← 只需填這個，stats 卡片會自動帶入
 
   contact: {
-    email: "your@email.com",
-    github: "https://github.com/yourname",
-    linkedin: "https://linkedin.com/in/yourname",
+    email: "zxcbig7email.com",
+    github: "https://github.com/zxcbig7",
+    linkedin: "https://www.linkedin.com/in/chun-sheng-lai-b8640a195/",
     website: "", // 個人網站（可留空）
   },
 

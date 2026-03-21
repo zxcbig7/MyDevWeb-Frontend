@@ -9,6 +9,8 @@ import TailwindCheatsheet from "./pages/TailwindCheatsheet";
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
 import Dashboard from "./pages/Dashboard";
+import NotesList from "./pages/Notes/NotesList";
+import NoteArticle from "./pages/Notes/NoteArticle";
 
 
 const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
@@ -34,6 +36,10 @@ function App() {
 
           {/* Dashboard */}
           <Route path="dashboard" element={<Dashboard />} />
+
+          {/* Notes */}
+          <Route path="notes" element={<NotesList />} />
+          <Route path="notes/:slug" element={<NoteArticle />} />
 
           {/* Rule Viewer Pages — 所有環境皆開放 */}
           <Route path="ruleviewer" element={<RuleViewer />} />

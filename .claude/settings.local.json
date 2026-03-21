@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install axios)",
       "WebFetch(domain:flowbite.com)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
