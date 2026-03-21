@@ -91,6 +91,7 @@ function useIsMobile(breakpoint = 768) {
 // ── 登出按鈕（Sider 底部共用） ──────────────────────────────
 function LogoutButton({ collapsed, onLogout }: { collapsed: boolean; onLogout: () => void }) {
   if (IS_DEV) return null;
+  
   return (
     <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
       <button
