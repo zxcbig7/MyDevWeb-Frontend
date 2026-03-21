@@ -162,32 +162,28 @@ const HomePage = () => {
             onClick={() => { if (collapsed) setCollapsed(false); }}
           >
 
-            {/* 收合按鈕 */}
-            <div style={{
-              display: "flex", alignItems: "center", padding: "0 8px",
-              height: 48, flexShrink: 0,
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-            }}>
-              <button
-                onClick={() => setCollapsed((c) => !c)}
-                style={{
-                  background: "none", border: "none",
-                  color: "rgba(255,255,255,0.45)", fontSize: 16,
-                  cursor: "pointer", display: "flex", alignItems: "center",
-                  justifyContent: "center", width: 32, height: 32,
-                  borderRadius: 6, transition: "color 0.2s, background 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "rgba(255,255,255,0.85)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255,255,255,0.45)";
-                  e.currentTarget.style.background = "none";
-                }}
-              >
-                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              </button>
+            {/* 收合按鈕：整條 header 都可點 */}
+            <div
+              onClick={(e) => { e.stopPropagation(); setCollapsed((c) => !c); }}
+              style={{
+                display: "flex", alignItems: "center",
+                justifyContent: "center",
+                padding: "0 12px", height: 48, flexShrink: 0,
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                cursor: "pointer", color: "rgba(255,255,255,0.45)",
+                fontSize: 16, transition: "color 0.2s, background 0.2s",
+                userSelect: "none",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.85)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+                e.currentTarget.style.background = "none";
+              }}
+            >
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </div>
 
             {/* 選單 */}

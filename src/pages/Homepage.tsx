@@ -2,6 +2,7 @@
 // Homepage.tsx — 個人首頁 / 履歷
 // ============================================================
 
+
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
 
 const PROFILE = {
@@ -385,7 +386,7 @@ export default function Homepage() {
 
         {/* ── Footer ── */}
         <div className="text-center text-xs text-slate-400 pb-6">
-          Built with React + TypeScript ✦ {new Date().getFullYear()}
+          Made with ❤️ by Vic Lai 2026
         </div>
 
       </div>
