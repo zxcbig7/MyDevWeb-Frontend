@@ -35,7 +35,7 @@ function getItem(
 
 // 
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
-const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
+const IS_DEV = import.meta.env.VITE_DISABLE_AUTH === "true";
 
 // 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示
 function privateLabel(label: string) {
