@@ -1,6 +1,6 @@
 // HomePage.tsx：主頁面布局
 // 桌面（≥ 768px）：左側 Sider 常駐
-// 手機（< 768px）：頂部 AppBar + 左滑 Drawer
+// 手機（< 768px）：頂部標題列 + 底部 Tab Bar + Drawer（更多）
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -150,7 +150,12 @@ const HomePage = () => {
                 e.currentTarget.style.background = "none";
               }}
             >
-              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              {collapsed ? <MenuUnfoldOutlined /> : (
+                <>
+                  <MenuFoldOutlined />
+                  <span style={{ fontSize: 12, marginLeft: 8 }}>收合</span>
+                </>
+              )}
             </div>
 
             {/* 選單 */}
@@ -188,30 +193,17 @@ const HomePage = () => {
 
       <Layout style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
 
-        {/* ── 手機 Top Bar ─────────────────────────────────── */}
+        {/* ── 手機 Top Bar（標題） ─────────────────────────── */}
         {isMobile && (
           <div style={{
-            height: 48, background: "#001529", flexShrink: 0,
+            height: 44, background: "#001529", flexShrink: 0,
             display: "flex", alignItems: "center",
-            justifyContent: "space-between", padding: "0 12px",
+            justifyContent: "center", padding: "0 12px",
             borderBottom: "1px solid rgba(255,255,255,0.08)",
           }}>
-            <button
-              onClick={() => setDrawerOpen(true)}
-              style={{
-                background: "none", border: "none",
-                color: "rgba(255,255,255,0.65)", fontSize: 18,
-                cursor: "pointer", padding: "6px 8px", borderRadius: 6,
-                display: "flex", alignItems: "center",
-              }}
-            >
-              <MenuOutlined />
-            </button>
-
             <span style={{ color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 600 }}>
               {currentPageLabel}
             </span>
-
           </div>
         )}
 
@@ -229,6 +221,44 @@ const HomePage = () => {
             <Outlet />
           </div>
         </Content>
+
+        {/* ── 手機底部 Tab Bar ─────────────────────────────── */}
+        {isMobile && (() => {
+          const tabs = [
+            { key: "/homepage", label: "首頁", icon: <PieChartOutlined /> },
+            { key: "/notes",    label: "筆記", icon: <BookOutlined /> },
+            { key: "__more__",  label: "更多", icon: <MenuOutlined /> },
+          ];
+          const active = location.pathname;
+          return (
+            <div style={{
+              height: 56, flexShrink: 0,
+              background: "#001529",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              display: "flex",
+            }}>
+              {tabs.map((tab) => {
+                const isActive = tab.key !== "__more__" && active.startsWith(tab.key);
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => tab.key === "__more__" ? setDrawerOpen(true) : navigate(tab.key)}
+                    style={{
+                      flex: 1, display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 3,
+                      background: "none", border: "none", cursor: "pointer",
+                      color: isActive ? "#1677ff" : "rgba(255,255,255,0.45)",
+                      fontSize: 18, transition: "color 0.2s",
+                    }}
+                  >
+                    {tab.icon}
+                    <span style={{ fontSize: 10, lineHeight: 1 }}>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </Layout>
 
     </Layout>

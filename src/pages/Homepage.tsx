@@ -40,7 +40,7 @@ const PROFILE = {
 
   experience: [
     {
-      company: "臺灣灣積體電路製造股份有限公司",
+      company: "臺灣積體電路製造股份有限公司",
       role: "ISDD Engineer",
       period: "2025/11 – 至今",
       description: [
@@ -105,7 +105,7 @@ const PROFILE = {
     {
       school: "國立陽明交通大學",
       degree: "碩士",
-      major: "工業工程系",
+      major: "工業工程與管理學系",
       period: "2023 – 2025",
     },
     {
