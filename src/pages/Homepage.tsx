@@ -8,7 +8,7 @@ const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
 const PROFILE = {
   name: "賴春伸",
   nameEn: "Vic Lai",
-  title: "Problem Solver",
+  title: "Full-Stack Developer | Marathon Runner",
   tagline: "只要拒絕停下，跑步跟人生一樣沒有失敗。",
   avatar: "/avatar.jpg" as string | null,
 
