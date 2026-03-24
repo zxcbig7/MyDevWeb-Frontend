@@ -22,6 +22,7 @@ import { Drawer, Layout, Menu, theme } from "antd";
 const { Content, Sider } = Layout;
 type MenuItem = Required<MenuProps>["items"][number];
 
+// 
 function getItem(
   label: React.ReactNode,
   key: React.Key,
@@ -31,7 +32,7 @@ function getItem(
   return { key, icon, children, label } as MenuItem;
 }
 
-// 
+// 特別有一個開關控制部屬版本是否要公開
 const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
 
 // 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示

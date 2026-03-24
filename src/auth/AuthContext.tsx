@@ -19,10 +19,7 @@ type AuthState = {
 };
 
 // createContext：建立一個可跨元件樹傳遞的全域容器，不需要逐層透過 props 傳遞
-// 泛型寫 <AuthState | null>：
-//   - AuthState → Provider 已掛載、值正常存在
-//   - null      → 初始值（還沒被 Provider 包住時的預設）
-//   在 useAuth() 中偵測到 null 就能報錯，提醒開發者忘記包 <AuthProvider>
+// 在 useAuth() 中偵測到 null 就能報錯，提醒開發者忘記包 <AuthProvider>
 const AuthContext = createContext<AuthState | null>(null);
 
 // import.meta.env：Vite 提供的環境變數入口（對應 .env.* 檔案）
@@ -33,12 +30,7 @@ const AUTH_BASE    = import.meta.env.VITE_AUTH_BASE    ?? API_BASE;
 const IS_DEV       = import.meta.env.VITE_APP_ENV === "DEV";
 
 // DISABLE_AUTH 的判斷邏輯（雙重否定）：
-//   env 變數永遠是字串，若沒設定則為 undefined
-//   - undefined !== "false" → true  → 停用驗證（預設行為）
-//   - "false"   !== "false" → false → 啟用驗證
-//   - "true"    !== "false" → true  → 停用驗證
-//   設計意圖：「要啟用驗證」必須明確設 VITE_DISABLE_AUTH=false，
-//   沒設或任何其他值都視為停用，方便本機開發時不用特別設定
+// 沒設或任何其他值都視為停用，方便本機開發時不用特別設定
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH !== "false";
 
 // AuthProvider：將 Auth 狀態注入整棵元件樹
@@ -49,9 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // loading 初始為 true：在驗證結果回來前，避免畫面閃爍（先顯示「載入中」）
   const [loading, setLoading] = useState(true);
 
-  // useEffect 第二參數傳空陣列 []：
-  //   代表「只在元件第一次掛載（mount）時執行一次」，不會因任何 state 變更重跑
-  //   適合用來做初始化 API call
+  // 初始化 API call
   useEffect(() => {
     if (IS_DEV || DISABLE_AUTH) {
       setUser(MOCK_USER);
@@ -59,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    
     axios
       .get<AuthUser>(`${API_BASE}/auth/me`, { withCredentials: true })
       .then((res) => setUser(res.data))
@@ -82,6 +73,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 //   在這裡統一拋錯，能在開發階段第一時間定位問題（忘記包 <AuthProvider>）
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
+  if (!ctx) throw new Error("useAuth 必須在 AuthProvider 內使用");
   return ctx;
 }
