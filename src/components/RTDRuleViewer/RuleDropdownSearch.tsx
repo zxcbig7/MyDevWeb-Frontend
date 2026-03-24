@@ -172,9 +172,7 @@ export function RuleDropdownSearch({
         options={phaseOptions}
         value={selectedPhase ?? undefined}
         onChange={(v) => onPhaseChange(v ?? null)}
-        onSelect={() => setTimeout(() => eqpInputRef.current?.focus(), 50)}
         allowClear
-        autoFocus
         style={{ width: 130 }}
         popupMatchSelectWidth={false}
         styles={{ popup: { root: { zIndex: 2000 } } }}

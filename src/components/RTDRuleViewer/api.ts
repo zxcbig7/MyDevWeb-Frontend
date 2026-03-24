@@ -98,46 +98,25 @@ async function apiLoadMachineRuleMap(phase: string): Promise<MachineRule[]> {
 // PROD/STAGE：API only（失敗時往上拋，由 UI 層決定如何處理）
 
 export async function loadPhases(): Promise<string[]> {
-  if (IS_DEV) {
-    const apiResult = await apiLoadPhases().then(d => Array.isArray(d) ? d : []).catch(() => []);
-    const mockResult = await mockLoadPhases();
-    return [...new Set([...mockResult, ...apiResult])];
-  }
+  if (IS_DEV) return mockLoadPhases();
   const data = await apiLoadPhases();
   return Array.isArray(data) ? data : [];
 }
 
 export async function loadRuleNamesByPhase(phase: string): Promise<string[]> {
-  if (IS_DEV) {
-    const apiResult = await apiLoadRuleNamesByPhase(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
-    const mockResult = await mockLoadRuleNamesByPhase(phase);
-    return [...new Set([...mockResult, ...apiResult])];
-  }
+  if (IS_DEV) return mockLoadRuleNamesByPhase(phase);
   const data = await apiLoadRuleNamesByPhase(phase);
   return Array.isArray(data) ? data : [];
 }
 
 export async function loadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
-  if (IS_DEV) {
-    const apiResult = await apiLoadRuleData(phase, ruleName).then(d => Array.isArray(d) ? d : []).catch(() => []);
-    const mockResult = await mockLoadRuleData(phase, ruleName);
-    return [...mockResult, ...apiResult];
-  }
+  if (IS_DEV) return mockLoadRuleData(phase, ruleName);
   const data = await apiLoadRuleData(phase, ruleName);
   return Array.isArray(data) ? data : [];
 }
 
 export async function loadMachineRuleMap(phase: string): Promise<MachineRule[]> {
-  if (IS_DEV) {
-    const apiResult = await apiLoadMachineRuleMap(phase).then(d => Array.isArray(d) ? d : []).catch(() => []);
-    const mockResult = await mockLoadMachineRuleMap(phase);
-    // mock 優先，真實 API 補充（依 machineId 去重）
-    const merged = [...mockResult];
-    for (const item of apiResult) {
-      if (!merged.some((m) => m.machineId === item.machineId)) merged.push(item);
-    }
-    return merged;
-  }
+  if (IS_DEV) return mockLoadMachineRuleMap(phase);
   const data = await apiLoadMachineRuleMap(phase);
   return Array.isArray(data) ? data : [];
 }

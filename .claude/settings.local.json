@@ -4,7 +4,8 @@
       "Bash(npm install axios)",
       "WebFetch(domain:flowbite.com)",
       "Bash(npm ls:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node -e \":*)"
     ]
   }
 }

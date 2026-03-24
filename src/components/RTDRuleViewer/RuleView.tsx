@@ -667,7 +667,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                   return !v;
                 });
               }}
-              title="Toggle connector lines"
+              title="開關連線顯示"
               className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showConnectors
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
                   : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
@@ -683,7 +683,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                   return !v;
                 });
               }}
-              title="Toggle grid"
+              title="開關網格"
               className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showGrid
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
                   : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
@@ -692,7 +692,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             {/* Minimap toggle  ⊡ = overview box */}
             <button
               onClick={() => setShowMinimap((v) => !v)}
-              title="Toggle minimap"
+              title="開關小地圖"
               className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showMinimap
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
                   : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
@@ -703,17 +703,17 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             {/* Zoom buttons */}
             <button
               onClick={() => zoomBy(1.25)}
-              title="Zoom in"
+              title="放大顯示(Ctrl+滑鼠滾輪向上)"
               className="w-9 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-base hover:bg-gray-100 cursor-pointer shadow-sm"
             >+</button>
             <button
               onClick={() => zoomBy(0.8)}
-              title="Zoom out"
+              title="縮小顯示(Ctrl+滑鼠滾輪向下)"
               className="w-9 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-base hover:bg-gray-100 cursor-pointer shadow-sm"
             >−</button>
             <button
               onClick={zoomReset}
-              title="Reset zoom"
+              title="標準縮放"
               className="px-2 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-xs hover:bg-gray-100 cursor-pointer shadow-sm"
             >1:1</button>
           </div>
