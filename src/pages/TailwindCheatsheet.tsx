@@ -88,6 +88,7 @@ const GROUPS: Group[] = [
   { title: "Flexbox — Direction", cards: [
     {
       cls: "flex-row",
+      desc: "左到右排列（預設）",
       preview: (
         <div>
           <div className="flex flex-row gap-2 p-2 bg-gray-100 rounded">
@@ -99,6 +100,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "flex-row-reverse",
+      desc: "右到左排列",
       preview: (
         <div>
           <div className="flex flex-row-reverse gap-2 p-2 bg-gray-100 rounded">
@@ -110,6 +112,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "flex-col",
+      desc: "上到下排列",
       preview: (
         <div>
           <div className="flex flex-col gap-2 p-2 bg-gray-100 rounded">
@@ -121,6 +124,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "flex-col-reverse",
+      desc: "下到上排列",
       preview: (
         <div>
           <div className="flex flex-col-reverse gap-2 p-2 bg-gray-100 rounded">
@@ -169,6 +173,7 @@ const GROUPS: Group[] = [
       ["justify-evenly",  "bg-teal-400",   "完全等距"],
     ].map(([cls, color, note]) => ({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div>
           <div className={`flex ${cls} gap-0 p-2 bg-gray-100 rounded`}>
@@ -192,6 +197,7 @@ const GROUPS: Group[] = [
       ["items-baseline","bg-pink-400",   "文字基線對齊"],
     ].map(([cls, color, note]) => ({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div>
           <div className={`flex ${cls} gap-2 p-2 bg-gray-100 rounded h-20`}>
@@ -257,6 +263,7 @@ const GROUPS: Group[] = [
   { title: "Grid — Columns", cards: [
     ...[1,2,3,4,6].map(n => ({
       cls: `grid-cols-${n}`,
+      desc: `${n} 欄格線`,
       preview: (
         <div className={`grid grid-cols-${n} gap-1.5 p-2 bg-gray-100 rounded`}>
           {Array.from({length: n*2}).map((_,i) => <div key={i} className="h-8 bg-indigo-400 text-white text-xs font-bold flex items-center justify-center rounded">{i+1}</div>)}
@@ -297,6 +304,7 @@ const GROUPS: Group[] = [
   { title: "Gap (間距)", cards: [
     ...[0,1,2,4,6,8].map(n => ({
       cls: `gap-${n}`,
+      desc: `間距 ${n * 4}px`,
       preview: (
         <div>
           <div className={`flex gap-${n} p-2 bg-gray-100 rounded`}>
@@ -314,6 +322,7 @@ const GROUPS: Group[] = [
   { title: "Padding", cards: [
     ...[0,1,2,4,6,8,12].map(n => ({
       cls: `p-${n}`,
+      desc: `四邊內距 ${n * 4}px`,
       preview: (
         <div>
           <div className={`p-${n} bg-blue-100 rounded inline-block`}>
@@ -351,6 +360,7 @@ const GROUPS: Group[] = [
   { title: "Margin", cards: [
     ...[0,1,2,4,6,8].map(n => ({
       cls: `m-${n}`,
+      desc: `四邊外距 ${n * 4}px`,
       preview: (
         <div className="bg-gray-100 rounded p-1">
           <div className={`m-${n} bg-purple-500 text-white text-xs font-bold flex items-center justify-center h-8 rounded`}>m-{n}</div>
@@ -395,6 +405,7 @@ const GROUPS: Group[] = [
       ["w-64","256px","bg-blue-700"],
     ].map(([cls,px,color])=>({
       cls: cls as string,
+      desc: px as string,
       preview: (
         <div>
           <div className={`${cls} h-8 ${color} text-white text-xs font-bold flex items-center justify-center rounded`}>{px}</div>
@@ -415,6 +426,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "min-w / max-w",
+      desc: "設定最小 / 最大寬度",
       preview: (
         <div className="flex flex-col gap-2 w-full">
           <div className="max-w-xs w-full bg-green-100 p-1 rounded">
@@ -434,6 +446,7 @@ const GROUPS: Group[] = [
   { title: "Height", cards: [
     {
       cls: "h-4 / h-8 / h-16 / h-32",
+      desc: "固定高度（16 / 32 / 64 / 128px）",
       preview: (
         <div className="flex items-end gap-2 p-2 bg-gray-100 rounded h-36">
           {[["h-4","bg-pink-300"],["h-8","bg-pink-400"],["h-16","bg-pink-500"],["h-32","bg-pink-600"]].map(([cls,color])=>(
@@ -447,6 +460,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "min-h / max-h",
+      desc: "設定最小 / 最大高度",
       preview: (
         <div className="flex gap-4 items-start">
           <div>
@@ -472,6 +486,7 @@ const GROUPS: Group[] = [
       ["text-5xl","48px"],
     ].map(([cls,px])=>({
       cls: cls as string,
+      desc: px as string,
       preview: (
         <div className="flex items-baseline gap-3">
           <span className={`${cls} font-semibold text-gray-800`}>Aa</span>
@@ -491,6 +506,7 @@ const GROUPS: Group[] = [
       ["font-bold","700"],["font-extrabold","800"],["font-black","900"],
     ].map(([cls,w])=>({
       cls: cls as string,
+      desc: `font-weight: ${w}`,
       preview: (
         <div className="flex items-center gap-3">
           <span className={`${cls} text-xl text-gray-800`}>The quick brown fox</span>
@@ -506,6 +522,7 @@ const GROUPS: Group[] = [
   { title: "Text Color", cards: [
     {
       cls: "text-{color}-{shade}",
+      desc: "文字顏色，色系 50–950 共 11 階",
       preview: (
         <div className="flex flex-col gap-1">
           {[
@@ -535,6 +552,7 @@ const GROUPS: Group[] = [
       ["text-left","靠左"],["text-center","置中"],["text-right","靠右"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div className={`${cls} bg-gray-50 rounded px-3 py-2 border w-48`}>
           <p className="text-sm text-gray-700">The quick brown fox</p>
@@ -546,6 +564,7 @@ const GROUPS: Group[] = [
       ["underline","底線"],["overline","上線"],["line-through","刪除線"],["no-underline","無線"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div className="flex items-center gap-3">
           <span className={`${cls} text-base text-gray-800`}>Sample Text</span>
@@ -557,6 +576,7 @@ const GROUPS: Group[] = [
       ["uppercase","轉大寫"],["lowercase","轉小寫"],["capitalize","首字大寫"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div className="flex items-center gap-3">
           <span className={`${cls} text-base text-gray-800`}>hello world</span>
@@ -587,6 +607,7 @@ const GROUPS: Group[] = [
       ["leading-relaxed","1.625"],["leading-loose","2.0"],
     ].map(([cls,val])=>({
       cls: cls as string,
+      desc: `line-height: ${val}`,
       preview: (
         <div className={`${cls} text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 border w-48`}>
           <p>The quick brown fox</p>
@@ -601,6 +622,7 @@ const GROUPS: Group[] = [
       ["tracking-wider","0.05em"],["tracking-widest","0.1em"],
     ].map(([cls,val])=>({
       cls: cls as string,
+      desc: `letter-spacing: ${val}`,
       preview: (
         <div>
           <span className={`${cls} text-base font-semibold text-gray-800`}>HELLO WORLD</span>
@@ -616,6 +638,7 @@ const GROUPS: Group[] = [
   { title: "Background Color", cards: [
     {
       cls: "bg-{color}-{shade}",
+      desc: "背景顏色，色系 50–950 共 11 階",
       preview: (
         <div className="flex flex-col gap-2">
           {[
@@ -668,6 +691,7 @@ const GROUPS: Group[] = [
       ["bg-linear-to-tl","↖ 左上","from-green-400 to-teal-500"],
     ].map(([cls,dir,colors])=>({
       cls: cls as string,
+      desc: `漸層方向 ${dir as string}`,
       preview: (
         <div>
           <div className={`h-12 w-full rounded ${cls} ${colors}`}/>
@@ -696,6 +720,7 @@ const GROUPS: Group[] = [
   { title: "Border Width", cards: [
     ...[0,1,2,4,8].map(n=>({
       cls: n===1?"border":`border-${n===0?"0":n}`,
+      desc: n===0 ? "無框線" : n===1 ? "1px 框線（預設）" : `${n}px 框線`,
       preview: (
         <div>
           <div className={`${n===1?"border":`border-${n===0?"0":n}`} border-indigo-500 bg-indigo-50 h-12 w-full rounded flex items-center justify-center text-xs text-indigo-700 font-semibold`}>
@@ -730,6 +755,7 @@ const GROUPS: Group[] = [
       ["border-dotted","點線"],["border-double","雙線"],["border-none","無線"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div>
           <div className={`border-2 ${cls} border-gray-500 bg-gray-50 h-10 w-full rounded flex items-center justify-center text-xs text-gray-600`}>{note}</div>
@@ -759,6 +785,7 @@ const GROUPS: Group[] = [
       ["rounded-2xl","16px"],["rounded-3xl","24px"],["rounded-full","9999px"],
     ].map(([cls,val])=>({
       cls: cls as string,
+      desc: `圓角 ${val}`,
       preview: (
         <div className="flex items-center gap-3">
           <div className={`${cls} w-14 h-14 bg-indigo-400`}/>
@@ -773,10 +800,17 @@ const GROUPS: Group[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   { title: "Box Shadow", cards: [
     ...[
-      "shadow-none","shadow-sm","shadow","shadow-md",
-      "shadow-lg","shadow-xl","shadow-2xl","shadow-inner",
-    ].map(cls=>({
+      ["shadow-none",  "無陰影"],
+      ["shadow-sm",    "極小陰影"],
+      ["shadow",       "預設陰影"],
+      ["shadow-md",    "中陰影"],
+      ["shadow-lg",    "大陰影"],
+      ["shadow-xl",    "超大陰影"],
+      ["shadow-2xl",   "最大陰影"],
+      ["shadow-inner", "向內陰影"],
+    ].map(([cls, desc])=>({
       cls,
+      desc,
       preview: (
         <div className="py-4 px-2 bg-gray-50 rounded flex justify-center">
           <div className={`${cls} w-24 h-12 bg-white rounded-lg flex items-center justify-center text-xs text-gray-500 font-medium`}>{cls}</div>
@@ -791,6 +825,7 @@ const GROUPS: Group[] = [
   { title: "Opacity", cards: [
     {
       cls: "opacity-{0~100}",
+      desc: "元素整體透明度，0 全透明 → 100 不透明",
       preview: (
         <div className="flex gap-3 items-end">
           {[0,10,25,50,75,90,100].map(o=>(
@@ -810,6 +845,7 @@ const GROUPS: Group[] = [
   { title: "Filters", cards: [
     {
       cls: "blur-*",
+      desc: "模糊濾鏡，數值越大越模糊",
       preview: (
         <div className="flex gap-3 items-center flex-wrap">
           {["blur-none","blur-sm","blur","blur-md","blur-lg","blur-xl"].map(cls=>(
@@ -823,6 +859,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "brightness-*",
+      desc: "亮度調整，100 為原始，>100 變亮，<100 變暗",
       preview: (
         <div className="flex gap-3 items-center flex-wrap">
           {[50,75,100,125,150,200].map(n=>(
@@ -836,6 +873,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "contrast-*",
+      desc: "對比度調整，100 為原始",
       preview: (
         <div className="flex gap-3 items-center flex-wrap">
           {[50,75,100,125,150,200].map(n=>(
@@ -865,6 +903,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "saturate-*",
+      desc: "飽和度調整，0 完全去飽和，100 原始",
       preview: (
         <div className="flex gap-3 items-center flex-wrap">
           {[0,50,100,150,200].map(n=>(
@@ -878,6 +917,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "sepia",
+      desc: "懷舊棕色濾鏡",
       preview: (
         <div className="flex gap-6 items-center">
           <div className="flex flex-col items-center gap-1">
@@ -893,6 +933,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "backdrop-blur-*",
+      desc: "背景模糊（毛玻璃效果）",
       preview: (
         <div className="relative w-48 h-24 bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 rounded-lg overflow-hidden">
           <div className="absolute inset-4 backdrop-blur-sm bg-white/20 rounded-lg flex items-center justify-center text-white text-xs font-bold">backdrop-blur-sm</div>
@@ -907,6 +948,7 @@ const GROUPS: Group[] = [
   { title: "Transform — Rotate", cards: [
     ...[0,6,12,45,90,135,180].map(deg=>({
       cls: `rotate-${deg}`,
+      desc: `旋轉 ${deg}°`,
       preview: (
         <div className="flex flex-col items-center gap-2 py-2">
           <div style={{transform:`rotate(${deg}deg)`}} className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">→</div>
@@ -919,6 +961,7 @@ const GROUPS: Group[] = [
   { title: "Transform — Scale", cards: [
     ...[0,50,75,90,100,110,125,150].map(n=>({
       cls: `scale-${n}`,
+      desc: `縮放 ${n}%`,
       preview: (
         <div className="flex flex-col items-center gap-2 py-2 h-20 justify-center">
           <div style={{transform:`scale(${n/100})`}} className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">{n}%</div>
@@ -930,6 +973,7 @@ const GROUPS: Group[] = [
   { title: "Transform — Translate", cards: [
     {
       cls: "translate-x-*",
+      desc: "X 軸水平位移",
       preview: (
         <div className="bg-gray-100 rounded p-3 h-20 relative overflow-hidden">
           <div className="flex items-center h-full gap-2">
@@ -944,6 +988,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "translate-y-*",
+      desc: "Y 軸垂直位移",
       preview: (
         <div className="bg-gray-100 rounded p-3 h-24 overflow-hidden">
           <div className="flex items-start gap-3">
@@ -958,6 +1003,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "skew-x / skew-y",
+      desc: "X / Y 軸傾斜變形",
       preview: (
         <div className="flex gap-6 items-center py-2">
           {[["skew-x-6","X 方向"],["skew-y-6","Y 方向"]].map(([cls,note])=>(
@@ -1007,6 +1053,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "ease-in / ease-out / ease-in-out",
+      desc: "動畫緩動曲線，控制加速 / 減速方式",
       preview: (
         <div className="flex gap-3 flex-wrap">
           {[
@@ -1076,6 +1123,7 @@ const GROUPS: Group[] = [
   { title: "Position", cards: [
     {
       cls: "relative / absolute",
+      desc: "relative 建立定位基準，absolute 相對父元素定位",
       preview: (
         <div>
           <div className="relative w-full h-20 bg-blue-100 rounded border-2 border-dashed border-blue-300">
@@ -1088,6 +1136,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "top / right / bottom / left",
+      desc: "定位偏移量，inset-0 = 貼齊四邊",
       preview: (
         <div className="relative w-full h-28 bg-gray-100 rounded border-2 border-dashed border-gray-300">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded">top-0</div>
@@ -1102,6 +1151,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "z-index",
+      desc: "堆疊層級，數字越大越在上面",
       preview: (
         <div className="relative h-16">
           {[
@@ -1127,6 +1177,7 @@ const GROUPS: Group[] = [
       ["overflow-auto","只在需要時顯示捲軸"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div>
           <div className={`${cls} h-12 w-full bg-gray-100 rounded border border-gray-200`}>
@@ -1146,6 +1197,7 @@ const GROUPS: Group[] = [
   { title: "Ring (Focus Ring)", cards: [
     ...[1,2,4,8].map(n=>({
       cls: `ring-${n}`,
+      desc: `外框光暈 ${n}px`,
       preview: (
         <div className="p-3 bg-gray-50 rounded flex justify-center">
           <div className={`ring-${n} ring-blue-500 w-20 h-10 bg-white rounded-lg flex items-center justify-center text-xs text-gray-600`}>ring-{n}</div>
@@ -1154,6 +1206,7 @@ const GROUPS: Group[] = [
     })),
     {
       cls: "ring-offset-2",
+      desc: "光暈與元素邊緣之間的空隙",
       preview: (
         <div className="p-3 bg-gray-50 rounded flex justify-center">
           <div className="ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-50 w-20 h-10 bg-white rounded-lg flex items-center justify-center text-xs text-gray-600">ring-offset</div>
@@ -1162,6 +1215,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "ring-inset",
+      desc: "光暈向內繪製，不佔外部空間",
       preview: (
         <div className="p-3 bg-gray-50 rounded flex justify-center">
           <div className="ring-2 ring-inset ring-blue-500 w-20 h-10 bg-white rounded-lg flex items-center justify-center text-xs text-gray-600">ring-inset</div>
@@ -1176,6 +1230,7 @@ const GROUPS: Group[] = [
   { title: "Cursor", cards: [
     {
       cls: "cursor-*",
+      desc: "滑鼠指標樣式，hover 到方塊查看效果",
       preview: (
         <div className="flex flex-wrap gap-2">
           {[
@@ -1199,6 +1254,7 @@ const GROUPS: Group[] = [
       ["select-auto","瀏覽器預設"],
     ].map(([cls,note])=>({
       cls: cls as string,
+      desc: note as string,
       preview: (
         <div>
           <div className={`${cls} bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-sm text-gray-700`}>
@@ -1268,6 +1324,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "disabled:",
+      desc: "元素 disabled 狀態時套用",
       preview: (
         <div className="flex gap-3">
           <button className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium">正常</button>
@@ -1307,6 +1364,7 @@ const GROUPS: Group[] = [
   { title: "Dark Mode", cards: [
     {
       cls: "dark:bg-* / dark:text-*",
+      desc: "系統或 HTML class 切換深色模式時套用",
       preview: (
         <div className="flex gap-4">
           <div className="bg-white border rounded-xl p-4 w-36 shadow-sm">
@@ -1330,6 +1388,7 @@ const GROUPS: Group[] = [
   { title: "Arbitrary Values [ ]", cards: [
     {
       cls: "w-[任意值]",
+      desc: "用 [ ] 帶入任意 CSS 值，不受 scale 限制",
       preview: (
         <div className="flex flex-col gap-2 w-full">
           {[["w-[200px]","200px"],["w-[33.33%]","33.33%"],["w-[calc(100%-2rem)]","calc(100%-2rem)"]].map(([cls,val])=>(
@@ -1342,6 +1401,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "bg-[#hex] / text-[#hex]",
+      desc: "直接使用 HEX / RGB 等任意顏色值",
       preview: (
         <div className="flex flex-wrap gap-2">
           {["#ff6b6b","#4ecdc4","#45b7d1","#96ceb4","#ffeaa7","#dfe6e9"].map(hex=>(
@@ -1355,6 +1415,7 @@ const GROUPS: Group[] = [
     },
     {
       cls: "text-[14px] / p-[10px_20px]",
+      desc: "任意字體大小或 padding，支援空格用底線分隔",
       preview: (
         <div className="flex flex-col gap-2">
           {[
