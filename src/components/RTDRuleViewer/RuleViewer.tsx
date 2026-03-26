@@ -5,10 +5,9 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Divider, notification } from "antd";
-import type { RuleViewHandle, RuleData } from "./types";
+import type { EqpRuleDTO, RuleViewHandle, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
-import { loadPhases, loadRuleNamesByPhase, loadRuleData, loadMachineRuleMap } from "./api";
-import type { MachineRule } from "./types";
+import { loadEqpRules, loadRuleData } from "./api";
 import { useAsync } from "../../hooks/useAsync";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
@@ -25,20 +24,15 @@ export default function RuleViewer() {
     notifApi.error({ message, description: err.message, placement: "topRight", duration: 5, key: message });
 
   // ── 兩階段 Rule 載入 ──────────────────────────────────────
-  const [phases, setPhases] = useState<string[]>([]);
+  const [eqpRules, setEqpRules] = useState<EqpRuleDTO[]>([]);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
-  const [ruleNamesByPhase, setRuleNamesByPhase] = useState<string[]>([]);
-  const [machineRuleMap, setMachineRuleMap] = useState<MachineRule[]>([]);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
   const [rules, setRules] = useState<RuleData[]>([]);
   // 最後一次實際載入時的 Phase，與 selectedPhase 不同步（切換 Phase 不影響它）
   const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
 
-  // API 錯誤時顯示通知，並在 DEV 模式下 fallback 到 Mock 資料（不讓網站死掉）
-  const { execute: fetchPhases          } = useAsync(loadPhases,           showError("無法載入 Phase 清單"));
-  const { execute: fetchRuleNames       } = useAsync(loadRuleNamesByPhase, showError("無法載入 Rule 清單"));
-  const { execute: fetchRuleData        } = useAsync(loadRuleData,         showError("無法載入 Rule 資料"));
-  const { execute: fetchMachineRuleMap  } = useAsync(loadMachineRuleMap,   showError("無法載入機台清單"));
+  const { execute: fetchEqpRules  } = useAsync(loadEqpRules,  showError("無法載入 EQP / Rule 清單"));
+  const { execute: fetchRuleData  } = useAsync(loadRuleData,  showError("無法載入 Rule 資料"));
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -92,17 +86,10 @@ export default function RuleViewer() {
     };
   }, []);
 
-  // Phase 清單
+  // 初始載入：一次取得所有 EQP / Rule 對照資料
   useEffect(() => {
-    fetchPhases().then(data => { if (data) setPhases(data); });
+    fetchEqpRules().then(data => { if (data) setEqpRules(data); });
   }, []);
-
-  // Phase 變更：只更新搜尋清單，不清除已載入的 rule（canvas 保持顯示）
-  useEffect(() => {
-    if (!selectedPhase) { setRuleNamesByPhase([]); setMachineRuleMap([]); return; }
-    fetchRuleNames(selectedPhase).then(data => { if (data) setRuleNamesByPhase(data); });
-    fetchMachineRuleMap(selectedPhase).then(data => { if (data) setMachineRuleMap(data); });
-  }, [selectedPhase]);
 
   // Rule 變更
   useEffect(() => {
@@ -159,10 +146,8 @@ export default function RuleViewer() {
       {/* ── TopBar：Rule 選擇 ── */}
       <div className="rounded-xl px-4 py-2.5 bg-slate-800 flex items-center gap-3 shrink-0">
         <RuleDropdownSearch
-          phases={phases}
+          eqpRules={eqpRules}
           selectedPhase={selectedPhase}
-          ruleNames={ruleNamesByPhase}
-          machineRuleMap={machineRuleMap}
           onPhaseChange={setSelectedPhase}
           onRuleSelect={(ruleName) => {
             if (ruleName !== selectedRule) {

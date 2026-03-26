@@ -12,7 +12,7 @@
 //   APF_CHECK → APF_LOT_VALIDATOR, APF_RECIPE_CHECK, APF_LOT_SCHEDULER
 // ============================================================
 
-import { BlockTypes, type RuleData } from "./types";
+import { BlockTypes, type EqpRuleDTO, type RuleData } from "./types";
 
 // ── DEV Phase（主副線視覺測試） ───────────────────────────────
 export const DEV_MOCK_PHASE = "DEV";
@@ -35,15 +35,15 @@ export const DEV_MOCK_RULES: RuleData[] = [
   {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "Index01", BLOCK_TYPE: BlockTypes.Index, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.txt", POSX: 400, POSY: 300, PRE_BLOCK: ["MacroImport01", "Repository1"], 
+    KEY: "test.txt", POSX: 400, POSY: 300, PRE_BLOCK: ["MacroImport01", "Repository1"],
     VALUES: [
       { COLUMN1: "col1,col2,col3", COLUMN2: "col1,col2,col3", VALUE: null },
     ],
   },
-    {
+  {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "Function1", BLOCK_TYPE: BlockTypes.Function, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.txt", POSX: 600, POSY: 300, PRE_BLOCK: ["Index01"], 
+    KEY: "test.txt", POSX: 600, POSY: 300, PRE_BLOCK: ["Index01"],
     VALUES: [
       { COLUMN1: "col1", COLUMN2: null, VALUE: "null" },
       { COLUMN1: "col2", COLUMN2: null, VALUE: "null" },
@@ -139,18 +139,19 @@ export const MOCK_RULES_BY_PHASE: Record<MockPhase, string[]> = {
 };
 
 // ── 機台 ↔ Rule 對照表（各 Phase） ──────────────────────────
-export const MOCK_MACHINE_RULE_BY_PHASE: Record<string, { machineId: string; ruleName: string }[]> = {
-  [DEV_MOCK_PHASE]: [
-    { machineId: "TOOL-DEV-001", ruleName: DEV_MOCK_RULE_NAME },
-    { machineId: "TOOL-DEV-002", ruleName: DEV_MOCK_RULE_NAME_ICON },
-  ],
-  APF_CHECK: [
-    { machineId: "APF-CK-A01", ruleName: "APF_LOT_VALIDATOR" },
-    { machineId: "APF-CK-A02", ruleName: "APF_LOT_VALIDATOR" },
-    { machineId: "APF-CK-B01", ruleName: "APF_RECIPE_CHECK" },
-    { machineId: "APF-CK-C01", ruleName: "APF_LOT_SCHEDULER" },
-  ],
-};
+export const MOCK_EQP_RULES: EqpRuleDTO[] = [
+  { PHASE: DEV_MOCK_PHASE, EQP_ID: "TOOL-DEV-001", RULE_NAME: DEV_MOCK_RULE_NAME },
+  { PHASE: DEV_MOCK_PHASE, EQP_ID: "TOOL-DEV-002", RULE_NAME: DEV_MOCK_RULE_NAME_ICON },
+
+  { PHASE: "APF_CHECK", EQP_ID: "EQP-A01", RULE_NAME: "APF_LOT_VALIDATOR" },
+  { PHASE: "APF_CHECK", EQP_ID: "EQP-A02", RULE_NAME: "APF_LOT_VALIDATOR" },
+  { PHASE: "APF_CHECK", EQP_ID: "EQP-B01", RULE_NAME: "APF_RECIPE_CHECK" },
+  { PHASE: "APF_CHECK", EQP_ID: "EQP-C01", RULE_NAME: "APF_LOT_SCHEDULER" },
+  // 一台機台對應三條 Rule 的測試案例
+  { PHASE: "EQP_CHOSE_CHECK", EQP_ID: "EQP_1", RULE_NAME: "APF_LOT_VALIDATOR" },
+  { PHASE: "EQP_CHOSE_CHECK", EQP_ID: "EQP_2", RULE_NAME: "APF_LOT_SCHEDULER" },
+  { PHASE: "EQP_CHOSE_CHECK", EQP_ID: "EQP_2", RULE_NAME: "APF_RECIPE_CHECK" },
+];
 
 // ── APF_CHECK / APF_LOT_VALIDATOR ────────────────────────────
 //

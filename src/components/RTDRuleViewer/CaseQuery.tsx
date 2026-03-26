@@ -113,14 +113,10 @@ function findVarDefBlocks(varName: string, rules: RuleData[]): RuleData[] {
 }
 
 // ─── Block Type 樣式 ──────────────────────────────────────────
-const BLOCK_TYPE_STYLE: Partial<Record<BlockType, { badge: string; border: string }>> = {
-  START:    { badge: "bg-purple-500/20 text-purple-300 border border-purple-500/30", border: "border-purple-500/30" },
-  END:      { badge: "bg-slate-400/20  text-slate-400 border border-slate-400/20",  border: "border-slate-400/20" },
-  DECISION: { badge: "bg-amber-500/20  text-amber-300  border border-amber-500/30", border: "border-amber-500/30" },
-  PROCESS:  { badge: "bg-blue-500/20   text-blue-300   border border-blue-500/30",  border: "border-blue-500/30" },
-};
-function getBlockStyle(type: BlockType) {
-  return BLOCK_TYPE_STYLE[type] ?? BLOCK_TYPE_STYLE["PROCESS"]!;
+const DEFAULT_BLOCK_STYLE = { badge: "bg-blue-500/20 text-blue-300 border border-blue-500/30", border: "border-blue-500/30" };
+const BLOCK_TYPE_STYLE: Partial<Record<BlockType, { badge: string; border: string }>> = {};
+function getBlockStyle(_type: BlockType) {
+  return BLOCK_TYPE_STYLE[_type] ?? DEFAULT_BLOCK_STYLE;
 }
 
 // ─── 反藍 Log 標籤 ────────────────────────────────────────────

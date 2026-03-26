@@ -40,6 +40,8 @@ type TypeAccent = {
   badgeClasses: string;
 };
 
+
+// Block 主要類型分類，如果沒在範圍內就用 general
 type BlockCategory = "input" | "tableop" | "function" | "output" | "general";
 
 // 依照 RTDIconsNew 圖片背景色分類

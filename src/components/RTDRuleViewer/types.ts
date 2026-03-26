@@ -4,6 +4,17 @@
 // ============================================================
 
 // ── API 回傳的原始資料結構 ──────────────────────────────────
+
+
+// 取得 PHASE EQP Rule
+export type EqpRuleDTO = {
+  PHASE: string;
+  EQP_ID: string;
+  RULE_NAME: string;
+};
+
+
+// 取得 Rule 所有資訊
 export type RuleDTO = {
   PHASE: string;
   RULE_NAME: string;
@@ -50,65 +61,59 @@ export type RuleData = {
 // ── Block 類型（對應 /public/RTDIconsNew/ 圖片名稱） ────────
 
 export const BlockTypes = {
-  // 實驗用
-  START:    "START",
-  PROCESS:  "PROCESS",
-  DECISION: "DECISION",
-  FUNCTION: "FUNCTION",
-  END:      "END",
-
   // 正式類型
-  Action:         "Action",
-  Annotation:     "Annotation",
-  Bar:            "Bar",
-  Barline:        "Barline",
-  Batch:          "Batch",
-  BoxPlot:        "BoxPlot",
-  Compress:       "Compress",
-  Cumulate:       "Cumulate",
-  Data:           "Data",
-  DataSource:     "DataSource",
-  Delta:          "Delta",
+  Action: "Action",
+  Annotation: "Annotation",
+  Bar: "Bar",
+  Barline: "Barline",
+  Batch: "Batch",
+  BoxPlot: "BoxPlot",
+  Compress: "Compress",
+  Cumulate: "Cumulate",
+  Data: "Data",
+  DataSource: "DataSource",
+  Delta: "Delta",
   DispatchScreen: "DispatchScreen",
-  Duration:       "Duration",
-  EventMaker:     "EventMaker",
-  Filter:         "Filter",
-  Function:       "Function",
-  Gantt:          "Gantt",
-  HyperLink:      "HyperLink",
-  Import:         "Import",
-  Index:          "Index",
-  Join:           "Join",
-  Line:           "Line",
-  LoopBegin:      "LoopBegin",
-  LoopEnd:        "LoopEnd",
-  MacroExport:    "MacroExport",
-  MacroFunction:  "MacroFunction",
-  MacroImport:    "MacroImport",
+  Duration: "Duration",
+  EventMaker: "EventMaker",
+  Filter: "Filter",
+  Function: "Function",
+  Gantt: "Gantt",
+  HyperLink: "HyperLink",
+  Import: "Import",
+  Index: "Index",
+  Join: "Join",
+  Line: "Line",
+  LoopBegin: "LoopBegin",
+  LoopEnd: "LoopEnd",
+  MacroExport: "MacroExport",
+  MacroFunction: "MacroFunction",
+  MacroImport: "MacroImport",
   MacroParameter: "MacroParameter",
-  Percentage:     "Percentage",
-  Pie:            "Pie",
-  Procedure:      "Procedure",
-  Product:        "Product",
-  Repository:     "Repository",
-  ResultTable:    "ResultTable",
-  Rule:           "Rule",
-  Select:         "Select",
-  Snapshot:       "Snapshot",
-  Sort:           "Sort",
-  SQL:            "SQL",
-  StackBar:       "StackBar",
-  StackBarLine:   "StackBarLine",
-  StackTemporal:  "StackTemporal",
-  Table:          "Table",
-  Tag:            "Tag",
-  TempMaker:      "TempMaker",
-  Temporal:       "Temporal",
-  Union:          "Union",
-  XY:             "XY",
-  XYTable:        "XYTable",
+  Percentage: "Percentage",
+  Pie: "Pie",
+  Procedure: "Procedure",
+  Product: "Product",
+  Repository: "Repository",
+  ResultTable: "ResultTable",
+  Rule: "Rule",
+  Select: "Select",
+  Snapshot: "Snapshot",
+  Sort: "Sort",
+  SQL: "SQL",
+  StackBar: "StackBar",
+  StackBarLine: "StackBarLine",
+  StackTemporal: "StackTemporal",
+  Table: "Table",
+  Tag: "Tag",
+  TempMaker: "TempMaker",
+  Temporal: "Temporal",
+  Union: "Union",
+  XY: "XY",
+  XYTable: "XYTable",
 } as const;
 
+// 包裝成 enum 這樣就不用處理 string
 export type BlockType = (typeof BlockTypes)[keyof typeof BlockTypes];
 
 export type Block = {
@@ -135,12 +140,18 @@ export type ArrowRenderStyle = {
 };
 
 // ── 連線方向 ────────────────────────────────────────────────
-export type Side = "left" | "right" | "top" | "bottom";
+export const Sides = {
+  LEFT: "left",
+  RIGHT: "right",
+  BOTTOM: "bottom",
+  TOP: "top"
+} as const;
 
-// ── 機台 ↔ Rule 對照表 ──────────────────────────────────────
+
+// ── EQP_ID ↔ Rule 對照表 ──────────────────────────────────────
 export type MachineRule = {
-  machineId: string;
-  ruleName: string;
+  eqp_id: string;
+  rule_name: string;
 };
 
 // ── RuleView 暴露給父層的 handle ────────────────────────────

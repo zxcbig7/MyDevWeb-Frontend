@@ -4,7 +4,7 @@
 // ============================================================
 
 // ── Types ────────────────────────────────────────────────────
-export type { RuleDTO, BlockValue, RuleData, BlockType, Block, Arrow, ArrowRenderStyle, Side, RuleViewHandle } from "./types";
+export type { EqpRuleDTO, RuleDTO, BlockValue, RuleData, BlockType, Block, Arrow, ArrowRenderStyle, RuleViewHandle } from "./types";
 export { BlockTypes } from "./types";
 
 // ── Components ───────────────────────────────────────────────
@@ -23,8 +23,8 @@ export { buildBlocks, getBlockImage, hitTestBlock, blockCenter, drawBlock, drawB
 export { buildArrows, drawArrow, drawArrows, getSideCenter, decideConnectionSides } from "./arrowUtils";
 export { drawGrid, drawMinimap, snap, getWorldBounds, GRID_SIZE } from "./canvasUtils";
 export { convertDtosToData } from "./dataTransform";
-export { loadPhases, loadRuleNamesByPhase, loadRuleData } from "./api";
+export { loadEqpRules, loadRuleData } from "./api";
 
 // ── Dev / Mock ───────────────────────────────────────────────
-export { DEV_MOCK_PHASE, DEV_MOCK_RULE_NAME, DEV_MOCK_RULES, MOCK_PHASES, MOCK_RULES_BY_PHASE, MOCK_RULE_DATA, MOCK_VAR_SOURCES } from "./devMock";
-export type { MockPhase, VariableSource } from "./devMock";
+export { DEV_MOCK_PHASE, DEV_MOCK_RULE_NAME, DEV_MOCK_RULES, MOCK_EQP_RULES, MOCK_RULE_DATA, MOCK_VAR_SOURCES } from "./devMock";
+export type { VariableSource } from "./devMock";
