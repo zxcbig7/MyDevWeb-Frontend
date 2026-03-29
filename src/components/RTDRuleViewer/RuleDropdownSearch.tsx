@@ -10,27 +10,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Select } from "antd";
 import { cn } from "../../utls/clsx";
-import type { EqpRuleDTO } from "./types";
+import type { EqpRuleListDTO } from "./types";
 
 type Props = {
-  eqpRules: EqpRuleDTO[];
+  phases: string[];
+  eqpRules: EqpRuleListDTO[];
   selectedPhase: string | null;
   onPhaseChange: (phase: string | null) => void;
   onRuleSelect: (ruleName: string) => void;
 };
 
 export function RuleDropdownSearch({
+  phases,
   eqpRules,
   selectedPhase,
   onPhaseChange,
   onRuleSelect,
 }: Props) {
-  // ── 從 eqpRules 衍生 phases / 當前 phase 的資料 ───────────
-  const phases = useMemo(
-    () => [...new Set(eqpRules.map((e) => e.PHASE))],
-    [eqpRules]
-  );
-
+  // ── 從 eqpRules 衍生當前 phase 的資料 ────────────────────
   const phaseEqpRules = useMemo(
     () => (selectedPhase ? eqpRules.filter((e) => e.PHASE === selectedPhase) : []),
     [eqpRules, selectedPhase]
@@ -137,13 +134,18 @@ export function RuleDropdownSearch({
     setEqpOpen(false);
     setEqpHighlightIdx(-1);
     // EQP 確認後清除 Rule 選取，打開 Rule 下拉讓使用者選
-    setRuleInput(""); setPendingRule(null);
+    setRuleInput(""); 
+    setPendingRule(null);
     setRuleOpen(true);
   }
 
   function clearEqp() {
-    setEqpInput(""); setSelectedEqpId(null); setEqpOpen(false); setEqpHighlightIdx(-1);
-    setRuleInput(""); setPendingRule(null);
+    setEqpInput(""); 
+    setSelectedEqpId(null); 
+    setEqpOpen(false); 
+    setEqpHighlightIdx(-1);
+    setRuleInput(""); 
+    setPendingRule(null);
   }
 
   function handleEqpKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -165,13 +167,20 @@ export function RuleDropdownSearch({
 
   // ── Rule 操作 ─────────────────────────────────────────────
   function confirmRule(opt: string) {
-    setRuleInput(opt); setPendingRule(opt); setRuleOpen(false); setRuleHighlightIdx(-1);
+    setRuleInput(opt); 
+    setPendingRule(opt); 
+    setRuleOpen(false); 
+    setRuleHighlightIdx(-1);
   }
 
   function clearRule() {
-    setRuleInput(""); setPendingRule(null); setRuleOpen(false); setRuleHighlightIdx(-1);
+    setRuleInput(""); 
+    setPendingRule(null); 
+    setRuleOpen(false); 
+    setRuleHighlightIdx(-1);
   }
 
+  // 選澤的快捷鍵 (上下、enter、esc)
   function handleRuleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault(); setRuleOpen(true);
@@ -190,6 +199,9 @@ export function RuleDropdownSearch({
   }
 
   const phaseOptions = phases.map((p) => ({ label: p, value: p }));
+
+
+
 
   return (
     <div className="flex items-center gap-2">

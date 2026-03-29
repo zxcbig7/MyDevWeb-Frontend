@@ -5,27 +5,34 @@
 
 // ── API 回傳的原始資料結構 ──────────────────────────────────
 
+// 單一資料源：包含 Phase / EQP / Rule 的完整對照
+export interface PhaseDTO {
+  PHASE: string;
+};
 
-// 取得 PHASE EQP Rule
-export type EqpRuleDTO = {
+export interface RuleListDTO {
+  RULE_NAME: string;
+};
+
+
+export interface EqpRuleListDTO {
   PHASE: string;
   EQP_ID: string;
   RULE_NAME: string;
 };
 
-
 // 取得 Rule 所有資訊
-export type RuleDTO = {
-  PHASE: string;
-  RULE_NAME: string;
-  BLOCK_NAME: string;
-  BLOCK_TYPE: string;
-  BLOCK_GROUP: string;
-  BLOCK_SEQ: string;
+export interface RuleInfoDTO {
+  PHASE: string | null;
+  RULE_NAME: string | null;
+  BLOCK_NAME: string | null;
+  BLOCK_TYPE: string | null;
+  BLOCK_GROUP: string | null;
+  BLOCK_SEQ: string | null;
   KEY: string | null;
-  POSX: number;
-  POSY: number;
-  PRE_BLOCK: string | null;
+  POSX: number | null;
+  POSY: number | null;
+  PREBLOCK: string | null;
   COLUMN1: string | null;
   COLUMN2: string | null;
   VALUE1: string | null;
@@ -35,31 +42,30 @@ export type RuleDTO = {
   VALUE5: string | null;
 };
 
-// ── 合併後單一條件的 Value ──────────────────────────────────
-export type BlockValue = {
-  COLUMN1: string | null;
-  COLUMN2: string | null;
-  VALUE: string | null;
-};
-
 // ── 資料轉換後的 Block 資料 ─────────────────────────────────
 export type RuleData = {
-  PHASE: string;
+  PHASE: string | null;
   RULE_NAME: string;
   BLOCK_NAME: string;
   BLOCK_TYPE: string;
   BLOCK_GROUP: string;
   BLOCK_SEQ: string;
   KEY: string | null;
-  POSX: number;
-  POSY: number;
+  POSX: number | null;
+  POSY: number | null;
   /** 前置 Block 名稱，長度 0-2。[0] = 主線來源，[1] = 副線來源（選用） */
-  PRE_BLOCK: string[] | null;
-  VALUES: BlockValue[];
+  PREBLOCK: string[] | null;
+  VALUES: BlockValue[] | null;
 };
 
-// ── Block 類型（對應 /public/RTDIconsNew/ 圖片名稱） ────────
+// ── 合併後單一條件的 Value ──────────────────────────────────
+export interface BlockValue {
+  COLUMN1: string | null;
+  COLUMN2: string | null;
+  VALUE: string | null;
+};
 
+// ── Block 類型（對應 /public/ Icons 圖片名稱） ────────
 export const BlockTypes = {
   // 正式類型
   Action: "Action",
@@ -94,7 +100,7 @@ export const BlockTypes = {
   Pie: "Pie",
   Procedure: "Procedure",
   Product: "Product",
-  Repository: "Repository",
+  Repository: "Database",
   ResultTable: "ResultTable",
   Rule: "Rule",
   Select: "Select",
@@ -115,6 +121,7 @@ export const BlockTypes = {
 
 // 包裝成 enum 這樣就不用處理 string
 export type BlockType = (typeof BlockTypes)[keyof typeof BlockTypes];
+
 
 export type Block = {
   id: string;
@@ -147,12 +154,7 @@ export const Sides = {
   TOP: "top"
 } as const;
 
-
-// ── EQP_ID ↔ Rule 對照表 ──────────────────────────────────────
-export type MachineRule = {
-  eqp_id: string;
-  rule_name: string;
-};
+export type Side = (typeof Sides)[keyof typeof Sides];
 
 // ── RuleView 暴露給父層的 handle ────────────────────────────
 export type RuleViewHandle = {

@@ -5,14 +5,13 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Divider, notification } from "antd";
-import type { EqpRuleDTO, RuleViewHandle, RuleData } from "./types";
+import type { RuleViewHandle } from "./types";
 import { cn } from "../../utls/clsx";
-import { loadEqpRules, loadRuleData } from "./api";
-import { useAsync } from "../../hooks/useAsync";
+import * as RTDAPI from "./api";
+import { convertDtosToData } from "./dataTransform";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
-import { RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
-import type { MatchResult } from "./RuleContentSearch";
+import { type MatchResult, RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
 import { CaseQuery } from "./CaseQuery";
 
 type RightTab = "search" | "tracker";
@@ -20,19 +19,40 @@ type RightTab = "search" | "tracker";
 export default function RuleViewer() {
   // ── 錯誤通知 ─────────────────────────────────────────────
   const [notifApi, notifCtx] = notification.useNotification();
-  const showError = (message: string) => (err: Error) =>
-    notifApi.error({ message, description: err.message, placement: "topRight", duration: 5, key: message });
 
-  // ── 兩階段 Rule 載入 ──────────────────────────────────────
-  const [eqpRules, setEqpRules] = useState<EqpRuleDTO[]>([]);
+  // ── 選擇狀態 ──────────────────────────────────────────────
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
-  const [rules, setRules] = useState<RuleData[]>([]);
   // 最後一次實際載入時的 Phase，與 selectedPhase 不同步（切換 Phase 不影響它）
   const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
 
-  const { execute: fetchEqpRules  } = useAsync(loadEqpRules,  showError("無法載入 EQP / Rule 清單"));
-  const { execute: fetchRuleData  } = useAsync(loadRuleData,  showError("無法載入 Rule 資料"));
+  // ── SWR 資料讀取 ──────────────────────────────────────────
+  const { data: phaseDTOs, error: phaseError }   = RTDAPI.usePhaseResponse();
+  const { data: eqpRules,  error: eqpError }     = RTDAPI.useEQPRuleResponse(selectedPhase);
+  const { data: ruleInfoDTOs, error: ruleInfoError } = RTDAPI.useRuleInfoResponse(selectedPhase, selectedRule);
+
+  const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
+  const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
+
+
+  console.info("phase:", phases);
+
+  // ── SWR 錯誤通知 ─────────────────────────────────────────
+  useEffect(() => {
+    if (phaseError) notifApi.error({ title: "無法載入 Phase 清單", description: phaseError.message, placement: "topRight", duration: 5, key: "phaseError" });
+  }, [phaseError]);
+
+  useEffect(() => {
+    if (eqpError) notifApi.error({ title: "無法載入 EQP / Rule 清單", description: eqpError.message, placement: "topRight", duration: 5, key: "eqpError" });
+  }, [eqpError]);
+
+  useEffect(() => {
+    if (ruleInfoError) notifApi.error({ title: "無法載入 Rule 資料", description: ruleInfoError.message, placement: "topRight", duration: 5, key: "ruleError" });
+  }, [ruleInfoError]);
+
+
+
+
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -86,12 +106,7 @@ export default function RuleViewer() {
     };
   }, []);
 
-  // 初始載入：一次取得所有 EQP / Rule 對照資料
-  useEffect(() => {
-    fetchEqpRules().then(data => { if (data) setEqpRules(data); });
-  }, []);
-
-  // Rule 變更
+  // Rule 變更：重置搜尋 / Tracker 狀態
   useEffect(() => {
     setMatchedBlockList(null);
     setSearchKeyword("");
@@ -100,11 +115,9 @@ export default function RuleViewer() {
     setSearchKey((k) => k + 1);
     setTrackerLogIds([]);
     setTrackerVarIds([]);
-
-    if (!selectedPhase || !selectedRule) return;
-    fetchRuleData(selectedPhase, selectedRule).then(data => { if (data) setRules(data); });
   }, [selectedRule]);
 
+  // 搜尋時點擊Block會有相關設定操作
   function handlePrev() {
     if (!matchedBlockList?.length) return;
     const next = Math.max(0, matchIndex - 1);
@@ -146,7 +159,8 @@ export default function RuleViewer() {
       {/* ── TopBar：Rule 選擇 ── */}
       <div className="rounded-xl px-4 py-2.5 bg-slate-800 flex items-center gap-3 shrink-0">
         <RuleDropdownSearch
-          eqpRules={eqpRules}
+          phases={phases}
+          eqpRules={eqpRules ?? []}
           selectedPhase={selectedPhase}
           onPhaseChange={setSelectedPhase}
           onRuleSelect={(ruleName) => {
@@ -207,7 +221,15 @@ export default function RuleViewer() {
             document.body.style.userSelect = "none";
           }}
         >
-          <div className="w-0.5 h-10 rounded-full bg-white/25 group-hover:bg-white/60 transition-colors" />
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="w-0.5 h-6 rounded-full bg-white/25 group-hover:bg-white/60 transition-colors" />
+            <div className="flex flex-col gap-0.75 opacity-30 group-hover:opacity-70 transition-opacity">
+              <div className="w-0.75 h-0.75 rounded-full bg-white" />
+              <div className="w-0.75 h-0.75 rounded-full bg-white" />
+              <div className="w-0.75 h-0.75 rounded-full bg-white" />
+            </div>
+            <div className="w-0.5 h-6 rounded-full bg-white/25 group-hover:bg-white/60 transition-colors" />
+          </div>
         </div>
 
         {/* 右側面板（始終掛載，收合時僅顯示展開按鈕） */}

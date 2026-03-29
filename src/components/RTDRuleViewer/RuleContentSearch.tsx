@@ -74,7 +74,7 @@ function topoSort(rules: RuleData[]): string[] {
 
   // 建立依賴關係（邊：pre -> BLOCK_NAME）
   for (const r of rules) {
-    for (const pre of r.PRE_BLOCK ?? []) {
+    for (const pre of r.PREBLOCK ?? []) {
       if (nameSet.has(pre)) {
         children.get(pre)!.push(r.BLOCK_NAME);
         inDegree.set(r.BLOCK_NAME, (inDegree.get(r.BLOCK_NAME) ?? 0) + 1);

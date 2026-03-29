@@ -6,7 +6,8 @@
       "Bash(npm ls:*)",
       "Bash(npm install:*)",
       "Bash(node -e \":*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"require\\(''''swr''''\\)\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\zxcbi\\AppData\\Roaming\\Code\\User\\globalStorage\\github.copilot-chat\\ask-agent",

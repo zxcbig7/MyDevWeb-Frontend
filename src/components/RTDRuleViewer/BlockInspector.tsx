@@ -49,7 +49,7 @@ type BlockCategory = "input" | "tableop" | "function" | "output" | "general";
 const TYPE_CATEGORY: Partial<Record<BlockType, BlockCategory>> = {
   // Input (橘色) — Row 0
   Data: "input", DataSource: "input", Import: "input", MacroImport: "input",
-  MacroParameter: "input", Repository: "input", SQL: "input", Tag: "input",
+  MacroParameter: "input", Database: "input", SQL: "input", Tag: "input",
   // TableOperation (綠色) — Row 1
   Index: "tableop", Join: "tableop", MacroFunction: "tableop", Procedure: "tableop", Union: "tableop",
   // Function (藍色) — Row 2-3
@@ -448,22 +448,22 @@ function BodyBase({ r, sectionLabel, theme = "gray", col1Label, col2Label, showA
     <div className="p-3 flex flex-col gap-2">
       {r.KEY && <MetaRow label="Key" value={r.KEY} />}
 
-      {r.PRE_BLOCK && r.PRE_BLOCK.length > 0 && (
+      {r.PREBLOCK && r.PREBLOCK.length > 0 && (
         <>
           <SectionTitle>Pre-Blocks</SectionTitle>
           <div className="flex flex-wrap gap-1.5">
-            {r.PRE_BLOCK.map((name, i) => (
+            {r.PREBLOCK.map((name, i) => (
               <PreBlockBadge key={name} name={name} isPrimary={i === 0} />
             ))}
           </div>
         </>
       )}
 
-      {r.VALUES.length > 0 && (
+      {(r.VALUES?.length ?? 0) > 0 && (
         <>
-          <SectionTitle>{sectionLabel} ({r.VALUES.length})</SectionTitle>
+          <SectionTitle>{sectionLabel} ({r.VALUES?.length})</SectionTitle>
           <div className="flex flex-col gap-2">
-            {r.VALUES.map((v, i) => (
+            {(r.VALUES ?? []).map((v, i) => (
               <ValueCard key={i} index={i} v={v} theme={theme} col1Label={col1Label} col2Label={col2Label} showArrow={showArrow} />
             ))}
           </div>
@@ -480,6 +480,4 @@ function FunctionBody({ r }: { r: RuleData }) {
 function ProcessBody({ r }: { r: RuleData }) {
   return <BodyBase r={r} sectionLabel="Assignments" theme="gray" col1Label="Target" col2Label="Depends on" showArrow />;
 }
-
-
 // #endregion

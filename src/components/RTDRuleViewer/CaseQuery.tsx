@@ -14,7 +14,7 @@
 // ============================================================
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import type { BlockType, RuleData } from "./types";
+import type { BlockType, BlockValue, RuleData } from "./types";
 import { cn } from "../../utls/clsx";
 import { MOCK_VAR_SOURCES } from "./devMock";
 import type { VariableSource } from "./devMock";
@@ -39,7 +39,7 @@ function sortBlocks(rules: RuleData[]): RuleData[] {
     if (visited.has(rule.BLOCK_NAME)) return;
     if (visiting.has(rule.BLOCK_NAME)) return; // 有循環，跳過
     visiting.add(rule.BLOCK_NAME);
-    for (const pre of rule.PRE_BLOCK ?? []) {
+    for (const pre of rule.PREBLOCK ?? []) {
       const parent = nameToRule.get(pre);
       if (parent) visit(parent);
     }
@@ -71,7 +71,7 @@ function parseLogName(input: string): string {
 function findLogBlocks(logName: string, rules: RuleData[]): RuleData[] {
   // 使用正則表達式同時匹配 $LOG_NAME$ 和 [$LOG_NAME$] 兩種格式
   const re = new RegExp(`\\[?\\$${escapeRegex(logName)}\\$\\]?`);
-  return rules.filter((r) => r.VALUES.some((v) => v.VALUE && re.test(v.VALUE)));
+  return rules.filter((r) => (r.VALUES ?? []).some((v) => v.VALUE && re.test(v.VALUE)));
 }
 
 const LOG_KEYWORDS = new Set([
@@ -87,7 +87,7 @@ function extractVarsFromLogExpr(logName: string, blocks: RuleData[]): string[] {
   const vars = new Set<string>();
 
   for (const block of blocks) {
-    for (const v of block.VALUES) {
+    for (const v of block.VALUES ?? []) {
       // 只處理 VALUE 欄位，且必須包含指定 Log 的格式
       if (!v.VALUE || !re.test(v.VALUE)) continue;
 
@@ -109,7 +109,7 @@ function extractVarsFromLogExpr(logName: string, blocks: RuleData[]): string[] {
 
 /** 找出 COLUMN1 = varName 的所有 Block */
 function findVarDefBlocks(varName: string, rules: RuleData[]): RuleData[] {
-  return rules.filter((r) => r.VALUES.some((v) => v.COLUMN1 === varName));
+  return rules.filter((r) => (r.VALUES ?? []).some((v) => v.COLUMN1 === varName));
 }
 
 // ─── Block Type 樣式 ──────────────────────────────────────────
@@ -236,7 +236,7 @@ function BlockCard({
     ? new RegExp(`\\[?\\$${escapeRegex(activeLogName)}\\$\\]?`)
     : null;
 
-  function isRowRelevant(v: (typeof block.VALUES)[0]): boolean {
+  function isRowRelevant(v: BlockValue): boolean {
     if (mode === "log") return !!(logRe && v.VALUE && logRe.test(v.VALUE));
     if (mode === "var") return v.COLUMN1 === activeVar;
     return false;
@@ -264,9 +264,9 @@ function BlockCard({
         </span>
       </button>
 
-      {!collapsed && block.VALUES.length > 0 && (
+      {!collapsed && (block.VALUES?.length ?? 0) > 0 && (
         <div className="flex flex-col divide-y divide-white/4">
-          {block.VALUES.map((v, i) => {
+          {(block.VALUES ?? []).map((v, i) => {
             const relevant = isRowRelevant(v);
             return (
               <div
@@ -413,7 +413,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) 
     const LOG_RE = /\[?\$([A-Z][A-Z0-9_]+)\$\]?/g;
     const names  = new Set<string>();
     for (const r of rules) {
-      for (const v of r.VALUES) {
+      for (const v of r.VALUES ?? []) {
         if (!v.VALUE) continue;
         let m: RegExpExecArray | null;
         LOG_RE.lastIndex = 0;

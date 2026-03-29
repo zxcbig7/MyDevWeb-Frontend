@@ -9,21 +9,21 @@ import { blockCenter } from "./blockUtils";
 // ── 建構箭頭陣列 ─────────────────────────────────────────────
 export function buildArrows(data: RuleData[]): Arrow[] {
   return data.flatMap((r) => {
-    if (!r.PRE_BLOCK || r.PRE_BLOCK.length === 0) return [];
+    if (!r.PREBLOCK || r.PREBLOCK.length === 0) return [];
 
     const arrows: Arrow[] = [];
 
     // 主線：第一個前置 Block
     arrows.push({
-      from: r.PRE_BLOCK[0],
+      from: r.PREBLOCK[0],
       to: r.BLOCK_NAME,
       isPrimary: true,
     });
 
     // 副線：第二個前置 Block（可選，例如 DECISION 節點的 false 線）
-    if (r.PRE_BLOCK.length >= 2) {
+    if (r.PREBLOCK.length >= 2) {
       arrows.push({
-        from: r.PRE_BLOCK[1],
+        from: r.PREBLOCK[1],
         to: r.BLOCK_NAME,
         isPrimary: false,
       });

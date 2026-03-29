@@ -1,79 +1,72 @@
 // ============================================================
 // api.ts
-// DEV  → 回傳 Mock 資料（不打 API）
+// DEV  → Mock + 真實 API 合併（API 失敗時 fallback mock）
 // STAGE / PROD → 打真實 API
 // ============================================================
 
 import axios from "axios";
-import type { EqpRuleDTO, RuleDTO, RuleData } from "./types";
-import {
-  DEV_MOCK_RULE_NAME, DEV_MOCK_RULE_NAME_ICON,
-  DEV_MOCK_RULES, MOCK_RULE_DATA, DEV_MOCK_RULE_ICON,
-  MOCK_EQP_RULES,
-} from "./devMock";
-import { convertDtosToData } from "./dataTransform";
+import useSWR from "swr";
+import type * as RTDDTO from "./types";
 
-// ── 環境判斷 ────────────────────────────────────────────────
-
-// 透過 Vite 的環境變數來判斷目前運行環境（DEV / STAGE / PROD）
-// 檔案: .env.development, .env.staging, .env.production 中定義 VITE_APP_ENV=DEV|STAGE|PROD
-const APP_ENV = import.meta.env.VITE_APP_ENV as "DEV" | "STAGE" | "PROD";
-const IS_DEV = APP_ENV === "DEV";
-
-// ── 真實 API Client ──────────────────────────────────────────
+// ── Axios Client ─────────────────────────────────────────────
+// 統一 baseURL / timeout / 通用 headers
+// withCredentials: true → 跨域請求時自動帶上 Cookie（SSO / session）
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE,
   timeout: 10000,
+  withCredentials: true,
   headers: {
-    FAB: "",
-    CID: "ruleviewer-frontend",
+    Cid: import.meta.env.VITE_CID,
     Account: "ruleviewer-frontend",
-    SSO_TOKEN: "",
   },
 });
 
-// ── Mock 實作 ────────────────────────────────────────────────
-
-const MOCK_RULE_LOOKUP: Record<string, RuleData[]> = {
-  [DEV_MOCK_RULE_NAME]:      DEV_MOCK_RULES,
-  [DEV_MOCK_RULE_NAME_ICON]: DEV_MOCK_RULE_ICON,
-  ...(MOCK_RULE_DATA as Record<string, RuleData[]>),
-};
-
-async function mockLoadEqpRules(): Promise<EqpRuleDTO[]> {
-  return MOCK_EQP_RULES;
-}
-
-async function mockLoadRuleData(_phase: string, ruleName: string): Promise<RuleData[]> {
-  return MOCK_RULE_LOOKUP[ruleName] ?? [];
-}
-
-// ── 真實 API 實作 ────────────────────────────────────────────
-
-async function apiLoadEqpRules(): Promise<EqpRuleDTO[]> {
-  const res = await client.get<EqpRuleDTO[]>("/api/RuleViewer/eqpRules");
+async function fetcher<T>(url: string): Promise<T> {
+  const res = await client.get<T>(url);
   return res.data;
 }
 
-async function apiLoadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
-  const res = await client.get<RuleDTO[]>(
-    `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
+// ── API 回應信封 ──────────────────────────────────────────────
+// 標籤必須要跟後端一樣(會看大小寫)
+interface APIResponse<T> {
+  data: T[];
+  success: boolean;
+  message: string;
+  code: number;
+}
+
+// ── 通用 SWR Hook ─────────────────────────────────────────────
+// 給定 DTO 型別 T，自動拆信封回傳 T[]；
+// url 為 null 時不打 API: 處理input資料有漏問題
+
+function useAPI<T>(url: string | null) {
+  const { data, error, isLoading, isValidating, mutate } =
+    useSWR<APIResponse<T>, Error>(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
+
+    console.info(data);
+  return { data: data?.data ?? null, error: error ?? null, isLoading, isValidating, mutate };
+}
+
+/** 取得所有 Phase 清單 */
+export const usePhaseResponse = () =>
+  useAPI<RTDDTO.PhaseDTO>("/api/RuleViewer/phases");
+
+/** 取得指定 Phase 的 EQP-Rule 對照表；phase 為 null 時不打 API */
+export const useEQPRuleResponse = (phase: string | null) =>
+  useAPI<RTDDTO.EqpRuleListDTO>(
+    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
   );
-  return convertDtosToData(res.data);
-}
 
-// ── 統一對外介面 ─────────────────────────────────────────────
-// DEV：回傳 Mock 資料
-// STAGE / PROD：打真實 API，失敗時往上拋，由 UI 層決定如何處理
+/** 取得指定 Phase 的 Rule 清單；phase 為 null 時不打 API */
+export const useRuleResponse = (phase: string | null) =>
+  useAPI<RTDDTO.RuleListDTO>(
+    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
+  );
 
-export async function loadEqpRules(): Promise<EqpRuleDTO[]> {
-  if (IS_DEV) return mockLoadEqpRules();
-  const data = await apiLoadEqpRules();
-  return Array.isArray(data) ? data : [];
-}
-
-export async function loadRuleData(phase: string, ruleName: string): Promise<RuleData[]> {
-  if (IS_DEV) return mockLoadRuleData(phase, ruleName);
-  const data = await apiLoadRuleData(phase, ruleName);
-  return Array.isArray(data) ? data : [];
-}
+/** 取得指定 Phase + Rule 的詳細資料；phase / ruleName 任一為 null 時不打 API */
+export const useRuleInfoResponse = (phase: string | null, ruleName: string | null) =>
+  useAPI<RTDDTO.RuleInfoDTO>(
+    phase && ruleName
+      ? `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
+      : null
+  );
