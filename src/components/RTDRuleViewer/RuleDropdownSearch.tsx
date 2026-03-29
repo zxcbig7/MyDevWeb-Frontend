@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Select } from "antd";
+import { ApartmentOutlined, DesktopOutlined, FileTextOutlined } from "@ant-design/icons";
 import { cn } from "../../utils/clsx";
 import type { EqpRuleListDTO } from "./types";
 
@@ -207,106 +208,115 @@ export function RuleDropdownSearch({
     <div className="flex items-center gap-2">
 
       {/* ── Phase ── */}
-      <Select
-        placeholder="Phase"
-        options={phaseOptions}
-        value={selectedPhase ?? undefined}
-        onChange={(v) => onPhaseChange(v ?? null)}
-        allowClear
-        style={{ width: 130 }}
-        popupMatchSelectWidth={false}
-        styles={{ popup: { root: { zIndex: 2000 } } }}
-      />
+      <div className="flex items-center gap-1.5">
+        <ApartmentOutlined style={{ color: "white", fontSize: 14 }} />
+        <Select
+          placeholder="Phase"
+          options={phaseOptions}
+          value={selectedPhase ?? undefined}
+          onChange={(v) => onPhaseChange(v ?? null)}
+          allowClear
+          style={{ width: 130 }}
+          popupMatchSelectWidth={false}
+          styles={{ popup: { root: { zIndex: 2000 } } }}
+        />
+      </div>
 
       {selectedPhase && (<>
 
         {/* ── EQP ID 輸入框 ── */}
-        <div ref={eqpWrapperRef} className="relative w-44">
-          <input
-            ref={eqpInputRef}
-            disabled={ruleDirectActive}
-            className={cn(
-              "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
-              ruleDirectActive
-                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed placeholder:text-gray-300"
-                : selectedEqpId
-                ? "bg-blue-50 border-blue-300 text-blue-700 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
-                : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+        <div className="flex items-center gap-1.5">
+          <DesktopOutlined style={{ color: "white", fontSize: 14 }} />
+          <div ref={eqpWrapperRef} className="relative w-44">
+            <input
+              ref={eqpInputRef}
+              disabled={ruleDirectActive}
+              className={cn(
+                "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
+                ruleDirectActive
+                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed placeholder:text-gray-300"
+                  : selectedEqpId
+                  ? "bg-blue-50 border-blue-300 text-blue-700 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+                  : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+              )}
+              placeholder="EQP ID（選填）"
+              value={eqpInput}
+              onFocus={() => { if (!selectedEqpId) setEqpOpen(true); }}
+              onChange={(e) => { setEqpInput(e.target.value); setSelectedEqpId(null); setEqpOpen(true); setPendingRule(null); setRuleInput(""); }}
+              onKeyDown={handleEqpKeyDown}
+            />
+            {eqpInput && !ruleDirectActive && (
+              <button
+                tabIndex={-1}
+                onMouseDown={(e) => { e.preventDefault(); clearEqp(); eqpInputRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer leading-none"
+              >×</button>
             )}
-            placeholder="EQP ID（選填）"
-            value={eqpInput}
-            onFocus={() => { if (!selectedEqpId) setEqpOpen(true); }}
-            onChange={(e) => { setEqpInput(e.target.value); setSelectedEqpId(null); setEqpOpen(true); setPendingRule(null); setRuleInput(""); }}
-            onKeyDown={handleEqpKeyDown}
-          />
-          {eqpInput && !ruleDirectActive && (
-            <button
-              tabIndex={-1}
-              onMouseDown={(e) => { e.preventDefault(); clearEqp(); eqpInputRef.current?.focus(); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer leading-none"
-            >×</button>
-          )}
-          {eqpOpen && !ruleDirectActive && (
-            <ul ref={eqpListRef} className="absolute top-full left-0 mt-1 w-full max-h-55 overflow-y-auto border border-gray-300 bg-white shadow-md list-none p-0 m-0 z-2000 rounded">
-              {filteredEqp.length === 0
-                ? <li className="px-3 py-2 text-gray-400 text-sm cursor-default">No matches</li>
-                : filteredEqp.map((m, i) => (
-                  <li key={m.EQP_ID} data-item
-                    className={cn("px-3 py-2 text-sm cursor-pointer",
-                      i === eqpHighlightIdx          ? "bg-blue-200 text-blue-500"
-                      : m.EQP_ID === selectedEqpId   ? "bg-blue-50 text-blue-500"
-                      : "hover:bg-gray-100"
-                    )}
-                    onMouseDown={(e) => { e.preventDefault(); confirmEqp(m.EQP_ID); }}
-                  >
-                    {m.EQP_ID}
-                  </li>
-                ))
-              }
-            </ul>
-          )}
+            {eqpOpen && !ruleDirectActive && (
+              <ul ref={eqpListRef} className="absolute top-full left-0 mt-1 w-full max-h-55 overflow-y-auto border border-gray-300 bg-white shadow-md list-none p-0 m-0 z-2000 rounded">
+                {filteredEqp.length === 0
+                  ? <li className="px-3 py-2 text-gray-400 text-sm cursor-default">No matches</li>
+                  : filteredEqp.map((m, i) => (
+                    <li key={m.EQP_ID} data-item
+                      className={cn("px-3 py-2 text-sm cursor-pointer",
+                        i === eqpHighlightIdx          ? "bg-blue-200 text-blue-500"
+                        : m.EQP_ID === selectedEqpId   ? "bg-blue-50 text-blue-500"
+                        : "hover:bg-gray-100"
+                      )}
+                      onMouseDown={(e) => { e.preventDefault(); confirmEqp(m.EQP_ID); }}
+                    >
+                      {m.EQP_ID}
+                    </li>
+                  ))
+                }
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* ── Rule Name 輸入框 ── */}
-        <div ref={ruleWrapperRef} className="relative w-56">
-          <input
-            ref={ruleInputRef}
-            className={cn(
-              "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
-              pendingRule
-                ? "bg-blue-50 border-blue-200 text-blue-700"
-                : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+        <div className="flex items-center gap-1.5">
+          <FileTextOutlined style={{ color: "white", fontSize: 14 }} />
+          <div ref={ruleWrapperRef} className="relative w-56">
+            <input
+              ref={ruleInputRef}
+              className={cn(
+                "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
+                pendingRule
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+              )}
+              placeholder={selectedEqpId ? "選取 Rule…" : "Rule Name"}
+              value={ruleInput}
+              onFocus={() => { if (!pendingRule) setRuleOpen(true); }}
+              onChange={(e) => { setRuleInput(e.target.value); setPendingRule(null); setRuleOpen(true); }}
+              onKeyDown={handleRuleKeyDown}
+            />
+            {ruleInput && (
+              <button
+                tabIndex={-1}
+                onMouseDown={(e) => { e.preventDefault(); clearRule(); ruleInputRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer leading-none"
+              >×</button>
             )}
-            placeholder={selectedEqpId ? "選取 Rule…" : "Rule Name"}
-            value={ruleInput}
-            onFocus={() => { if (!pendingRule) setRuleOpen(true); }}
-            onChange={(e) => { setRuleInput(e.target.value); setPendingRule(null); setRuleOpen(true); }}
-            onKeyDown={handleRuleKeyDown}
-          />
-          {ruleInput && (
-            <button
-              tabIndex={-1}
-              onMouseDown={(e) => { e.preventDefault(); clearRule(); ruleInputRef.current?.focus(); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer leading-none"
-            >×</button>
-          )}
-          {ruleOpen && (
-            <ul ref={ruleListRef} className="absolute top-full left-0 mt-1 w-full max-h-55 overflow-y-auto border border-gray-300 bg-white shadow-md list-none p-0 m-0 z-2000 rounded">
-              {filteredRules.length === 0
-                ? <li className="px-3 py-2 text-gray-400 text-sm cursor-default">No matches</li>
-                : filteredRules.map((opt, i) => (
-                  <li key={opt} data-item
-                    className={cn("px-3 py-2 text-sm cursor-pointer",
-                      i === ruleHighlightIdx ? "bg-blue-200 text-blue-500"
-                      : opt === pendingRule  ? "bg-blue-50 text-blue-500"
-                      : "hover:bg-gray-100"
-                    )}
-                    onMouseDown={(e) => { e.preventDefault(); confirmRule(opt); }}
-                  >{opt}</li>
-                ))
-              }
-            </ul>
-          )}
+            {ruleOpen && (
+              <ul ref={ruleListRef} className="absolute top-full left-0 mt-1 w-full max-h-55 overflow-y-auto border border-gray-300 bg-white shadow-md list-none p-0 m-0 z-2000 rounded">
+                {filteredRules.length === 0
+                  ? <li className="px-3 py-2 text-gray-400 text-sm cursor-default">No matches</li>
+                  : filteredRules.map((opt, i) => (
+                    <li key={opt} data-item
+                      className={cn("px-3 py-2 text-sm cursor-pointer",
+                        i === ruleHighlightIdx ? "bg-blue-200 text-blue-500"
+                        : opt === pendingRule  ? "bg-blue-50 text-blue-500"
+                        : "hover:bg-gray-100"
+                      )}
+                      onMouseDown={(e) => { e.preventDefault(); confirmRule(opt); }}
+                    >{opt}</li>
+                  ))
+                }
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* ── 載入按鈕 ── */}
