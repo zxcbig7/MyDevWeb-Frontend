@@ -464,6 +464,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
       function onMouseDown(e: MouseEvent) {
         if (inspectorDraggingRef.current) return;
+        if (blocks.length === 0) return;
 
         const rect = canvas!.getBoundingClientRect();
         const mx = e.clientX - rect.left;

@@ -14,15 +14,15 @@ export function buildBlocks(data: RuleData[]): Block[] {
   if (data.length === 0) return [];
 
   // 計算所有 block 的最小 x, y，然後整體平移讓最左上角對齊 LAYOUT_PADDING
-  const minX = Math.min(...data.map((r) => r.POSX));
-  const minY = Math.min(...data.map((r) => r.POSY));
+  const minX = Math.min(...data.map((r) => r.POSX ?? 0));
+  const minY = Math.min(...data.map((r) => r.POSY ?? 0));
   const dx = LAYOUT_PADDING - minX;
   const dy = LAYOUT_PADDING - minY;
 
   return data.map((r) => ({
     id: r.BLOCK_NAME,
-    x: r.POSX + dx,
-    y: r.POSY + dy,
+    x: (r.POSX ?? 0) + dx,
+    y: (r.POSY ?? 0) + dy,
     w: BLOCK_SIZE,
     h: BLOCK_SIZE,
     type: r.BLOCK_TYPE as Block["type"],
