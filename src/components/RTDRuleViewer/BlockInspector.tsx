@@ -14,7 +14,7 @@
 
 import React, { useEffect, useRef } from "react";
 import type { Block, BlockType, BlockValue, RuleData } from "./types";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 
 // ─────────────────────────────────────────────────────────────
 // Shell Props

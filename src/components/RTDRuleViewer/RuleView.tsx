@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 
 import type { Block, RuleData, RuleViewHandle } from "./types";
 import { buildBlocks, drawBlocks, hitTestBlock } from "./blockUtils";

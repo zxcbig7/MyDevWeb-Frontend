@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Select } from "antd";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 import type { EqpRuleListDTO } from "./types";
 
 type Props = {

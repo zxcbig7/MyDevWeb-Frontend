@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Divider, notification } from "antd";
 import type { RuleViewHandle } from "./types";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 import * as RTDAPI from "./api";
 import { convertDtosToData } from "./dataTransform";
 import { RuleView } from "./RuleView";
@@ -34,8 +34,6 @@ export default function RuleViewer() {
   const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
   const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
 
-
-  console.info("phase:", phases);
 
   // ── SWR 錯誤通知 ─────────────────────────────────────────
   useEffect(() => {
@@ -162,7 +160,11 @@ export default function RuleViewer() {
           phases={phases}
           eqpRules={eqpRules ?? []}
           selectedPhase={selectedPhase}
-          onPhaseChange={setSelectedPhase}
+          onPhaseChange={(phase) => {
+            setSelectedPhase(phase);
+            setSelectedRule(null);
+            setLoadedPhase(null); 
+          }}
           onRuleSelect={(ruleName) => {
             if (ruleName !== selectedRule) {
               setSelectedRule(ruleName);

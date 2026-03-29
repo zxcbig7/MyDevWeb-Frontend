@@ -55,7 +55,7 @@ export type RuleData = {
   POSY: number | null;
   /** 前置 Block 名稱，長度 0-2。[0] = 主線來源，[1] = 副線來源（選用） */
   PREBLOCK: string[] | null;
-  VALUES: BlockValue[] | null;
+  VALUES: BlockValue[];
 };
 
 // ── 合併後單一條件的 Value ──────────────────────────────────

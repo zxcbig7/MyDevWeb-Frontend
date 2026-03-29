@@ -21,13 +21,27 @@ const client = axios.create({
   },
 });
 
+//
 async function fetcher<T>(url: string): Promise<T> {
   const res = await client.get<T>(url);
   return res.data;
 }
 
 // ── API 回應信封 ──────────────────────────────────────────────
-// 標籤必須要跟後端一樣(會看大小寫)
+// 所有 API 回傳格式必須符合此信封結構，欄位名稱大小寫需與後端一致
+//
+// 後端回應範例：
+// {
+//   "success": true,
+//   "code": 200,
+//   "message": "OK",
+//   "data": [ ...各 endpoint 的資料陣列... ]
+// }
+//
+// ┌─ success ─ boolean  操作是否成功（false 時前端顯示 error toast）
+// ├─ code    ─ number   HTTP 狀態碼（200 / 400 / 500 等）
+// ├─ message ─ string   錯誤時的說明文字（success=true 時可為 "OK" 或 ""）
+// └─ data    ─ T[]      實際資料陣列，無資料時回傳 [] 而非 null
 interface APIResponse<T> {
   data: T[];
   success: boolean;
@@ -42,31 +56,92 @@ interface APIResponse<T> {
 function useAPI<T>(url: string | null) {
   const { data, error, isLoading, isValidating, mutate } =
     useSWR<APIResponse<T>, Error>(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
-
-    console.info(data);
   return { data: data?.data ?? null, error: error ?? null, isLoading, isValidating, mutate };
 }
 
-/** 取得所有 Phase 清單 */
+/**
+ * 取得所有 Phase 清單
+ *
+ * GET /api/RuleViewer/phases
+ *
+ * data: [
+ *   { "PHASE": "APF" },
+ * ]
+ */
 export const usePhaseResponse = () =>
   useAPI<RTDDTO.PhaseDTO>("/api/RuleViewer/phases");
 
-/** 取得指定 Phase 的 EQP-Rule 對照表；phase 為 null 時不打 API */
+/**
+ * 取得指定 Phase 的 EQP-Rule 對照表；phase 為 null 時不打 API
+ *
+ * GET /api/RuleViewer/{phase}/eqprules
+ *
+ * data: [
+ *   { "PHASE": "APF", "EQP_ID": "APF01", "RULE_NAME": "RULE_A" },
+ *   ...
+ * ]
+ * 同一台 EQP 可對應多條 Rule，同一條 Rule 也可被多台 EQP 使用
+ */
 export const useEQPRuleResponse = (phase: string | null) =>
   useAPI<RTDDTO.EqpRuleListDTO>(
     phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
   );
 
-/** 取得指定 Phase 的 Rule 清單；phase 為 null 時不打 API */
+/**
+ * 取得指定 Phase 的 Rule 清單；phase 為 null 時不打 API
+ *
+ * GET /api/RuleViewer/{phase}/rules
+ *
+ * data: [
+ *   { "RULE_NAME": "RULE_A" },
+ *   ...
+ * ]
+ */
 export const useRuleResponse = (phase: string | null) =>
   useAPI<RTDDTO.RuleListDTO>(
-    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
+    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/rules` : null
   );
 
-/** 取得指定 Phase + Rule 的詳細資料；phase / ruleName 任一為 null 時不打 API */
+/**
+ * 取得指定 Phase + Rule 的詳細資料（所有 Block 展開成多列）；phase / ruleName 任一為 null 時不打 API
+ *
+ * GET /api/RuleViewer/{phase}/{ruleName}
+ *
+ * 一個 Block 的多筆條件會展開成多列（同 BLOCK_NAME，不同 VALUE1~5）：
+ * data: [
+ *   {
+ *     "PHASE":       "APF",
+ *     "RULE_NAME":   "RULE_A",
+ *     "BLOCK_NAME":  "Filter1",       // 同一個 Block 若有多個條件，同名出現多列
+ *     "BLOCK_TYPE":  "Filter",        // 對應 /public/RTDIcons 的圖片名稱
+ *     "BLOCK_GROUP": "G1",
+ *     "BLOCK_SEQ":   "1",
+ *     "KEY":         "SomeKey",       // 可為 null
+ *     "POSX":        100,             // Canvas 畫布 X 座標（px）
+ *     "POSY":        200,             // Canvas 畫布 Y 座標（px）
+ *     "PREBLOCK":    "DataSource1",   // 前置 Block 名稱，多個用逗號分隔（最多取前 2 個）；可為 null
+ *     "COLUMN1":     "OUTPUT_VAR",    // 輸出變數名稱；可為 null
+ *     "COLUMN2":     "SOURCE_COL",    // 來源欄位；可為 null
+ *     "VALUE1":      "IF $LOG$ THEN", // 條件表達式片段；可為 null
+ *     "VALUE2":      null,            // VALUE1~5 會合併串接成單一字串
+ *     "VALUE3":      null,
+ *     "VALUE4":      null,
+ *     "VALUE5":      null
+ *   },
+ *   ...
+ * ]
+ */
 export const useRuleInfoResponse = (phase: string | null, ruleName: string | null) =>
   useAPI<RTDDTO.RuleInfoDTO>(
     phase && ruleName
       ? `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
       : null
   );
+
+
+/* */
+export const useResourceDataResponse = (imfileName: string) =>
+  useAPI<RTDDTO.RuleInfoDTO>(
+  imfileName ? `/api/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
+    : null
+);

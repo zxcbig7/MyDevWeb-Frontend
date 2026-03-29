@@ -15,7 +15,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import type { BlockType, BlockValue, RuleData } from "./types";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 import { MOCK_VAR_SOURCES } from "./devMock";
 import type { VariableSource } from "./devMock";
 
@@ -492,6 +492,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) 
       setDbSource(null);
     } else {
       setSelectedDbVar(varName);
+      // TODO: 這裡要打新的API吃資料設定
       setDbSource(MOCK_VAR_SOURCES[varName] ?? null);
     }
   }

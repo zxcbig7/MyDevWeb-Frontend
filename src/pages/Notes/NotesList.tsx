@@ -5,7 +5,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ALL_NOTES } from "./noteUtils";
-import { cn } from "../../utls/clsx";
+import { cn } from "../../utils/clsx";
 
 export default function NotesList() {
   const navigate = useNavigate();

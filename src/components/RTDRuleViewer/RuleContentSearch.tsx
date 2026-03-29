@@ -25,7 +25,7 @@ type RuleContentSearchProps = {
 function matchRule(rule: RuleData, kw: string): boolean {
   if (rule.BLOCK_NAME.toLowerCase().includes(kw)) return true;
   if (rule.KEY && rule.KEY.toLowerCase().includes(kw)) return true;
-  return rule.VALUES.some(
+  return (rule.VALUES ?? []).some(
     (v) =>
       (v.COLUMN1 && v.COLUMN1.toLowerCase().includes(kw)) ||
       (v.COLUMN2 && v.COLUMN2.toLowerCase().includes(kw)) ||
@@ -38,15 +38,15 @@ function getSnippet(rule: RuleData, keyword: string): string {
   const kw = keyword.toLowerCase();
 
   // 先找 VALUE 命中（最有資訊量）
-  for (const v of rule.VALUES) {
+  for (const v of rule.VALUES ?? []) {
     const val = v.VALUE;
     if (val && val.toLowerCase().includes(kw)) {
       const flat = val.replace(/\n/g, " "); // 換行轉空白，保持單行顯示
-      const idx  = flat.toLowerCase().indexOf(kw);
+      const idx = flat.toLowerCase().indexOf(kw);
       // 擷取關鍵字前後各 18 個字元作為摘要視窗
       // Math.max/min 確保不超出字串邊界
-      const s    = Math.max(0, idx - 18);
-      const e    = Math.min(flat.length, idx + kw.length + 18);
+      const s = Math.max(0, idx - 18);
+      const e = Math.min(flat.length, idx + kw.length + 18);
       // 若被截斷（s > 0 或 e < length）則加上「…」提示使用者
       return (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
     }
@@ -59,8 +59,8 @@ function getSnippet(rule: RuleData, keyword: string): string {
 
 /** 拓撲排序（Kahn BFS），同層以 BLOCK_SEQ 次排序 */
 function topoSort(rules: RuleData[]): string[] {
-  const nameSet  = new Set(rules.map((r) => r.BLOCK_NAME));
-  const seqOf    = new Map(rules.map((r) => [r.BLOCK_NAME, Number(r.BLOCK_SEQ)]));
+  const nameSet = new Set(rules.map((r) => r.BLOCK_NAME));
+  const seqOf = new Map(rules.map((r) => [r.BLOCK_NAME, Number(r.BLOCK_SEQ)]));
   const children = new Map<string, string[]>();
   const inDegree = new Map<string, number>();
 
@@ -126,7 +126,7 @@ export function RuleContentSearch({ rules, onMatchChange }: RuleContentSearchPro
     const matchedSet = new Set(
       rules.filter((r) => matchRule(r, kw.toLowerCase())).map((r) => r.BLOCK_NAME)
     );
-    const sorted  = topoSort(rules).filter((name) => matchedSet.has(name));
+    const sorted = topoSort(rules).filter((name) => matchedSet.has(name));
     const ruleMap = new Map(rules.map((r) => [r.BLOCK_NAME, r]));
 
     const results: MatchResult[] = sorted.map((id) => ({
@@ -178,6 +178,7 @@ export function SearchNavigator({ total, index, onPrev, onNext }: SearchNavigato
       >
         ‹
       </button>
+      
       <span className="text-xs text-slate-300 px-1 whitespace-nowrap tabular-nums">
         {index + 1} / {total}
       </span>
