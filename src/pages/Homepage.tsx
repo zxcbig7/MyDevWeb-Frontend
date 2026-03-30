@@ -89,13 +89,13 @@ const PROFILE = {
       name: "[開發中]數學最佳化求解器抽象層框架開發",
       description: "在 .NET 環境中開發了一個統一封裝 CPLEX 的數學最佳化框架，提供一致的開發介面以消除不同求解器間的語法差異。開發者只需透過框架的標準 API 提供模型參數即可快速建構數學模型，並在不修改業務邏輯的情況下自由切換底層求解器。此框架採模組化設計，可跨專案重複引用，顯著降低團隊溝通成本與新成員的學習曲線。",
       tags: ["C#", "CPELX"],
-      link: "https://github.com/zxcbig7/OptimFoundation",
+      link: SHOW_PRIVATE ? "https://github.com/zxcbig7/OptimFoundation" : "",
     },
     {
       name: "[開發中]最佳化求解器開發",
       description: "碩士期間與實驗室成員一同開發，將課程所學與論文研究中接觸到的數學最佳化演算法付諸實作，目標自行開發一套類似 CPLEX 與 Gurobi 的數學最佳化求解器(雖然求解效率上不可能贏，但至少能求解:D)。求解器基於 .NET 環境建構，目標是提供模組化、可擴充的求解核心，作為後續演算法開發研究的底層基礎。",
       tags: ["C#", "Linear Program"],
-      link: "https://github.com/zxcbig7/Linear-Program-Solver",
+      link: SHOW_PRIVATE ? "https://github.com/zxcbig7/Linear-Program-Solver" : "",
       image: "",
     },
 
@@ -266,7 +266,7 @@ export default function Homepage() {
                   <IconMail /><span className="hidden sm:inline">{contact.email}</span><span className="sm:hidden">Email</span>
                 </a>
               )}
-              {contact.github && (
+              {SHOW_PRIVATE && contact.github && (
                 <a href={contact.github} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200">
                   <IconGithub />GitHub
