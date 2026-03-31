@@ -417,21 +417,19 @@ const BODY_REGISTRY: Partial<Record<string, BodyComponent>> = {
 
 // 依 category 決定預設模板（當 BODY_REGISTRY 沒有對應 type 時使用）
 const CATEGORY_DEFAULT_BODY: Record<BlockCategory, BodyComponent> = {
-  input:    ProcessBody,
-  tableop:  FunctionBody,
+  input: ProcessBody,
+  tableop: FunctionBody,
   function: FunctionBody,
-  output:   ProcessBody,
-  general:  ProcessBody,
+  output: ProcessBody,
+  general: ProcessBody,
 };
 
 // 根據 block.type 決定 InspectorBody 的內容呈現，與拖曳/縮放無關
 function InspectorBody({ block, r }: { block: Block; r: RuleData }) {
-  const Body =
-    BODY_REGISTRY[block.type] ??
-    CATEGORY_DEFAULT_BODY[getCategory(block.type)];
+  // 預設去找自己的模板，如果沒有就找通用模板
+  const Body = BODY_REGISTRY[block.type] ?? CATEGORY_DEFAULT_BODY[getCategory(block.type)];
   return <Body r={r} />;
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // BodyBase — Metadata + Pre-Blocks + Values（共用骨架）
