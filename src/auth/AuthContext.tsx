@@ -33,6 +33,10 @@ const IS_DEV       = import.meta.env.VITE_APP_ENV === "DEV";
 // 沒設或任何其他值都視為停用，方便本機開發時不用特別設定
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH !== "false";
 
+// Google OAuth 登入端點
+// 後端會處理 redirect_uri 與 token 交換，前端只需跳轉
+const GOOGLE_AUTH_URL = `${AUTH_BASE}/api/auth/google`;
+
 // AuthProvider：將 Auth 狀態注入整棵元件樹
 // 用 <AuthContext.Provider value={...}> 包住 children，
 // 讓所有子元件都能透過 useAuth() 拿到 user / loading / login / logout
@@ -57,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  function login()  { window.location.href = `${AUTH_BASE}/auth/login`;  }
+  function login()  { window.location.href = GOOGLE_AUTH_URL; }
   function logout() { window.location.href = `${AUTH_BASE}/auth/logout`; }
 
   return (

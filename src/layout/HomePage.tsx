@@ -14,6 +14,13 @@ import {
   MenuOutlined,
   BookOutlined,
   LockOutlined,
+  AppstoreOutlined,
+  SearchOutlined,
+  EyeOutlined,
+  TableOutlined,
+  AimOutlined,
+  TagsOutlined,
+  BranchesOutlined,
 } from "@ant-design/icons";
 
 import type { MenuProps } from "antd";
@@ -60,6 +67,22 @@ const items: MenuItem[] = [
     children: [
       getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
       getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
+    ],
+  } as MenuItem,
+
+  {
+    key: "Dev",
+    icon: <BranchesOutlined />,
+    label: privateLabel("Dev"),
+    disabled: !SHOW_PRIVATE,
+    children: [
+      getItem("RuleView Canvas", "/dev/rule-view", <EyeOutlined />),
+      getItem("DropdownSearch", "/dev/dropdown-search", <SearchOutlined />),
+      getItem("ContentSearch", "/dev/content-search", <AimOutlined />),
+      getItem("BlockInspector", "/dev/block-inspector", <AppstoreOutlined />),
+      getItem("BlockTooltip", "/dev/block-tooltip", <TagsOutlined />),
+      getItem("CaseQuery (Tracker)", "/dev/case-query", <BranchesOutlined />),
+      getItem("TableInspector", "/dev/table-inspector", <TableOutlined />),
     ],
   } as MenuItem,
 
@@ -227,8 +250,8 @@ const HomePage = () => {
         {isMobile && (() => {
           const tabs = [
             { key: "/homepage", label: "首頁", icon: <PieChartOutlined /> },
-            { key: "/notes",    label: "筆記", icon: <BookOutlined /> },
-            { key: "__more__",  label: "更多", icon: <MenuOutlined /> },
+            { key: "/notes", label: "筆記", icon: <BookOutlined /> },
+            { key: "__more__", label: "更多", icon: <MenuOutlined /> },
           ];
           const active = location.pathname;
           return (

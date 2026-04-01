@@ -33,16 +33,20 @@ function sortBlocks(rules: RuleData[]): RuleData[] {
   const nameToRule = new Map(rules.map((r) => [r.BLOCK_NAME, r]));
   const sorted: RuleData[] = [];
   const visited = new Set<string>();
-  const visiting = new Set<string>(); // 偵測循環依賴
+  const visiting = new Set<string>(); // 偵測循環
 
   function visit(rule: RuleData) {
     if (visited.has(rule.BLOCK_NAME)) return;
-    if (visiting.has(rule.BLOCK_NAME)) return; // 有循環，跳過
+    if (visiting.has(rule.BLOCK_NAME)) return; // 循環，跳過
+    
     visiting.add(rule.BLOCK_NAME);
+
+    // 找 Parent
     for (const pre of rule.PREBLOCK ?? []) {
       const parent = nameToRule.get(pre);
       if (parent) visit(parent);
     }
+    
     visiting.delete(rule.BLOCK_NAME);
     visited.add(rule.BLOCK_NAME);
     sorted.push(rule);
@@ -492,7 +496,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) 
       setDbSource(null);
     } else {
       setSelectedDbVar(varName);
-      // TODO: 這裡要打新的API吃資料設定
+      // TODO: 這裡要打新的API吃
       setDbSource(MOCK_VAR_SOURCES[varName] ?? null);
     }
   }
