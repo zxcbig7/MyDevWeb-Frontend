@@ -9,6 +9,8 @@ import axios from "axios";
 
 export type AuthUser = { id: string; name: string; email: string };
 
+export const TOKEN_KEY = "ruleviewer_token";
+
 const MOCK_USER: AuthUser = { id: "dev", name: "開發者", email: "dev@local" };
 
 type AuthState = {
@@ -54,10 +56,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     axios
-      .get<AuthUser>(`${API_BASE}/auth/me`, { withCredentials: true })
+      .get<AuthUser>(`${AUTH_BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
       .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
+      .catch(() => {
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 

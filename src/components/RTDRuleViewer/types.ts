@@ -5,16 +5,18 @@
 
 // ── API 回傳的原始資料結構 ──────────────────────────────────
 
-// 單一資料源：包含 Phase / EQP / Rule 的完整對照
+// 單一資料源：Phase
 export interface PhaseDTO {
   PHASE: string;
 };
 
+
+// 單一資料源： Rule
 export interface RuleListDTO {
   RULE_NAME: string;
 };
 
-
+// 單一資料源：包含 Phase / EQP / Rule 的完整對照
 export interface EqpRuleListDTO {
   PHASE: string;
   EQP_ID: string;

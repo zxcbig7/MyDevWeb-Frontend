@@ -12,7 +12,7 @@ const MOCK_TABLES: Record<string, TableRow[]> = {
     STATUS: ["RUN", "WAIT", "HOLD"][i % 3],
     CREATE_TIME: `2025-0${(i % 9) + 1}-${String((i % 28) + 1).padStart(2, "0")}`,
   })),
-  "EQP_STATUS": Array.from({ length, length: 15 }, (_, i) => ({
+  "EQP_STATUS": Array.from({ length: 15 }, (_, i) => ({
     EQUIP_CODE: `EQP-${String(i + 1).padStart(3, "0")}`,
     STATUS: ["RUN", "IDLE", "DOWN", "PM"][i % 4],
     RECORD_TIME: `2025-03-${String((i % 28) + 1).padStart(2, "0")} 08:00:00`,

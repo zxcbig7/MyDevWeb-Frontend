@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 
 import AuthPage from "./pages/AuthPage";
+import AuthCallback from "./pages/AuthCallback";
 import TailwindCheatsheet from "./pages/TailwindCheatsheet";
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
 import ErrorPage from "./pages/defaultErrorPage";
@@ -24,44 +25,33 @@ function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* 獨立頁面：不含 sidebar 佈局 */}
+        {/* 獨立頁面：不含 sidebar 佈局，不需登入 */}
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* 受保護的主佈局 */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        >
+        {/* 主佈局（含 sidebar）*/}
+        <Route path="/" element={<HomePage />}>
           {/* 預設進來導到 homepage */}
           <Route index element={<Navigate to="homepage" replace />} />
 
-          {/* Homepage */}
+          {/* 公開頁面：不需登入 */}
           <Route path="homepage" element={<Homepage />} />
-
-          {/* Notes */}
           <Route path="notes" element={<NotesList />} />
           <Route path="notes/:slug" element={<NoteArticle />} />
 
-          {/* Rule Viewer */}
-          <Route path="ruleviewer" element={<RuleViewer />} />
+          {/* 私人頁面：需要登入 */}
+          <Route path="ruleviewer" element={<ProtectedRoute><RuleViewer /></ProtectedRoute>} />
 
-          {/* Dev — RTDRuleViewer 元件拆解測試 */}
-          <Route path="dev/rule-view"       element={<DevRuleView />} />
-          <Route path="dev/dropdown-search" element={<DevRuleDropdownSearch />} />
-          <Route path="dev/content-search"  element={<DevRuleContentSearch />} />
-          <Route path="dev/block-inspector" element={<DevBlockInspector />} />
-          <Route path="dev/block-tooltip"   element={<DevBlockTooltip />} />
-          <Route path="dev/case-query"      element={<DevCaseQuery />} />
-          <Route path="dev/table-inspector" element={<DevTableInspector />} />
+          <Route path="dev/rule-view"       element={<ProtectedRoute><DevRuleView /></ProtectedRoute>} />
+          <Route path="dev/dropdown-search" element={<ProtectedRoute><DevRuleDropdownSearch /></ProtectedRoute>} />
+          <Route path="dev/content-search"  element={<ProtectedRoute><DevRuleContentSearch /></ProtectedRoute>} />
+          <Route path="dev/block-inspector" element={<ProtectedRoute><DevBlockInspector /></ProtectedRoute>} />
+          <Route path="dev/block-tooltip"   element={<ProtectedRoute><DevBlockTooltip /></ProtectedRoute>} />
+          <Route path="dev/case-query"      element={<ProtectedRoute><DevCaseQuery /></ProtectedRoute>} />
+          <Route path="dev/table-inspector" element={<ProtectedRoute><DevTableInspector /></ProtectedRoute>} />
 
-          {/* 以下只有 DEV 環境才掛載路由 */}
-          {<Route path="sudoku" element={<SudokuSolver />} />}
-          
-          {<Route path="tailwind" element={<TailwindCheatsheet />} />}
+          <Route path="sudoku"   element={<ProtectedRoute><SudokuSolver /></ProtectedRoute>} />
+          <Route path="tailwind" element={<ProtectedRoute><TailwindCheatsheet /></ProtectedRoute>} />
 
           {/* Error Pages */}
           <Route path="*" element={<ErrorPage statusCode={404} />} />
