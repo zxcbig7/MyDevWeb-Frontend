@@ -36,6 +36,9 @@ jobs:
           VITE_SHOW_PRIVATE: ${{ vars.VITE_SHOW_PRIVATE }}
           VITE_DISABLE_AUTH: ${{ vars.VITE_DISABLE_AUTH }}
 
+      - name: Remove node_modules
+        run: rm -rf node_modules
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
