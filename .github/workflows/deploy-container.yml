@@ -1,0 +1,46 @@
+name: Build and Deploy Container
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.ACR_LOGIN_SERVER }}/ruleviewer-frontend:latest
+          build-args: |
+            VITE_APP_ENV=${{ vars.VITE_APP_ENV }}
+            VITE_API_BASE=${{ vars.VITE_API_BASE }}
+            VITE_AUTH_BASE=${{ vars.VITE_AUTH_BASE }}
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+            VITE_DISABLE_AUTH=${{ vars.VITE_DISABLE_AUTH }}
+            VITE_SHOW_PRIVATE=${{ vars.VITE_SHOW_PRIVATE }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          containerAppName: ${{ vars.CONTAINER_APP_NAME }}
+          resourceGroup: ${{ vars.RESOURCE_GROUP }}
+          imageToDeploy: ${{ vars.ACR_LOGIN_SERVER }}/ruleviewer-frontend:latest
+          registryUrl: ${{ vars.ACR_LOGIN_SERVER }}
+          registryUsername: ${{ secrets.ACR_USERNAME }}
+          registryPassword: ${{ secrets.ACR_PASSWORD }}
+          targetPort: 80
