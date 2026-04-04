@@ -35,9 +35,16 @@ const IS_DEV       = import.meta.env.VITE_APP_ENV === "DEV";
 // 沒設或任何其他值都視為停用，方便本機開發時不用特別設定
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH !== "false";
 
-// Google OAuth 登入端點
-// 後端會處理 redirect_uri 與 token 交換，前端只需跳轉
-const GOOGLE_AUTH_URL = `${AUTH_BASE}/api/auth/google`;
+// Google OAuth 登入端點（前端主導）
+// 前端直接跳 Google，callback 回 /auth/callback?code=xxx，再由前端送後端換 JWT
+const GOOGLE_CLIENT_ID    = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
+const GOOGLE_REDIRECT_URI = `${window.location.origin}/auth/callback`;
+const GOOGLE_AUTH_URL =
+  `https://accounts.google.com/o/oauth2/v2/auth` +
+  `?client_id=${GOOGLE_CLIENT_ID}` +
+  `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}` +
+  `&response_type=code` +
+  `&scope=openid%20email%20profile`;
 
 // AuthProvider：將 Auth 狀態注入整棵元件樹
 // 用 <AuthContext.Provider value={...}> 包住 children，

@@ -9,6 +9,7 @@ import { useAuth } from "./AuthContext";
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
+  // 還在驗證 token（打 /auth/me）→ 先顯示全螢幕載入，避免畫面閃爍
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0d1117]">
@@ -17,7 +18,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // 驗證失敗（token 不存在或過期）→ 導回登入頁
   if (!user) return <Navigate to="/login" replace />;
 
+  // 已登入 → 正常渲染子元件
   return <>{children}</>;
 }

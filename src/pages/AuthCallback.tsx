@@ -1,30 +1,48 @@
 // ============================================================
 // AuthCallback.tsx
-// Google OAuth 回調頁：從 query string 取 JWT → 存 localStorage → 跳首頁
-// 後端 redirect 格式：/auth/callback?token=<JWT>
+// Google OAuth 前端主導流程的回調頁
+// Google 跳回：/auth/callback?code=xxx
+// 前端把 code 送後端換 JWT → 存 localStorage → 跳首頁
 // ============================================================
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { TOKEN_KEY } from "../auth/AuthContext";
+
+const AUTH_BASE = import.meta.env.VITE_AUTH_BASE ?? "";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const called = useRef(false);
 
   useEffect(() => {
-    // 讀 token 
-  
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    // React StrictMode 會執行兩次，用 ref 防止重複打 API
+    if (called.current) return;
+    called.current = true;
 
-    // 存進 localStorage["ruleviewer_token"]，跳轉 /homepage
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      navigate("/homepage", { replace: true });
-    } else {
-      // token 不存在（不正常的跳轉）→ 回登入頁
+    const params = new URLSearchParams(window.location.search);
+    const code   = params.get("code");
+
+    if (!code) {
       navigate("/login", { replace: true });
+      return;
     }
+
+    const redirectUri = `${window.location.origin}/auth/callback`;
+
+    axios
+      .post<{ token: string }>(`${AUTH_BASE}/api/auth/google/exchange`, {
+        code,
+        redirectUri,
+      })
+      .then((res) => {
+        localStorage.setItem(TOKEN_KEY, res.data.token);
+        navigate("/homepage", { replace: true });
+      })
+      .catch(() => {
+        navigate("/login", { replace: true });
+      });
   }, []);
 
   return (

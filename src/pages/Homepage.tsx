@@ -353,27 +353,6 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* ── GitHub Stats ── */}
-        {SHOW_PRIVATE && <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
-          <SectionTitle>GitHub</SectionTitle>
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-            {/* 總覽卡片 */}
-            <img
-              src={`https://github-readme-stats.vercel.app/api?username=${PROFILE.githubUsername}&show_icons=true&hide_border=true&count_private=true&theme=default&bg_color=f8fafc&title_color=1e293b&text_color=475569&icon_color=3b82f6`}
-              alt="GitHub Stats"
-              className="rounded-xl border border-slate-200 w-full sm:flex-1 min-w-0"
-              style={{ objectFit: "contain" }}
-            />
-            {/* 語言比例卡片 */}
-            <img
-              src={`https://github-readme-stats.vercel.app/api/top-langs/?username=${PROFILE.githubUsername}&layout=compact&hide_border=true&theme=default&bg_color=f8fafc&title_color=1e293b&text_color=475569`}
-              alt="Top Languages"
-              className="rounded-xl border border-slate-200 w-full sm:w-56 shrink-0"
-              style={{ objectFit: "contain" }}
-            />
-          </div>
-        </section>}
-
         {/* ── Education ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
           <SectionTitle>Education</SectionTitle>
