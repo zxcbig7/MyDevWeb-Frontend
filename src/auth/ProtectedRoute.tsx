@@ -6,7 +6,9 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
+// ProtectedRoute：保護路由元件，根據驗證狀態決定渲染內容
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  // 從 useAuth 拿到 user 和 loading 狀態
   const { user, loading } = useAuth();
 
   // 還在驗證 token（打 /auth/me）→ 先顯示全螢幕載入，避免畫面閃爍

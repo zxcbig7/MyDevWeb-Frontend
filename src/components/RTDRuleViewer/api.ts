@@ -21,6 +21,7 @@ const client = axios.create({
   },
 });
 
+// Request Interceptor：每次請求前自動帶上 JWT（如果存在）
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) config.headers.Authorization = `Bearer ${token}`;

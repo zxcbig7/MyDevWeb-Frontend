@@ -7,8 +7,10 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
+// AuthLayout：登入頁的版面配置，讓 AuthPage 專注在功能邏輯
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
+    // 使用全螢幕背景，並將內容置中
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0d1117] px-4 py-12">
       <div className="w-full max-w-sm">
         {children}
@@ -17,6 +19,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// AuthPage：登入頁元件，提供登入按鈕並處理導向邏輯
 export default function AuthPage() {
   const navigate = useNavigate();
   const { user, login } = useAuth();
@@ -30,7 +33,7 @@ export default function AuthPage() {
     <AuthLayout>
       {/* Logo / Brand */}
       <div className="mb-8 flex flex-col items-center gap-2">
-        <img src="/icon-transparent.svg" alt="Logo" className="h-14 w-auto mb-1" />
+        <img src="/webicon.svg" alt="Logo" className="h-14 w-auto mb-1" />
         <h1 className="text-xl font-bold text-white tracking-tight">Vic Lai</h1>
         <p className="text-sm text-[#8b9ab8]">登入以繼續使用</p>
       </div>
@@ -54,6 +57,12 @@ export default function AuthPage() {
             <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
           </svg>
           使用 Google 帳號登入
+        </button>
+        <button
+          onClick={() => navigate("/homepage")} // DEV 環境直接跳轉首頁，無需登入
+          className="h-11 w-full rounded-lg text-sm text-[#8b9ab8] hover:text-white transition-colors cursor-pointer"
+        >
+          回首頁
         </button>
       </div>
     </AuthLayout>
