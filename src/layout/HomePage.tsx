@@ -40,11 +40,11 @@ function getItem(
 }
 
 // 特別有一個開關控制部屬版本是否要公開
-const SHOW_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
+const IS_PRIVATE = import.meta.env.VITE_SHOW_PRIVATE === "true";
 
 // 私有項目標籤：公開時正常顯示，非公開時加鎖頭圖示
 function privateLabel(label: string) {
-  if (SHOW_PRIVATE) return label;
+  if (IS_PRIVATE) return label;
   return (
     <span className="flex items-center justify-between gap-1 w-full opacity-50">
       {label}
@@ -63,7 +63,7 @@ const items: MenuItem[] = [
     key: "專案開發",
     icon: <DesktopOutlined />,
     label: privateLabel("專案開發"),
-    disabled: !SHOW_PRIVATE,
+    disabled: !IS_PRIVATE,
     children: [
       getItem("Rule Viewer", "/ruleviewer", <DesktopOutlined />),
       getItem("Sudoku Solver", "/sudoku", <ImCalculator />),
@@ -74,7 +74,7 @@ const items: MenuItem[] = [
     key: "Dev",
     icon: <BranchesOutlined />,
     label: privateLabel("Dev"),
-    disabled: !SHOW_PRIVATE,
+    disabled: !IS_PRIVATE,
     children: [
       getItem("RuleView Canvas", "/dev/rule-view", <EyeOutlined />),
       getItem("DropdownSearch", "/dev/dropdown-search", <SearchOutlined />),
@@ -90,7 +90,7 @@ const items: MenuItem[] = [
     key: "開發輔助工具",
     icon: <ImCalculator />,
     label: privateLabel("開發輔助工具"),
-    disabled: !SHOW_PRIVATE,
+    disabled: !IS_PRIVATE,
     children: [
       getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
     ],

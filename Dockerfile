@@ -9,14 +9,13 @@ ARG VITE_APP_ENV=PROD
 ARG VITE_API_BASE=""
 ARG VITE_AUTH_BASE=""
 ARG VITE_GOOGLE_CLIENT_ID=""
-ARG VITE_DISABLE_AUTH=false
 ARG VITE_SHOW_PRIVATE=true
 
+# 將 build-time 參數轉成環境變數，讓 npm run build 時能讀到
 ENV VITE_APP_ENV=$VITE_APP_ENV
 ENV VITE_API_BASE=$VITE_API_BASE
 ENV VITE_AUTH_BASE=$VITE_AUTH_BASE
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-ENV VITE_DISABLE_AUTH=$VITE_DISABLE_AUTH
 ENV VITE_SHOW_PRIVATE=$VITE_SHOW_PRIVATE
 
 # 先只複製 lock 檔，利用 Docker layer cache 加速重複 build
@@ -39,6 +38,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # 複製靜態資產
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# 開放 80 端口
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

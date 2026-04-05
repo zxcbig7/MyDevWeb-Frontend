@@ -31,10 +31,6 @@ const API_BASE     = import.meta.env.VITE_API_BASE     ?? "";
 const AUTH_BASE    = import.meta.env.VITE_AUTH_BASE    ?? API_BASE;
 const IS_DEV       = import.meta.env.VITE_APP_ENV === "DEV";
 
-// DISABLE_AUTH 的判斷邏輯（雙重否定）：
-// 沒設或任何其他值都視為停用，方便本機開發時不用特別設定
-const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH !== "false";
-
 // Google OAuth 登入端點（前端主導）
 // 前端直接跳 Google，callback 回 /auth/callback?code=xxx，再由前端送後端換 JWT
 const GOOGLE_CLIENT_ID    = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
@@ -56,13 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // 初始化 API call
   useEffect(() => {
-    if (IS_DEV || DISABLE_AUTH) {
+    if (IS_DEV) {
       setUser(MOCK_USER);
       setLoading(false);
       return;
     }
 
-    
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       setLoading(false);

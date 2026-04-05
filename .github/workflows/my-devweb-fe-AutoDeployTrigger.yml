@@ -47,7 +47,6 @@ jobs:
             VITE_API_BASE=${{ vars.VITE_API_BASE }}
             VITE_AUTH_BASE=${{ vars.VITE_AUTH_BASE }}
             VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
-            VITE_DISABLE_AUTH=${{ vars.VITE_DISABLE_AUTH }}
             VITE_SHOW_PRIVATE=${{ vars.VITE_SHOW_PRIVATE }}
 
 

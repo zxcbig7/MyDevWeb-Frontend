@@ -4,22 +4,30 @@
 
 ## 目錄
 
-1. [TypeScript 基礎型別](#1-typescript-基礎型別)
-2. [型別定義：type vs interface](#2-型別定義type-vs-interface)
-3. [泛型 Generic](#3-泛型-generic)
-4. [useState](#4-usestate)
-5. [useEffect](#5-useeffect)
-6. [useRef](#6-useref)
-7. [useMemo](#7-usememo)
-8. [useCallback](#8-usecallback)
-9. [useContext + createContext](#9-usecontext--createcontext)
-10. [forwardRef + useImperativeHandle](#10-forwardref--useimperativehandle)
-11. [自訂 Hook（Custom Hook）](#11-自訂-hookcustom-hook)
-12. [Props 型別定義](#12-props-型別定義)
-13. [事件處理型別](#13-事件處理型別)
-14. [條件渲染](#14-條件渲染)
-15. [環境變數（Vite）](#15-環境變數vite)
-16. [常用 TypeScript 技巧](#16-常用-typescript-技巧)
+- [React + TypeScript 開發語法指南](#react--typescript-開發語法指南)
+  - [目錄](#目錄)
+  - [1. TypeScript 基礎型別](#1-typescript-基礎型別)
+  - [2. 型別定義：type vs interface](#2-型別定義type-vs-interface)
+  - [3. 泛型 Generic](#3-泛型-generic)
+  - [4. useState](#4-usestate)
+  - [5. useEffect](#5-useeffect)
+  - [6. useRef](#6-useref)
+  - [7. useMemo](#7-usememo)
+  - [8. useCallback](#8-usecallback)
+  - [9. useContext + createContext](#9-usecontext--createcontext)
+  - [10. forwardRef + useImperativeHandle](#10-forwardref--useimperativehandle)
+  - [11. 自訂 Hook（Custom Hook）](#11-自訂-hookcustom-hook)
+  - [12. Props 型別定義](#12-props-型別定義)
+  - [13. 事件處理型別](#13-事件處理型別)
+  - [14. 條件渲染](#14-條件渲染)
+  - [15. 環境變數（Vite）](#15-環境變數vite)
+  - [16. 常用 TypeScript 技巧](#16-常用-typescript-技巧)
+    - [Optional Chaining `?.`](#optional-chaining-)
+    - [Non-null Assertion `!`](#non-null-assertion-)
+    - [Type Assertion `as`](#type-assertion-as)
+    - [`typeof` / `keyof` / `as const`](#typeof--keyof--as-const)
+    - [Partial / Required / Pick / Omit](#partial--required--pick--omit)
+    - [Type Guard（型別守衛）](#type-guard型別守衛)
 
 ---
 
@@ -528,7 +536,7 @@ import { cn } from "../utils/clsx";
 // VITE_API_BASE=http://localhost:8080
 
 // 讀取
-const env    = import.meta.env.VITE_APP_ENV;   // string | undefined
+const env    = import.meta.env.VITE_APP_ENV;        // string | undefined
 const apiUrl = import.meta.env.VITE_API_BASE ?? ""; // ?? 給預設值
 
 // ?? vs ||（Nullish Coalescing vs OR）
