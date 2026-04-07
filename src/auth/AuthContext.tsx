@@ -40,6 +40,7 @@ type AuthState = {
   loading: boolean;
   login: () => void;
   logout: () => void;
+  loginWithToken: (token: string) => Promise<void>;
 };
 
 // createContext：建立一個可跨 元件樹 傳遞的全域容器，不需要逐層透過 props 傳遞
@@ -69,11 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
 
     // 開發階段直接使用假資料，跳過驗證流程
+    /*
     if (IS_DEV) {
       setUser(MOCK_USER);
       setLoading(false);
       return;
     }
+    // */
 
     // 先從 localStorage 拿 token，沒有就直接結束（未登入狀態）
     const token = localStorage.getItem(TOKEN_KEY);
@@ -83,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 嘗試用 token 換使用者資料，驗證 token 是否有效
-    axios.get<AuthUser>(`${AUTH_BASE}/api/auth/me`, {
+    axios.get<AuthUser>(`${AUTH_BASE}/api/auth/google/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => setUser(res.data)) // 成功拿到使用者資料，更新狀態
@@ -102,12 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = GOOGLE_AUTH_URL;
   }
   function logout() {
-    console.info("開始登出流程，跳轉到後端登出端點", `${AUTH_BASE}/auth/logout`);
-    window.location.href = `${AUTH_BASE}/auth/logout`;
+    localStorage.removeItem(TOKEN_KEY);
+    setUser(null);
+  }
+  // OAuth callback 拿到 token 後呼叫：存 localStorage 並立即更新 user 狀態
+  // 不能只存 localStorage，因為 useEffect 只跑一次，navigate 不會重新觸發它
+  async function loginWithToken(token: string) {
+    localStorage.setItem(TOKEN_KEY, token);
+    const res = await axios.get<AuthUser>(`${AUTH_BASE}/api/auth/google/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser(res.data);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, loginWithToken }}>
       {children}
     </AuthContext.Provider>
   );

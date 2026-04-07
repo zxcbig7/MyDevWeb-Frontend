@@ -2,19 +2,20 @@
 // AuthCallback.tsx
 // Google OAuth 前端主導流程的回調頁
 // Google 跳回：/auth/callback?code=xxx
-// 前端把 code 送後端換 JWT → 存 localStorage → 跳首頁
+// 前端把 code 送後端換 JWT → 更新 AuthContext → 跳首頁
 // ============================================================
 
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { TOKEN_KEY } from "../auth/AuthContext";
+import { TOKEN_KEY, useAuth } from "../auth/AuthContext";
 
 const AUTH_BASE = import.meta.env.VITE_AUTH_BASE ?? "";
 
 // AuthCallback：Google OAuth 回調頁元件，負責處理 Google 跳回後的驗證流程
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const { loginWithToken } = useAuth();
   const called = useRef(false);
 
   useEffect(() => {
@@ -32,23 +33,19 @@ export default function AuthCallback() {
       navigate("/login", { replace: true });
       return;
     }
-    
+
     // 生成 redirectUri，必須與 Google OAuth 設定的完全一致（包含 http/https 和尾斜線）
     console.info("收到授權碼，開始驗證流程", { code });
     const redirectUri = `${window.location.origin}/auth/callback`;
     console.info("生成 redirectUri", { redirectUri });
 
-    // 送 code 給後端換 JWT，成功就存 token 並跳首頁，失敗就回登入頁
+    // 送 code 給後端換 JWT，成功就更新 AuthContext 並跳首頁，失敗就回登入頁
     axios.post<{ token: string }>(`${AUTH_BASE}/api/auth/google/exchange`, {
         code,
         redirectUri,
       })
-      .then((res) => {
-        // 成功拿到 token，存 localStorage 並跳首頁
-        // res.data.token 是後端回傳的 JWT，存到 localStorage 以供後續 API 認證使用
-        localStorage.setItem(TOKEN_KEY, res.data.token);
-        navigate("/homepage", { replace: true });
-      })
+      .then((res) => loginWithToken(res.data.token))
+      .then(() => navigate("/homepage", { replace: true }))
       .catch(() => {
         // 驗證失敗，清除 token（以防萬一）並回登入頁
         localStorage.removeItem(TOKEN_KEY);

@@ -25,6 +25,8 @@ import {
 
 import type { MenuProps } from "antd";
 import { Drawer, Layout, Menu, theme } from "antd";
+import { LogoutOutlined, UserOutlined, LoginOutlined } from "@ant-design/icons";
+import { useAuth } from "../auth/AuthContext";
 
 const { Content, Sider } = Layout;
 type MenuItem = Required<MenuProps>["items"][number];
@@ -117,6 +119,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { user, logout } = useAuth();
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -191,6 +194,51 @@ const HomePage = () => {
               />
             </div>
 
+            {/* 使用者資訊 + 登入/登出 */}
+            <div style={{
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              padding: collapsed ? "12px 0" : "10px 12px",
+              flexShrink: 0, display: "flex", flexDirection: "column", gap: 4,
+            }}>
+              {user ? (
+                <>
+                  {!collapsed && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                      <UserOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }} />
+                      <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {user.name}
+                      </span>
+                    </div>
+                  )}
+                  <button onClick={logout}
+                    style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", gap: 8, width: "100%", padding: "6px 8px", background: "none", border: "none", borderRadius: 6, color: "rgba(255,255,255,0.45)", fontSize: 13, cursor: "pointer", transition: "color 0.2s, background 0.2s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#ff4d4f"; e.currentTarget.style.background = "rgba(255,77,79,0.08)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.background = "none"; }}
+                  >
+                    <LogoutOutlined />
+                    {!collapsed && <span>登出</span>}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {!collapsed && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                      <UserOutlined style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }} />
+                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>訪客</span>
+                    </div>
+                  )}
+                  <button onClick={() => navigate("/login")}
+                    style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", gap: 8, width: "100%", padding: "6px 8px", background: "none", border: "none", borderRadius: 6, color: "rgba(255,255,255,0.45)", fontSize: 13, cursor: "pointer", transition: "color 0.2s, background 0.2s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#1677ff"; e.currentTarget.style.background = "rgba(22,119,255,0.08)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.background = "none"; }}
+                  >
+                    <LoginOutlined />
+                    {!collapsed && <span>登入</span>}
+                  </button>
+                </>
+              )}
+            </div>
+
           </div>
         </Sider>
       )}
@@ -212,6 +260,33 @@ const HomePage = () => {
             selectedKeys={selectedKeys} onClick={handleMenuClick}
             style={{ borderRight: 0 }}
           />
+        </div>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: "10px 12px", flexShrink: 0 }}>
+          {user ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0 6px" }}>
+                <UserOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }} />
+                <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{user.name}</span>
+              </div>
+              <button onClick={() => { setDrawerOpen(false); logout(); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 8px", background: "none", border: "none", borderRadius: 6, color: "rgba(255,255,255,0.45)", fontSize: 13, cursor: "pointer" }}
+              >
+                <LogoutOutlined /><span>登出</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0 6px" }}>
+                <UserOutlined style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }} />
+                <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>訪客</span>
+              </div>
+              <button onClick={() => { setDrawerOpen(false); navigate("/login"); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 8px", background: "none", border: "none", borderRadius: 6, color: "rgba(255,255,255,0.45)", fontSize: 13, cursor: "pointer" }}
+              >
+                <LoginOutlined /><span>登入</span>
+              </button>
+            </>
+          )}
         </div>
       </Drawer>
 
