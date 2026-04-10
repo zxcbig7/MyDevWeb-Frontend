@@ -13,25 +13,25 @@ import { TOKEN_KEY } from "../../auth/AuthContext";
 // 統一 baseURL / timeout / 通用 headers
 // withCredentials: true → 跨域請求時自動帶上 Cookie（SSO / session）
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE,
-  timeout: 10000,
-  headers: {
-    Cid: import.meta.env.VITE_CID,
-    Account: "ruleviewer-frontend",
-  },
+    baseURL: import.meta.env.VITE_API_BASE,
+    timeout: 10000,
+    headers: {
+        Cid: import.meta.env.VITE_CID,
+        Account: "ruleviewer-frontend",
+    },
 });
 
 // Request Interceptor：每次請求前自動帶上 JWT（如果存在）
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
 });
 
 //
 async function fetcher<T>(url: string): Promise<T> {
-  const res = await client.get<T>(url);
-  return res.data;
+    const res = await client.get<T>(url);
+    return res.data;
 }
 
 // ── API 回應信封 ──────────────────────────────────────────────
@@ -50,20 +50,21 @@ async function fetcher<T>(url: string): Promise<T> {
 // ├─ message ─ string   錯誤時的說明文字（success=true 時可為 "OK" 或 ""）
 // └─ data    ─ T[]      實際資料陣列，無資料時回傳 [] 而非 null
 interface APIResponse<T> {
-  data: T[];
-  success: boolean;
-  message: string;
-  code: number;
+    data: T[];
+    success: boolean;
+    message: string;
+    code: number;
 }
 
 // ── 通用 SWR Hook ─────────────────────────────────────────────
 // 給定 DTO 型別 T，自動拆信封回傳 T[]；
 // url 為 null 時不打 API: 處理input資料有漏問題
+// revalidateOnFocus: false → 切回頁面時不自動重新驗證（不打 API）
 
 function useAPI<T>(url: string | null) {
-  const { data, error, isLoading, isValidating, mutate } =
-    useSWR<APIResponse<T>, Error>(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
-  return { data: data?.data ?? null, error: error ?? null, isLoading, isValidating, mutate };
+    const { data, error, isLoading, isValidating, mutate } =
+        useSWR<APIResponse<T>, Error>(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
+    return { data: data?.data ?? null, error: error ?? null, isLoading, isValidating, mutate };
 }
 
 /**
@@ -76,7 +77,7 @@ function useAPI<T>(url: string | null) {
  * ]
  */
 export const usePhaseResponse = () =>
-  useAPI<RTDDTO.PhaseDTO>("/api/RuleViewer/phases");
+    useAPI<RTDDTO.PhaseDTO>("/api/RuleViewer/phases");
 
 /**
  * 取得指定 Phase 的 EQP-Rule 對照表；phase 為 null 時不打 API
@@ -90,9 +91,9 @@ export const usePhaseResponse = () =>
  * 同一台 EQP 可對應多條 Rule，同一條 Rule 也可被多台 EQP 使用
  */
 export const useEQPRuleResponse = (phase: string | null) =>
-  useAPI<RTDDTO.EqpRuleListDTO>(
-    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
-  );
+    useAPI<RTDDTO.EqpRuleListDTO>(
+        phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
+    );
 
 /**
  * 取得指定 Phase 的 Rule 清單；phase 為 null 時不打 API
@@ -105,9 +106,9 @@ export const useEQPRuleResponse = (phase: string | null) =>
  * ]
  */
 export const useRuleResponse = (phase: string | null) =>
-  useAPI<RTDDTO.RuleListDTO>(
-    phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/rules` : null
-  );
+    useAPI<RTDDTO.RuleListDTO>(
+        phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/rules` : null
+    );
 
 /**
  * 取得指定 Phase + Rule 的詳細資料（所有 Block 展開成多列）；phase / ruleName 任一為 null 時不打 API
@@ -139,16 +140,15 @@ export const useRuleResponse = (phase: string | null) =>
  * ]
  */
 export const useRuleInfoResponse = (phase: string | null, ruleName: string | null) =>
-  useAPI<RTDDTO.RuleInfoDTO>(
-    phase && ruleName
-      ? `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
-      : null
-  );
+    useAPI<RTDDTO.RuleInfoDTO>(
+        phase && ruleName
+            ? `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
+            : null
+    );
 
 
-/* */
-export const useResourceDataResponse = (imfileName: string) =>
-  useAPI<RTDDTO.RuleInfoDTO>(
-  imfileName ? `/api/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
-    : null
-);
+export const useResourceDataResponse = (imfileName: string | null) =>
+    useAPI<RTDDTO.RuleInfoDTO>(
+        imfileName ? `/api/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
+            : null
+    );
