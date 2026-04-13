@@ -26,7 +26,8 @@ const GOOGLE_AUTH_URL =
     `?client_id=${GOOGLE_CLIENT_ID}` +
     `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}` +
     `&response_type=code` +
-    `&scope=openid%20email%20profile`;
+    `&scope=openid%20email%20profile` +
+    `&prompt=select_account`;
 
 // AuthUser：使用者資料類型，從 /auth/me 拿到的資料結構
 export type AuthUser = { id: string; name: string; email: string };
