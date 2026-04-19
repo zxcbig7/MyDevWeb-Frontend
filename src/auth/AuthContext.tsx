@@ -12,6 +12,7 @@ import axios from "axios";
 //   與 || 的差異：|| 會把 "" / 0 / false 也視為假值而取右側，?? 不會
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const AUTH_BASE = import.meta.env.VITE_AUTH_BASE ?? API_BASE;
+// eslint-disable-next-line react-refresh/only-export-components
 export const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY ?? "auth_token";
 
 // Google OAuth 登入端點（前端主導）
@@ -48,6 +49,7 @@ const AuthContext = createContext<AuthState | null>(null);
 // 為何在這裡 throw 而不是回傳 null？
 //   如果回傳 null，每個使用端都要自己做 null check，容易遺漏
 //   在這裡統一拋錯，能在開發階段第一時間定位問題（忘記包 <AuthProvider>）
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthState {
     // useContext：拿到最近的 <AuthContext.Provider> 提供的 value
     const ctx = useContext(AuthContext);
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 先從 localStorage 拿 token，沒有就直接結束（未登入狀態）
         const token = localStorage.getItem(TOKEN_KEY);
         if (!token) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(false);
             return;
         }

@@ -63,6 +63,7 @@ export function RuleDropdownSearch({
 
   // ── Phase 切換時全部清空 ──────────────────────────────────
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEqpInput(""); setSelectedEqpId(null); setEqpOpen(false); setEqpHighlightIdx(-1);
     setRuleInput(""); setPendingRule(null); setRuleOpen(false); setRuleHighlightIdx(-1);
   }, [selectedPhase]);
@@ -105,20 +106,22 @@ export function RuleDropdownSearch({
     return baseRuleNames.filter((r) => r.toLowerCase().includes(kw));
   }, [baseRuleNames, ruleInput]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setEqpHighlightIdx(-1);  }, [filteredEqp]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setRuleHighlightIdx(-1); }, [filteredRules]);
 
   // ── 高亮捲入可視範圍 ──────────────────────────────────────
   useEffect(() => {
     if (eqpHighlightIdx < 0 || !eqpListRef.current) return;
-    eqpListRef.current.querySelectorAll<HTMLLIElement>("li[data-item]")
-      [eqpHighlightIdx]?.scrollIntoView({ block: "nearest" });
+    const eqpItems = eqpListRef.current.querySelectorAll<HTMLLIElement>("li[data-item]");
+    eqpItems[eqpHighlightIdx]?.scrollIntoView({ block: "nearest" });
   }, [eqpHighlightIdx]);
 
   useEffect(() => {
     if (ruleHighlightIdx < 0 || !ruleListRef.current) return;
-    ruleListRef.current.querySelectorAll<HTMLLIElement>("li[data-item]")
-      [ruleHighlightIdx]?.scrollIntoView({ block: "nearest" });
+    const ruleItems = ruleListRef.current.querySelectorAll<HTMLLIElement>("li[data-item]");
+    ruleItems[ruleHighlightIdx]?.scrollIntoView({ block: "nearest" });
   }, [ruleHighlightIdx]);
 
   // ── 載入 ──────────────────────────────────────────────────

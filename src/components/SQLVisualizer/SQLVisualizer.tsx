@@ -5,7 +5,7 @@
 // 四個 Tab：統計概覽 / 表關聯圖 / 流程圖 / 條件解析
 // ============================================================
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Tabs } from "antd";
 import {
   DatabaseOutlined,
@@ -869,7 +869,7 @@ WHERE created_at < SYSDATE - 90;
 
 export default function SQLVisualizer() {
   const [sql, setSql] = useState(SAMPLE_SQL);
-  const [analysis, setAnalysis] = useState<SqlAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<SqlAnalysis | null>(() => parseSql(SAMPLE_SQL));
   const [activeTab, setActiveTab] = useState("stats");
 
   const handleParse = () => {
@@ -881,9 +881,6 @@ export default function SQLVisualizer() {
     }
   };
 
-  useEffect(() => {
-    setAnalysis(parseSql(SAMPLE_SQL));
-  }, []);
 
   const tabItems = useMemo(
     () =>

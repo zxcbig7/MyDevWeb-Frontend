@@ -36,6 +36,7 @@ export function BlockTooltip({ block, mousePos, canvasSize }: BlockTooltipProps)
     if (x < 4) x = 4;
     if (y < 4) y = 4;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPos({ x, y });
   }, [mousePos, canvasSize]);
 

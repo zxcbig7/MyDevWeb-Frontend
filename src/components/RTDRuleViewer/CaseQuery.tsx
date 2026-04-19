@@ -97,7 +97,7 @@ function extractVarsFromLogExpr(logName: string, blocks: RuleData[]): string[] {
 
       // 移除 $...$、[$...$]、字串字面值、函式名稱（簡化處理，假設函式名稱後面緊跟括號），留下可能的變數名稱
       const cleaned = v.VALUE
-        .replace(/"?\[?\$[^\$\[\]]+\$\]?"?/g, " ")
+        .replace(/"?\[?\$[^$[\]]+\$\]?"?/g, " ")
         .replace(/"[^"]*"/g, " ")
         .replace(/[A-Za-z_][A-Za-z0-9_]*\s*\(/g, "(");
 
@@ -161,7 +161,7 @@ function ExprRenderer({
     NOT:  "text-red-400 font-bold",
   };
 
-  const LOG_PATTERN = /"?\[?\$([^\$\[\]]+)\$\]?"?/g;
+  const LOG_PATTERN = /"?\[?\$([^$[\]]+)\$\]?"?/g;
   type Part = { kind: "text"; value: string } | { kind: "log"; name: string };
 
   const parts: Part[] = [];
@@ -445,6 +445,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) 
   }, []);
 
   // filter 變化時重置 highlight
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLogHighlightIdx(-1); }, [filteredLogs]);
 
   // 高亮項目捲入可視範圍

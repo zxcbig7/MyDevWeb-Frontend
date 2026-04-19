@@ -108,7 +108,8 @@ function topoSort(rules: RuleData[]): string[] {
         // findIndex 找第一個 seq 比自己大的位置並插入（insertion sort）
         // 找不到（pos === -1）代表自己是目前最大，推到尾端
         const pos = queue.findIndex((n) => (seqOf.get(n) ?? 0) > (seqOf.get(child) ?? 0));
-        pos === -1 ? queue.push(child) : queue.splice(pos, 0, child);
+        if (pos === -1) queue.push(child);
+        else queue.splice(pos, 0, child);
       }
     }
   }

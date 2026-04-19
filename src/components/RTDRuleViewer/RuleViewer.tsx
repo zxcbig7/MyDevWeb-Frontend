@@ -106,6 +106,7 @@ export default function RuleViewer() {
 
   // Rule 變更：重置搜尋 / Tracker 狀態
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMatchedBlockList(null);
     setSearchKeyword("");
     setMatchIndex(0);

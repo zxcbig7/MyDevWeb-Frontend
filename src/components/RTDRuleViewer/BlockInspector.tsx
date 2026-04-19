@@ -98,6 +98,7 @@ export function BlockInspector({
   zIndex = 100,
 }: BlockInspectorProps) {
   const onPositionChangeRef = useRef(onPositionChange);
+  // eslint-disable-next-line react-hooks/refs
   onPositionChangeRef.current = onPositionChange;
 
   const panelRef = useRef<HTMLDivElement | null>(null);

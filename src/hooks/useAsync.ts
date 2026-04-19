@@ -30,6 +30,7 @@ export function useAsync<T, Args extends unknown[]>(
   // onErrorRef：讓 onError callback 永遠拿到最新版本，
   // 同時不需要將 onError 列入 useCallback 的 deps（避免重新建立 execute 函式）
   const onErrorRef = useRef(onError);
+  // eslint-disable-next-line react-hooks/refs
   onErrorRef.current = onError;
 
   const execute = useCallback(
