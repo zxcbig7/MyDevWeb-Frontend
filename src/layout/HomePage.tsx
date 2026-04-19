@@ -140,7 +140,7 @@ const HomePage = () => {
   // 目前頁面名稱（手機 top bar 顯示）
   const currentPageLabel = useMemo(() => {
     const flat = items.flatMap((item) =>
-      item?.children ? [item, ...item.children] : [item],
+      item && "children" in item && item.children ? [item, ...item.children] : [item],
     );
     const found = flat.find((item) => item?.key === location.pathname);
     return typeof found?.label === "string" ? found.label : "Menu";
