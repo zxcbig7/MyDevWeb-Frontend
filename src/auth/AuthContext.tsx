@@ -12,7 +12,6 @@ import axios from "axios";
 //   與 || 的差異：|| 會把 "" / 0 / false 也視為假值而取右側，?? 不會
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const AUTH_BASE = import.meta.env.VITE_AUTH_BASE ?? API_BASE;
-const IS_DEV = import.meta.env.VITE_APP_ENV === "DEV";
 export const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY ?? "auth_token";
 
 // Google OAuth 登入端點（前端主導）
@@ -31,9 +30,6 @@ const GOOGLE_AUTH_URL =
 
 // AuthUser：使用者資料類型，從 /auth/me 拿到的資料結構
 export type AuthUser = { id: string; name: string; email: string };
-
-// 測試release用的假資料，讓開發階段不需要真的登入也能看到使用者相關功能
-const MOCK_USER: AuthUser = { id: "dev", name: "開發者", email: "dev@local" };
 
 // AuthState：AuthContext 中的狀態結構，包含使用者資料、載入狀態、登入登出方法
 type AuthState = {
@@ -72,8 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 開發階段直接使用假資料，跳過驗證流程
         /*
-        if (IS_DEV) {
-          setUser(MOCK_USER);
+        // 開發階段快速測試：取消注解並補上 IS_DEV / MOCK_USER 變數即可跳過驗證
+        if (import.meta.env.VITE_APP_ENV === "DEV") {
+          setUser({ id: "dev", name: "開發者", email: "dev@local" });
           setLoading(false);
           return;
         }

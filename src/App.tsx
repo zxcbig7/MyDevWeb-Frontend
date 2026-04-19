@@ -19,6 +19,7 @@ import DevBlockInspector from "./pages/Dev/DevBlockInspector";
 import DevBlockTooltip from "./pages/Dev/DevBlockTooltip";
 import DevCaseQuery from "./pages/Dev/DevCaseQuery";
 import DevTableInspector from "./pages/Dev/DevTableInspector";
+import SQLVisualizer from "./pages/SQLVisualizer";
 
 
 function App() {
@@ -50,6 +51,7 @@ function App() {
           <Route path="dev/case-query"      element={<ProtectedRoute><DevCaseQuery /></ProtectedRoute>} />
           <Route path="dev/table-inspector" element={<ProtectedRoute><DevTableInspector /></ProtectedRoute>} />
 
+          <Route path="sql-visualizer" element={<ProtectedRoute><SQLVisualizer /></ProtectedRoute>} />
           <Route path="sudoku"   element={<ProtectedRoute><SudokuSolver /></ProtectedRoute>} />
           <Route path="tailwind" element={<ProtectedRoute><TailwindCheatsheet /></ProtectedRoute>} />
 

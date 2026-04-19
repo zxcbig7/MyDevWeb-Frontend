@@ -93,7 +93,10 @@ const items: MenuItem[] = [
     icon: <ImCalculator />,
     label: privateLabel("開發輔助工具"),
     disabled: !IS_PRIVATE,
-    children: [getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />)],
+    children: [
+      getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
+      getItem("SQL Visualizer", "/sql-visualizer", <TableOutlined />),
+    ],
   } as MenuItem,
 ];
 
