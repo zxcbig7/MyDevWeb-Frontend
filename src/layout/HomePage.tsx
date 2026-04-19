@@ -143,7 +143,8 @@ const HomePage = () => {
       item && "children" in item && item.children ? [item, ...item.children] : [item],
     );
     const found = flat.find((item) => item?.key === location.pathname);
-    return typeof found?.label === "string" ? found.label : "Menu";
+    const label = found && "label" in found ? found.label : undefined;
+    return typeof label === "string" ? label : "Menu";
   }, [location.pathname]);
 
   return (
