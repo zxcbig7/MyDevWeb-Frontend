@@ -4,7 +4,7 @@ name: Frontend Release
 
 on:
   push:
-    tags: ['V.*']
+    tags: ['V.*.*.*']
 
 env:
   IMAGE: harbor.viclai.idv.tw/mydevweb/frontend
