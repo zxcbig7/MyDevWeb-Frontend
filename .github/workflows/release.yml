@@ -1,0 +1,67 @@
+# 觸發時機：push tag（格式 V.*，例如 V.1.0.0.0.0）
+# 目的：建置 Docker image → 推到 Harbor → 更新 Deployment-Apps 的 image tag → ArgoCD 自動 sync
+name: Frontend Release
+
+on:
+  push:
+    tags: ['V.*']
+
+env:
+  IMAGE: harbor.viclai.idv.tw/mydevweb/frontend
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 建置前端（不用於部署，只確認 build 正常）
+      - name: Build
+        run: npm run build
+
+      # 登入 Harbor（私有 registry）
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.HARBOR_URL }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      # 建置 Docker image 並推到 Harbor，tag 為 git tag 名稱
+      # VITE_* 是前端環境變數，build 時 bake 進 image
+      - name: Build & push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.ref_name }}
+          build-args: |
+            VITE_API_BASE=${{ secrets.VITE_API_BASE }}
+            VITE_AUTH_BASE=${{ secrets.VITE_AUTH_BASE }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+            VITE_APP_ENV=PROD
+            VITE_SHOW_PRIVATE=false
+
+      # 更新 Deployment-Apps repo 的 image tag
+      # ArgoCD 偵測到變更後自動部署新版本
+      - name: Update deployment repo
+        env:
+          TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
+        run: |
+          git clone https://zxcbig7:$TOKEN@github.com/zxcbig7/Deployment-Apps.git deploy
+          cd deploy
+          TAG="${{ github.ref_name }}"
+          sed -i "s|tag: .*|tag: \"$TAG\"|" mydevweb-fe/PROD/values.yaml
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
+          git commit -am "ci: update frontend image to $TAG"
+          git push

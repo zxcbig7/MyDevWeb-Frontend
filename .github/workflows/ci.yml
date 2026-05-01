@@ -1,11 +1,10 @@
+# 觸發時機：push 到 main branch
+# 目的：驗證程式碼品質，不建置 image
 name: Frontend CI
 
 on:
   push:
     branches: [main]
-
-env:
-  IMAGE: zxcbig7/mydevweb-frontend
 
 jobs:
   ci:
@@ -22,39 +21,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 檢查程式碼風格
       - name: Lint
         run: npm run lint
 
+      # 確認能成功建置（不產出 image）
       - name: Build
         run: npm run build
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build & push image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE }}:${{ github.sha }}
-          build-args: |
-            VITE_API_BASE=${{ secrets.VITE_API_BASE }}
-            VITE_AUTH_BASE=${{ secrets.VITE_AUTH_BASE }}
-            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-            VITE_APP_ENV=PROD
-            VITE_SHOW_PRIVATE=false
-
-      - name: Update deployment repo
-        env:
-          TOKEN: ${{ secrets.DEPLOY_REPO_TOKEN }}
-        run: |
-          git clone https://zxcbig7:$TOKEN@github.com/zxcbig7/MyDevWeb-Deployment.git deploy
-          cd deploy
-          sed -i "s|tag: .*|tag: \"${{ github.sha }}\"|" web-app/values-prod.yaml
-          git config user.email "ci@github.com"
-          git config user.name "GitHub Actions"
-          git commit -am "ci: update frontend image to ${{ github.sha }}"
-          git push
