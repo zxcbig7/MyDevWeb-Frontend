@@ -29,20 +29,15 @@ jobs:
       - name: Build
         run: npm run build
 
-      # 登入 Harbor（私有 registry）
-      - name: Login to Harbor
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.HARBOR_URL }}
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
-
       # 建置 Docker image 並推到 Harbor，tag 為 git tag 名稱
       # VITE_* 是前端環境變數，build 時 bake 進 image
       - name: Build & push image
         env:
           DOCKER_BUILDKIT: 0
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         run: |
+          echo "$HARBOR_PASSWORD" | docker login ${{ secrets.HARBOR_URL }} \
+            -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
           docker build \
             --build-arg VITE_API_BASE=${{ secrets.VITE_API_BASE }} \
             --build-arg VITE_AUTH_BASE=${{ secrets.VITE_AUTH_BASE }} \
