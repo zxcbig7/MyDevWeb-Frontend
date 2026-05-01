@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE: harbor.viclai.idv.tw/mydevweb/frontend
+  DOCKER_BUILDKIT: 0
 
 jobs:
   release:
@@ -39,17 +40,17 @@ jobs:
       # 建置 Docker image 並推到 Harbor，tag 為 git tag 名稱
       # VITE_* 是前端環境變數，build 時 bake 進 image
       - name: Build & push image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE }}:${{ github.ref_name }}
-          build-args: |
-            VITE_API_BASE=${{ secrets.VITE_API_BASE }}
-            VITE_AUTH_BASE=${{ secrets.VITE_AUTH_BASE }}
-            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-            VITE_APP_ENV=PROD
-            VITE_SHOW_PRIVATE=false
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build \
+            --build-arg VITE_API_BASE=${{ secrets.VITE_API_BASE }} \
+            --build-arg VITE_AUTH_BASE=${{ secrets.VITE_AUTH_BASE }} \
+            --build-arg VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }} \
+            --build-arg VITE_APP_ENV=PROD \
+            --build-arg VITE_SHOW_PRIVATE=false \
+            -t ${{ env.IMAGE }}:${{ github.ref_name }} .
+          docker push ${{ env.IMAGE }}:${{ github.ref_name }}
 
       # 更新 Deployment-Apps repo 的 image tag
       # ArgoCD 偵測到變更後自動部署新版本
