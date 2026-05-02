@@ -34,9 +34,9 @@ jobs:
 
       # 修正 Docker Desktop daemon namespace 的 DNS（避免解析到 Cloudflare Tunnel 內部 IPv6）
       - name: Fix Docker DNS for Harbor
+        shell: powershell
         run: |
-          wsl.exe -d docker-desktop -- nsenter --target 172 --mount --uts -- sh -c \
-            "grep -q 'harbor.viclai.idv.tw' /etc/hosts || echo '104.21.80.46 harbor.viclai.idv.tw' >> /etc/hosts"
+          wsl -d docker-desktop -- nsenter --target 172 --mount --uts -- sh -c "grep -q 'harbor.viclai.idv.tw' /etc/hosts || echo '104.21.80.46 harbor.viclai.idv.tw' >> /etc/hosts"
 
       # 建置 Docker image 並推到 Harbor，tag 為 git tag 名稱
       # VITE_* 是前端環境變數，build 時 bake 進 image
