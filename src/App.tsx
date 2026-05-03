@@ -1,15 +1,16 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import HomePage from "./layout/HomePage";
+import HomePage from "./pages/layout/HomeLayout";
 import { RuleViewer } from "./components/RTDRuleViewer";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 
-import AuthPage from "./pages/AuthPage";
-import AuthCallback from "./pages/AuthCallback";
-import TailwindCheatsheet from "./pages/TailwindCheatsheet";
+import AuthPage from "./pages/auth/AuthPage";
+import AuthCallback from "./pages/auth/AuthCallback";
+import TailwindCheatsheet from "./pages/tools/TailwindCheatsheet";
 import SudokuSolver from "./components/Sudoku/SudokuSolver";
-import ErrorPage from "./pages/defaultErrorPage";
-import Homepage from "./pages/Homepage";
+import ErrorPage from "./pages/ErrorPage";
+import Homepage from "./pages/home/Homepage";
+import AboutPage from "./pages/home/AboutPage";
 import NotesList from "./pages/Notes/NotesList";
 import NoteArticle from "./pages/Notes/NoteArticle";
 import DevRuleView from "./pages/Dev/DevRuleView";
@@ -19,7 +20,7 @@ import DevBlockInspector from "./pages/Dev/DevBlockInspector";
 import DevBlockTooltip from "./pages/Dev/DevBlockTooltip";
 import DevCaseQuery from "./pages/Dev/DevCaseQuery";
 import DevTableInspector from "./pages/Dev/DevTableInspector";
-import SQLVisualizer from "./pages/SQLVisualizer";
+import SQLVisualizer from "./pages/tools/SQLVisualizer";
 
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
 
           {/* 公開頁面：不需登入 */}
           <Route path="homepage" element={<Homepage />} />
+          <Route path="about" element={<AboutPage />} />
           <Route path="notes" element={<NotesList />} />
           <Route path="notes/:slug" element={<NoteArticle />} />
 

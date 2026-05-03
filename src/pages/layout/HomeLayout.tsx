@@ -26,7 +26,7 @@ import {
 import type { MenuProps } from "antd";
 import { Drawer, Layout, Menu, theme } from "antd";
 import { LogoutOutlined, UserOutlined, LoginOutlined } from "@ant-design/icons";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 
 const { Content, Sider } = Layout;
 type MenuItem = Required<MenuProps>["items"][number];
@@ -57,6 +57,7 @@ function privateLabel(label: string) {
 
 const items: MenuItem[] = [
   getItem("首頁", "/homepage", <PieChartOutlined />),
+  getItem("關於我", "/about", <UserOutlined />),
   getItem("開發筆記", "/notes", <BookOutlined />),
 
   { type: "divider" } as MenuItem,
@@ -73,9 +74,9 @@ const items: MenuItem[] = [
   } as MenuItem,
 
   {
-    key: "Dev",
+    key: "測試網站",
     icon: <BranchesOutlined />,
-    label: privateLabel("Dev"),
+    label: privateLabel("測試網站"),
     disabled: !IS_PRIVATE,
     children: [
       getItem("RuleView Canvas", "/dev/rule-view", <EyeOutlined />),
@@ -89,9 +90,9 @@ const items: MenuItem[] = [
   } as MenuItem,
 
   {
-    key: "開發輔助工具",
+    key: "輔助工具",
     icon: <ImCalculator />,
-    label: privateLabel("開發輔助工具"),
+    label: privateLabel("輔助工具"),
     disabled: !IS_PRIVATE,
     children: [
       getItem("Tailwind Cheatsheet", "/tailwind", <ImCalculator />),
@@ -234,21 +235,31 @@ const HomePage = () => {
             >
               {user ? (
                 <>
-                  {!collapsed && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 0",
-                      }}
-                    >
-                      <UserOutlined
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: collapsed ? 0 : 8,
+                      padding: "4px 0",
+                      justifyContent: collapsed ? "center" : "flex-start",
+                    }}
+                  >
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
                         style={{
-                          color: "rgba(255,255,255,0.45)",
-                          fontSize: 13,
+                          width: 24,
+                          height: 24,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          objectFit: "cover",
                         }}
                       />
+                    ) : (
+                      <UserOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: 16 }} />
+                    )}
+                    {!collapsed && (
                       <span
                         style={{
                           color: "rgba(255,255,255,0.65)",
@@ -260,8 +271,8 @@ const HomePage = () => {
                       >
                         {user.name}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <button
                     onClick={logout}
                     style={{
@@ -394,9 +405,15 @@ const HomePage = () => {
                   padding: "4px 0 6px",
                 }}
               >
-                <UserOutlined
-                  style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }}
-                />
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                  />
+                ) : (
+                  <UserOutlined style={{ color: "rgba(255,255,255,0.45)", fontSize: 13 }} />
+                )}
                 <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>
                   {user.name}
                 </span>

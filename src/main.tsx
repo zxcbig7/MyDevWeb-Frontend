@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
-import "./css/index.css";
+import "./index.css";
 
 // 禁止瀏覽器縮放（Ctrl+滾輪、Ctrl+±/0）
 window.addEventListener("wheel", (e) => {
