@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { AuthService } from "../../auth/authService";
+import { R } from "../../lib/radius";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -42,13 +43,11 @@ export default function AuthPage() {
         <p className="text-sm text-[#8b9ab8]">登入以繼續使用</p>
       </div>
 
-      <div className="rounded-2xl border border-white/8 bg-[#161b2e] p-8 shadow-2xl flex flex-col gap-4">
+      <div className={`${R.panel} border border-white/8 bg-[#161b2e] p-8 shadow-2xl flex flex-col gap-4`}>
         <p className="text-sm text-[#8b9ab8] text-center">透過 Google 帳號登入</p>
         <button
           onClick={login}
-          className="h-11 w-full rounded-lg bg-white text-sm font-semibold text-[#3c4043]
-            transition-colors hover:bg-gray-100 cursor-pointer flex items-center justify-center gap-3
-            border border-gray-200 shadow-sm"
+          className={`h-11 w-full ${R.btn} bg-white text-sm font-semibold text-[#3c4043] transition-colors hover:bg-gray-100 cursor-pointer flex items-center justify-center gap-3 border border-gray-200 shadow-sm`}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -60,7 +59,7 @@ export default function AuthPage() {
         </button>
         <button
           onClick={() => navigate("/homepage")}
-          className="h-11 w-full rounded-lg text-sm text-[#8b9ab8] hover:text-white transition-colors cursor-pointer"
+          className={`h-11 w-full ${R.btn} text-sm text-[#8b9ab8] hover:text-white transition-colors cursor-pointer`}
         >
           回首頁
         </button>

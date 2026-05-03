@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@theme {
+  /* 圓角 token — 與 src/lib/radius.ts 的 R 對應
+     公式：外圓角 = 內圓角 + Padding
+     btn(8) → card(16) = btn+p-2(8)  → panel(24) = btn+p-4(16) */
+  --radius-btn:   8px;   /* rounded-lg  — button, input */
+  --radius-card:  16px;  /* rounded-2xl — card container */
+  --radius-panel: 24px;  /* rounded-3xl — panel / page section */
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;

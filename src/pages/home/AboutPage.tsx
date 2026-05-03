@@ -290,7 +290,7 @@ export default function Homepage() {
 
         {/* ── About ── */}
         <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-8 shadow-sm">
-          <SectionTitle>About Me</SectionTitle>
+          <SectionTitle>關於我</SectionTitle>
           <p className="text-sm text-slate-600 leading-7 whitespace-pre-line">{about}</p>
         </section>
 

@@ -3,7 +3,7 @@
 // 主入口元件：Canvas + 右側面板（搜尋 / Tracker 分頁）
 // ============================================================
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Divider, notification } from "antd";
 import type { RuleViewHandle } from "./types";
 import { cn } from "../../utils/clsx";
@@ -15,6 +15,20 @@ import { type MatchResult, RuleContentSearch, SearchNavigator } from "./RuleCont
 import { CaseQuery } from "./CaseQuery";
 
 type RightTab = "search" | "tracker";
+
+// Defined outside component — pure function, no closure over state
+function highlightSnippet(snippet: string, kw: string) {
+  if (!kw) return <span>{snippet}</span>;
+  const idx = snippet.toLowerCase().indexOf(kw.toLowerCase());
+  if (idx === -1) return <span>{snippet}</span>;
+  return (
+    <>
+      {snippet.slice(0, idx)}
+      <span className="text-yellow-300 font-semibold">{snippet.slice(idx, idx + kw.length)}</span>
+      {snippet.slice(idx + kw.length)}
+    </>
+  );
+}
 
 export default function RuleViewer() {
   // ── 錯誤通知 ─────────────────────────────────────────────
@@ -34,23 +48,12 @@ export default function RuleViewer() {
   const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
   const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
 
-
-  // ── SWR 錯誤通知 ─────────────────────────────────────────
+  // ── SWR 錯誤通知（合併為單一 effect） ────────────────────
   useEffect(() => {
-    if (phaseError) notifApi.error({ title: "無法載入 Phase 清單", description: phaseError.message, placement: "topRight", duration: 5, key: "phaseError" });
-  }, [phaseError]);
-
-  useEffect(() => {
-    if (eqpError) notifApi.error({ title: "無法載入 EQP / Rule 清單", description: eqpError.message, placement: "topRight", duration: 5, key: "eqpError" });
-  }, [eqpError]);
-
-  useEffect(() => {
-    if (ruleInfoError) notifApi.error({ title: "無法載入 Rule 資料", description: ruleInfoError.message, placement: "topRight", duration: 5, key: "ruleError" });
-  }, [ruleInfoError]);
-
-
-
-
+    if (phaseError)    notifApi.error({ title: "無法載入 Phase 清單",    description: phaseError.message,    placement: "topRight", duration: 5, key: "phaseError" });
+    if (eqpError)      notifApi.error({ title: "無法載入 EQP / Rule 清單", description: eqpError.message,    placement: "topRight", duration: 5, key: "eqpError" });
+    if (ruleInfoError) notifApi.error({ title: "無法載入 Rule 資料",      description: ruleInfoError.message, placement: "topRight", duration: 5, key: "ruleError" });
+  }, [phaseError, eqpError, ruleInfoError]);
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -71,6 +74,16 @@ export default function RuleViewer() {
     if (!matchedBlockList) return null;
     return new Set(matchedBlockList.map((m) => m.id));
   }, [matchedBlockList]);
+
+  // Memoized Sets — prevent creating new Set object on every render
+  const trackerLogIdsSet = useMemo(
+    () => (trackerLogIds.length ? new Set(trackerLogIds) : undefined),
+    [trackerLogIds],
+  );
+  const trackerVarIdsSet = useMemo(
+    () => (trackerVarIds.length ? new Set(trackerVarIds) : undefined),
+    [trackerVarIds],
+  );
 
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
@@ -116,40 +129,63 @@ export default function RuleViewer() {
     setTrackerVarIds([]);
   }, [selectedRule]);
 
-  // 搜尋時點擊Block會有相關設定操作
-  function handlePrev() {
+  // ── 搜尋導覽 handlers ─────────────────────────────────────
+  const handlePrev = useCallback(() => {
     if (!matchedBlockList?.length) return;
     const next = Math.max(0, matchIndex - 1);
     setMatchIndex(next);
     ruleViewRef.current?.focusBlockById(matchedBlockList[next].id);
-  }
+  }, [matchedBlockList, matchIndex]);
 
-  function handleNext() {
+  const handleNext = useCallback(() => {
     if (!matchedBlockList?.length) return;
     const next = Math.min(matchedBlockList.length - 1, matchIndex + 1);
     setMatchIndex(next);
     ruleViewRef.current?.focusBlockById(matchedBlockList[next].id);
-  }
+  }, [matchedBlockList, matchIndex]);
 
-  function handlePick(i: number) {
+  const handlePick = useCallback((i: number) => {
     if (!matchedBlockList) return;
     setMatchIndex(i);
     setSelectedBlockId(matchedBlockList[i].id);
     ruleViewRef.current?.focusBlockById(matchedBlockList[i].id);
-  }
+  }, [matchedBlockList]);
 
-  function highlightSnippet(snippet: string, kw: string) {
-    if (!kw) return <span>{snippet}</span>;
-    const idx = snippet.toLowerCase().indexOf(kw.toLowerCase());
-    if (idx === -1) return <span>{snippet}</span>;
-    return (
-      <>
-        {snippet.slice(0, idx)}
-        <span className="text-yellow-300 font-semibold">{snippet.slice(idx, idx + kw.length)}</span>
-        {snippet.slice(idx + kw.length)}
-      </>
-    );
-  }
+  // ── Prop handlers ─────────────────────────────────────────
+  const handlePhaseChange = useCallback((phase: string) => {
+    setSelectedPhase(phase);
+    setSelectedRule(null);
+    setLoadedPhase(null);
+  }, []);
+
+  const handleRuleSelect = useCallback((ruleName: string) => {
+    if (ruleName !== selectedRule) {
+      setSelectedRule(ruleName);
+      setLoadedPhase(selectedPhase);
+    }
+  }, [selectedRule, selectedPhase]);
+
+  const handleMatchChange = useCallback((list: MatchResult[], kw: string) => {
+    setMatchedBlockList(list);
+    setSearchKeyword(kw);
+    setMatchIndex(0);
+  }, []);
+
+  const handleHighlight = useCallback((logIds: string[], varIds: string[]) => {
+    setTrackerLogIds(logIds);
+    setTrackerVarIds(varIds);
+  }, []);
+
+  const handleTabChange = useCallback((tab: RightTab) => {
+    if (tab !== "search" && rightTab === "search") {
+      setMatchedBlockList(null);
+      setSearchKeyword("");
+      setMatchIndex(0);
+      setSelectedBlockId(null);
+      setSearchKey((k) => k + 1);
+    }
+    setRightTab(tab);
+  }, [rightTab]);
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 p-3">
@@ -161,17 +197,8 @@ export default function RuleViewer() {
           phases={phases}
           eqpRules={eqpRules ?? []}
           selectedPhase={selectedPhase}
-          onPhaseChange={(phase) => {
-            setSelectedPhase(phase);
-            setSelectedRule(null);
-            setLoadedPhase(null); 
-          }}
-          onRuleSelect={(ruleName) => {
-            if (ruleName !== selectedRule) {
-              setSelectedRule(ruleName);
-              setLoadedPhase(selectedPhase);
-            }
-          }}
+          onPhaseChange={handlePhaseChange}
+          onRuleSelect={handleRuleSelect}
         />
 
         {/* ── 當前載入的 Rule 麵包屑 ── */}
@@ -205,8 +232,8 @@ export default function RuleViewer() {
             rules={rules}
             matchedBlockIds={matchedBlockIds}
             selectedBlockId={selectedBlockId}
-            trackerLogIds={trackerLogIds.length ? new Set(trackerLogIds) : undefined}
-            trackerVarIds={trackerVarIds.length ? new Set(trackerVarIds) : undefined}
+            trackerLogIds={trackerLogIdsSet}
+            trackerVarIds={trackerVarIdsSet}
             useNewIcons={useNewIcons}
           />
         </div>
@@ -260,16 +287,7 @@ export default function RuleViewer() {
                 {(["search", "tracker"] as RightTab[]).map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => {
-                      if (tab !== "search" && rightTab === "search") {
-                        setMatchedBlockList(null);
-                        setSearchKeyword("");
-                        setMatchIndex(0);
-                        setSelectedBlockId(null);
-                        setSearchKey((k) => k + 1);
-                      }
-                      setRightTab(tab);
-                    }}
+                    onClick={() => handleTabChange(tab)}
                     className={cn("px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors", rightTab === tab
                       ? "bg-white/15 text-white"
                       : "text-slate-400 hover:text-white hover:bg-white/7"
@@ -298,11 +316,7 @@ export default function RuleViewer() {
                 <RuleContentSearch
                   key={searchKey}
                   rules={rules}
-                  onMatchChange={(list, kw) => {
-                    setMatchedBlockList(list);
-                    setSearchKeyword(kw);
-                    setMatchIndex(0);
-                  }}
+                  onMatchChange={handleMatchChange}
                 />
               </div>
 
@@ -362,10 +376,7 @@ export default function RuleViewer() {
                 key={selectedRule}
                 rules={rules}
                 selectedRule={selectedRule}
-                onHighlight={(logIds, varIds) => {
-                  setTrackerLogIds(logIds);
-                  setTrackerVarIds(varIds);
-                }}
+                onHighlight={handleHighlight}
               />
             </div>
 
