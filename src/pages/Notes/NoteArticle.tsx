@@ -2,15 +2,34 @@
 // NoteArticle.tsx — 單篇筆記頁（Markdown 渲染）
 // ============================================================
 
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github.css";
 import { ALL_NOTES } from "./noteUtils";
 
+// basename → 完整 slug 對照表（同 buildGraphData 的邏輯）
+const basenameToSlug = new Map<string, string>();
+ALL_NOTES.forEach((note) => {
+  const base = note.slug.split("/").pop()!;
+  basenameToSlug.set(base, note.slug);
+  basenameToSlug.set(note.slug, note.slug);
+});
+
+// 將 [[target]] / [[target|alias]] 轉換成標準 Markdown 連結
+function preprocessWikilinks(content: string): string {
+  return content.replace(/\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]/g, (_, target, alias) => {
+    const key = target.trim();
+    const resolved = basenameToSlug.get(key) ?? basenameToSlug.get(key.toLowerCase()) ?? key.toLowerCase().replace(/\s+/g, "-");
+    const label = alias?.trim() ?? key;
+    return `[${label}](/notes/${resolved})`;
+  });
+}
+
 export default function NoteArticle() {
-  const { slug } = useParams<{ slug: string }>();
+  const params = useParams();
+  const slug = params["*"] ?? "";
   const navigate = useNavigate();
 
   const note = ALL_NOTES.find((n) => n.slug === slug);
@@ -87,8 +106,24 @@ export default function NoteArticle() {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeHighlight]}
+            components={{
+              a: ({ href, children }) => {
+                if (href?.startsWith("/notes/")) {
+                  return (
+                    <Link to={href} className="text-indigo-600 hover:underline">
+                      {children}
+                    </Link>
+                  );
+                }
+                return (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                );
+              },
+            }}
           >
-            {note.content}
+            {preprocessWikilinks(note.content)}
           </ReactMarkdown>
         </article>
 

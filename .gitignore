@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+
+# auto-generated from sync-notes script
+src/notes/
 dist-ssr
 *.local
 .vite

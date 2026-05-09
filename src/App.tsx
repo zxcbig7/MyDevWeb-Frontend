@@ -11,6 +11,7 @@ const Homepage              = lazy(() => import("./pages/home/Homepage"));
 const AboutPage             = lazy(() => import("./pages/home/AboutPage"));
 const NotesList             = lazy(() => import("./pages/Notes/NotesList"));
 const NoteArticle           = lazy(() => import("./pages/Notes/NoteArticle"));
+const NoteGraph             = lazy(() => import("./pages/Notes/NoteGraph"));
 const ErrorPage             = lazy(() => import("./pages/ErrorPage"));
 const RuleViewer            = lazy(() => import("./components/RTDRuleViewer/RuleViewer"));
 const SQLVisualizer         = lazy(() => import("./pages/tools/SQLVisualizer"));
@@ -42,7 +43,8 @@ function App() {
             <Route path="homepage" element={<Homepage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="notes" element={<NotesList />} />
-            <Route path="notes/:slug" element={<NoteArticle />} />
+            <Route path="notes/graph" element={<NoteGraph />} />
+            <Route path="notes/*" element={<NoteArticle />} />
 
             {/* 私人頁面：需要登入 */}
             <Route path="ruleviewer" element={<ProtectedRoute><RuleViewer /></ProtectedRoute>} />

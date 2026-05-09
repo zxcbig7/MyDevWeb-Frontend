@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ALL_NOTES } from "./noteUtils";
 import { cn } from "../../utils/clsx";
+import { TbTopologyRing } from "react-icons/tb";
 
 export default function NotesList() {
   const navigate = useNavigate();
@@ -38,11 +39,20 @@ export default function NotesList() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">開發筆記</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            {ALL_NOTES.length} 篇 · 把學到的東西寫下來
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">開發筆記</h1>
+            <p className="text-sm text-slate-400 mt-1">
+              {ALL_NOTES.length} 篇 · 把學到的東西寫下來
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/notes/graph")}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 rounded-lg bg-white transition-colors shadow-sm shrink-0"
+          >
+            <TbTopologyRing size={15} />
+            關聯圖
+          </button>
         </div>
 
         {/* 搜尋 + Tag 篩選 */}

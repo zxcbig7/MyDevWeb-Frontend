@@ -1,0 +1,5 @@
+{
+  "sourcePath": "C:/Users/zxcbi/Desktop/MyDevWeb/Notes",
+  "include": ["wiki/**/*.md", "raw/**/*.md"],
+  "outputDir": "src/notes"
+}
