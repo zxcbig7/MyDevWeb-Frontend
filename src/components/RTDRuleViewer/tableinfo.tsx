@@ -142,6 +142,8 @@ export function TableInspector({
   onFocus,
   zIndex = 200,
 }: TableInspectorProps) {
+  "use no memo"; // TanStack Table 與 React Compiler 不相容，明確 opt-out
+
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // ── 面板拖曳 ────────────────────────────────────────────────
@@ -216,7 +218,7 @@ export function TableInspector({
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, []);
+  }, [inspectorDraggingRef, wrapperRef]);
 
   // ── @tanstack/react-table 設定 ──────────────────────────────
 
@@ -256,6 +258,7 @@ export function TableInspector({
     }
   }, [columns]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: data ?? [],
     columns,

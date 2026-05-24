@@ -1,0 +1,32 @@
+/*
+ * MyDevWeb shared design tokens
+ * TODO: stub — 後續從現有 src/index.css 與 inline style 盤點實際 token，目前先放代表性的幾個
+ */
+
+:root {
+  /* Colors */
+  --color-primary: #1677ff;
+  --color-bg: #ffffff;
+  --color-bg-dark: #001529;
+  --color-text: rgba(0, 0, 0, 0.88);
+  --color-text-muted: rgba(255, 255, 255, 0.45);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-danger: #ff4d4f;
+
+  /* Radius — 對應現有 src/index.css 的 @theme */
+  --radius-btn: 8px;
+  --radius-card: 16px;
+  --radius-panel: 24px;
+
+  /* Spacing scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+}

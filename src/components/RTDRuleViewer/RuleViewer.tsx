@@ -37,6 +37,7 @@ export default function RuleViewer() {
   // ── 選擇狀態 ──────────────────────────────────────────────
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
+
   // 最後一次實際載入時的 Phase，與 selectedPhase 不同步（切換 Phase 不影響它）
   const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
 
@@ -53,7 +54,7 @@ export default function RuleViewer() {
     if (phaseError)    notifApi.error({ title: "無法載入 Phase 清單",    description: phaseError.message,    placement: "topRight", duration: 5, key: "phaseError" });
     if (eqpError)      notifApi.error({ title: "無法載入 EQP / Rule 清單", description: eqpError.message,    placement: "topRight", duration: 5, key: "eqpError" });
     if (ruleInfoError) notifApi.error({ title: "無法載入 Rule 資料",      description: ruleInfoError.message, placement: "topRight", duration: 5, key: "ruleError" });
-  }, [phaseError, eqpError, ruleInfoError]);
+  }, [phaseError, eqpError, ruleInfoError, notifApi]);
 
   // ── Block 搜尋 ────────────────────────────────────────────
   const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
@@ -89,24 +90,34 @@ export default function RuleViewer() {
   const [useNewIcons, setUseNewIcons] = useState(true);
 
   // ── 右側面板寬度 / 收合 / 分頁 ───────────────────────────
-  const [rightPanelWidth, setRightPanelWidth] = useState(300);
+  const COLLAPSE_THRESHOLD = 55; // 自動收合的寬度閾值（px）
+  const MIN_PANEL_WIDTH    = 200; // 面板最小寬度（px），防止被拖得太窄而無法再拖回來
+  const DEFAULT_PANEL_WIDTH = 300;
+
+  const [rightPanelWidth, setRightPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("search");
-  const dividerDragRef = useRef({ dragging: false, startX: 0, startW: 300 });
+  const dividerDragRef = useRef({ dragging: false, startX: 0, startW: DEFAULT_PANEL_WIDTH });
 
-  // 右側面板拖曳調整寬度
+  // 右側面板拖曳調整寬度（拖到 COLLAPSE_THRESHOLD 以下自動縮起）
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dividerDragRef.current.dragging) return;
-      const dx = dividerDragRef.current.startX - e.clientX;
-      // 限制最小寬度 220，最大寬度 1000
-      const newW = Math.max(220, Math.min(1000, dividerDragRef.current.startW + dx));
-      setRightPanelWidth(newW);
+      const dx  = dividerDragRef.current.startX - e.clientX;
+      const newW = dividerDragRef.current.startW + dx;
+      if (newW < COLLAPSE_THRESHOLD) {
+        dividerDragRef.current.dragging = false;
+        document.body.style.cursor    = "";
+        document.body.style.userSelect = "";
+        setRightCollapsed(true);
+        return;
+      }
+      setRightPanelWidth(Math.min(1000, Math.max(MIN_PANEL_WIDTH, newW)));
     }
     function onMouseUp() {
       if (!dividerDragRef.current.dragging) return;
       dividerDragRef.current.dragging = false;
-      document.body.style.cursor = "";
+      document.body.style.cursor    = "";
       document.body.style.userSelect = "";
     }
     window.addEventListener("mousemove", onMouseMove);
@@ -152,7 +163,7 @@ export default function RuleViewer() {
   }, [matchedBlockList]);
 
   // ── Prop handlers ─────────────────────────────────────────
-  const handlePhaseChange = useCallback((phase: string) => {
+  const handlePhaseChange = useCallback((phase: string | null) => {
     setSelectedPhase(phase);
     setSelectedRule(null);
     setLoadedPhase(null);
@@ -165,7 +176,7 @@ export default function RuleViewer() {
     }
   }, [selectedRule, selectedPhase]);
 
-  const handleMatchChange = useCallback((list: MatchResult[], kw: string) => {
+  const handleMatchChange = useCallback((list: MatchResult[] | null, kw: string) => {
     setMatchedBlockList(list);
     setSearchKeyword(kw);
     setMatchIndex(0);
@@ -238,45 +249,48 @@ export default function RuleViewer() {
           />
         </div>
 
-        {/* 拖曳分隔線（收合時不可見） */}
-        <div
-          className={cn("w-2 shrink-0 mx-1 flex items-center justify-center cursor-col-resize select-none group self-stretch", rightCollapsed && "invisible")}
-          onMouseDown={(e) => {
-            if (rightCollapsed) return;
-            e.preventDefault();
-            dividerDragRef.current.dragging = true;
-            dividerDragRef.current.startX = e.clientX;
-            dividerDragRef.current.startW = rightPanelWidth;
-            document.body.style.cursor = "col-resize";
-            document.body.style.userSelect = "none";
-          }}
-        >
-          <div className="flex flex-col items-center gap-0.5">
-            <div className="w-0.5 h-6 rounded-full bg-white/25 group-hover:bg-white/60 transition-colors" />
-            <div className="flex flex-col gap-0.75 opacity-30 group-hover:opacity-70 transition-opacity">
-              <div className="w-0.75 h-0.75 rounded-full bg-white" />
-              <div className="w-0.75 h-0.75 rounded-full bg-white" />
-              <div className="w-0.75 h-0.75 rounded-full bg-white" />
+        {/* 拖曳分隔線（收合後隱藏） */}
+        {!rightCollapsed && (
+          <div
+            className="w-3 shrink-0 cursor-col-resize select-none group self-stretch relative mx-0.5"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              dividerDragRef.current.dragging = true;
+              dividerDragRef.current.startX  = e.clientX;
+              dividerDragRef.current.startW  = rightPanelWidth;
+              document.body.style.cursor    = "col-resize";
+              document.body.style.userSelect = "none";
+            }}
+          >
+            {/* 全高細線：平常極淡，hover 亮起 */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 rounded-full bg-white/10 group-hover:bg-blue-400/55 transition-colors duration-150" />
+            {/* 置中 grip pill：只在 hover 出現 */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-0.75 px-0.5 py-1.5 rounded bg-slate-600 border border-blue-400/30 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="w-0.75 h-0.75 rounded-full bg-white/70" />
+              ))}
             </div>
-            <div className="w-0.5 h-6 rounded-full bg-white/25 group-hover:bg-white/60 transition-colors" />
           </div>
-        </div>
+        )}
 
         {/* 右側面板（始終掛載，收合時僅顯示展開按鈕） */}
         <div
           className={cn("shrink-0 rounded-xl bg-slate-900 border border-black/12 text-white flex flex-col min-h-0 overflow-hidden", !rightCollapsed && "p-3")}
           style={{ width: rightCollapsed ? 32 : rightPanelWidth }}
         >
-          {/* 收合狀態：僅展開按鈕 */}
-          <div className={rightCollapsed ? "flex flex-col items-center py-2" : "hidden"}>
+          {/* 收合狀態：整個面板都可點擊展開 */}
+          {rightCollapsed && (
             <button
-              onClick={() => setRightCollapsed(false)}
+              onClick={() => {
+                setRightPanelWidth((w) => Math.max(w, DEFAULT_PANEL_WIDTH));
+                setRightCollapsed(false);
+              }}
               title="展開面板"
-              className="w-6 h-6 flex items-center justify-center rounded text-white/50 hover:text-white hover:bg-white/10 cursor-pointer text-base leading-none"
+              className="w-full h-full flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/5 cursor-pointer transition-all rounded-xl"
             >
               ‹
             </button>
-          </div>
+          )}
 
           {/* 展開狀態：完整面板內容 */}
           <div className={rightCollapsed ? "hidden" : "flex-1 min-h-0 flex flex-col"}>
@@ -379,12 +393,9 @@ export default function RuleViewer() {
                 onHighlight={handleHighlight}
               />
             </div>
-
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }

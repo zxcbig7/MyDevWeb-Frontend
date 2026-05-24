@@ -29,11 +29,21 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
+const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AUTH === "true";
+
+const DEV_USER: AuthUser = {
+  id: "dev-local",
+  name: "Dev User",
+  email: "dev@local",
+  avatar: "",
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(DEV_BYPASS ? DEV_USER : null);
+  const [loading, setLoading] = useState(!DEV_BYPASS);
 
   useEffect(() => {
+    if (DEV_BYPASS) return;
     const token = AuthService.getStoredToken();
     if (!token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
