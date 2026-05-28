@@ -7,7 +7,6 @@
 import axios from "axios";
 import useSWR from "swr";
 import type * as RTDDTO from "./types";
-import { TOKEN_KEY } from "../../auth/AuthContext";
 
 // ── Axios Client ─────────────────────────────────────────────
 // 統一 baseURL / timeout / 通用 headers
@@ -15,17 +14,11 @@ import { TOKEN_KEY } from "../../auth/AuthContext";
 const client = axios.create({
     baseURL: import.meta.env.VITE_API_BASE,
     timeout: 10000,
+    withCredentials: true,
     headers: {
         Cid: import.meta.env.VITE_CID,
         Account: "ruleviewer-frontend",
     },
-});
-
-// Request Interceptor：每次請求前自動帶上 JWT（如果存在）
-client.interceptors.request.use((config) => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
 });
 
 //

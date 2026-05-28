@@ -36,7 +36,7 @@ export default function DevRuleView() {
         </select>
         <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer ml-auto">
           <input type="checkbox" checked={useNewIcons} onChange={(e) => setUseNewIcons(e.target.checked)} />
-          New Icons
+          Moderns
         </label>
       </div>
 

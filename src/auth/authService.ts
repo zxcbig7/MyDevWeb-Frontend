@@ -1,17 +1,16 @@
 // ============================================================
 // authService.ts
 // 支援兩種登入模式：
-//   Flow A（有後端）：redirect → backend JWT
-//   One Tap（無後端）：GIS → Google id_token
+//   Flow A（有後端）：redirect → backend 設 HttpOnly cookie
+//   One Tap（有後端）：GIS id_token → POST /exchange-token → backend 設 HttpOnly cookie
+// token 存在 HttpOnly cookie，JS 無法讀取，登入狀態透過 /me 確認
 // ============================================================
 
 import axios from "axios";
 
 const BACKEND_BASE     = import.meta.env.VITE_API_BASE ?? "";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
-export const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY ?? "auth_token";
 
-// 後端 service call 時使用
 export const API_BASE = import.meta.env.DEV ? "" : BACKEND_BASE;
 
 export type AuthUser = {
@@ -21,16 +20,20 @@ export type AuthUser = {
   avatar: string;
 };
 
+const authAxios = axios.create({
+  withCredentials: true,
+});
+
 export const AuthService = {
 
-  // ── Flow A：Redirect（有後端）────────────────────────────
+  // ── Flow A：Redirect（後端主導）──────────────────────────
 
-  /** 跳後端，由後端主導整個 OAuth flow */
+  /** 跳後端，由後端主導整個 OAuth flow，完成後後端設 HttpOnly cookie */
   loginServerSide(): void {
     window.location.href = `${BACKEND_BASE}/api/auth/google/login`;
   },
 
-  // ── One Tap：GIS（無後端）───────────────────────────────
+  // ── One Tap：GIS ─────────────────────────────────────────
 
   /** 初始化 GIS，拿到 id_token 後呼叫 onCredential */
   initGIS(onCredential: (idToken: string) => void): void {
@@ -46,49 +49,21 @@ export const AuthService = {
     window.google.accounts.id.prompt();
   },
 
-  // ── Token 管理 ───────────────────────────────────────────
+  // ── 後端 Service Call ────────────────────────────────────
 
-  /**
-   * 解析 JWT payload，同時支援兩種格式：
-   *   - Google id_token：sub / name / email / picture
-   *   - .NET backend JWT：ClaimTypes 長 URI
-   */
-  decodeToken(token: string): AuthUser {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const p = JSON.parse(atob(base64));
-    if (p.exp * 1000 < Date.now()) throw new Error("Token expired");
-
-    const NET_SUB   = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
-    const NET_EMAIL = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
-    const NET_NAME  = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-
-    return {
-      id:     p.sub     ?? p[NET_SUB]   ?? "",
-      name:   p.name    ?? p[NET_NAME]  ?? "",
-      email:  p.email   ?? p[NET_EMAIL] ?? "",
-      avatar: p.picture ?? "",
-    };
+  /** One Tap 拿到的 Google id_token → 後端驗證並設 HttpOnly cookie */
+  async exchangeIdToken(idToken: string): Promise<void> {
+    await authAxios.post(`${BACKEND_BASE}/api/auth/google/exchange-token`, { idToken });
   },
 
-  storeToken(token: string): void {
-    localStorage.setItem(TOKEN_KEY, token);
-  },
-
-  getStoredToken(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
-  },
-
-  clearToken(): void {
-    localStorage.removeItem(TOKEN_KEY);
-  },
-
-  // ── 後端 Service Call 用 ─────────────────────────────────
-
-  /** 驗證 token 並取得使用者資料（後端需運行） */
-  async fetchMe(token: string): Promise<AuthUser> {
-    const res = await axios.get<AuthUser>(`${API_BASE}/api/auth/google/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  /** 取得目前登入者資料，同時用來確認 cookie 是否有效 */
+  async fetchMe(): Promise<AuthUser> {
+    const res = await authAxios.get<AuthUser>(`${API_BASE}/api/auth/google/me`);
     return res.data;
+  },
+
+  /** 登出：清除 HttpOnly cookie（後端清） */
+  async logout(): Promise<void> {
+    await authAxios.post(`${BACKEND_BASE}/api/auth/google/logout`).catch(() => {});
   },
 };

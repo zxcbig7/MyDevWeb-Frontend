@@ -16,17 +16,18 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, login, loginWithToken } = useAuth();
+  const { user, login, loginWithCookie } = useAuth();
 
   useEffect(() => {
     if (user) navigate("/homepage", { replace: true });
   }, [user, navigate]);
 
-  // One Tap：無後端時的備用方案，自動彈出
+  // One Tap：自動彈出，拿到 id_token 送後端換 HttpOnly cookie，再呼叫 /me
   useEffect(() => {
     AuthService.initGIS(async (idToken) => {
       try {
-        await loginWithToken(idToken);
+        await AuthService.exchangeIdToken(idToken);
+        await loginWithCookie();
         navigate("/homepage", { replace: true });
       } catch (err) {
         console.error("[AuthPage] One Tap 登入失敗", err);

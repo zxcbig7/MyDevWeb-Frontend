@@ -105,10 +105,6 @@ export function drawBlock(
   // 兩層分開是因為 clip 狀態與透明度需要獨立管理
   ctx.save();
 
-  if (!isMatched) {
-    ctx.globalAlpha = 0.4;
-  }
-
   // 白底 + 圖片（clip 至圓角矩形）
   ctx.save();
   ctx.beginPath();
@@ -118,7 +114,9 @@ export function drawBlock(
   ctx.fill();
   const img = getBlockImage(b.type, useNewIcons);
   if (img.complete && img.naturalWidth > 0) {
+    if (!isMatched) ctx.filter = "grayscale(1)";
     ctx.drawImage(img, b.x, b.y, b.w, b.h);
+    ctx.filter = "none";
   }
   ctx.restore();
 
@@ -152,7 +150,7 @@ export function drawBlock(
   }
 
   // Label 文字
-  ctx.fillStyle = "rgba(0, 0, 0, 0.53)";
+  ctx.fillStyle = isMatched ? "rgba(0, 0, 0, 0.53)" : "rgba(0, 0, 0, 0.25)";
   ctx.font = "11px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
@@ -188,15 +186,28 @@ export function drawBlocks(
   trackerVarIds?: Set<string>,
   useNewIcons: boolean = true
 ) {
-  blocks.forEach((b) =>
+  const trackerActive = (trackerLogIds?.size ?? 0) > 0 || (trackerVarIds?.size ?? 0) > 0;
+
+  blocks.forEach((b) => {
+    // 計算「是否有關聯」——決定要不要 dim
+    // 優先序：Viewer 搜尋 → Tracker → 兩者皆無（全亮）
+    let isMatched: boolean;
+    if (matchedIds !== null) {
+      isMatched = matchedIds.has(b.id);
+    } else if (trackerActive) {
+      isMatched = (trackerLogIds?.has(b.id) ?? false) || (trackerVarIds?.has(b.id) ?? false);
+    } else {
+      isMatched = true;
+    }
+
     drawBlock(
       ctx,
       b,
       inspectedIds.has(b.id),
-      matchedIds ? matchedIds.has(b.id) : true,
+      isMatched,
       !!selectedId && b.id === selectedId,
       trackerLogIds?.has(b.id) ? "log" : trackerVarIds?.has(b.id) ? "var" : undefined,
       useNewIcons
-    )
-  );
+    );
+  });
 }

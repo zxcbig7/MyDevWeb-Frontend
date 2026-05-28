@@ -1,30 +1,20 @@
-// Flow A callback：後端把 JWT 帶在 ?token= 跳回來
+// Flow A callback：後端已設好 HttpOnly cookie，直接呼叫 /me 確認身份
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { AuthService } from "../../auth/authService";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { loginWithCookie } = useAuth();
   const called = useRef(false);
 
   useEffect(() => {
     if (called.current) return;
     called.current = true;
 
-    const token = new URLSearchParams(window.location.search).get("token");
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    loginWithToken(token)
+    loginWithCookie()
       .then(() => navigate("/homepage", { replace: true }))
-      .catch(() => {
-        AuthService.clearToken();
-        navigate("/login", { replace: true });
-      });
+      .catch(() => navigate("/login", { replace: true }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

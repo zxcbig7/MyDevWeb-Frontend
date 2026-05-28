@@ -1,23 +1,22 @@
 // ============================================================
 // AuthContext.tsx
 // 全域 Auth 狀態
-// login() → redirect flow（需後端）
-// loginWithToken() → One Tap 或 redirect callback 都走這裡
+// login() → redirect flow（後端主導，後端設 HttpOnly cookie）
+// loginWithCookie() → One Tap 或 redirect callback 完成後呼叫 /me 確認身份
 // ============================================================
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { AuthService, TOKEN_KEY, type AuthUser } from "./authService";
+import { AuthService, type AuthUser } from "./authService";
 
 export type { AuthUser };
-export { TOKEN_KEY };
 
 type AuthState = {
   user: AuthUser | null;
   loading: boolean;
   login: () => void;
   logout: () => void;
-  loginWithToken: (token: string) => Promise<void>;
+  loginWithCookie: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -44,37 +43,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (DEV_BYPASS) return;
-    const token = AuthService.getStoredToken();
-    if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false);
-      return;
-    }
-    try {
-      setUser(AuthService.decodeToken(token));
-    } catch {
-      AuthService.clearToken();
-    }
-    setLoading(false);
+    AuthService.fetchMe()
+      .then(setUser)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  /** redirect flow（後端主導）*/
   function login() { AuthService.loginServerSide(); }
 
-  function logout() {
-    AuthService.clearToken();
+  async function logout(): Promise<void> {
+    await AuthService.logout();
     setUser(null);
     window.google?.accounts.id.disableAutoSelect();
   }
 
-  /** One Tap 或 redirect callback 收到 token 後都走這裡 */
-  async function loginWithToken(token: string): Promise<void> {
-    AuthService.storeToken(token);
-    setUser(AuthService.decodeToken(token));
+  /** cookie 已由後端設好，呼叫 /me 取得使用者資料 */
+  async function loginWithCookie(): Promise<void> {
+    const me = await AuthService.fetchMe();
+    setUser(me);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, loginWithToken }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, loginWithCookie }}>
       {children}
     </AuthContext.Provider>
   );

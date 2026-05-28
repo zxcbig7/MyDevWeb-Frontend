@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 
 export interface SovleRequest {
   solution: Grid | null;
@@ -137,15 +138,20 @@ function Choises({
   );
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const DIFFICULTIES = ["Easy", "Medium", "Hard"] as const;
+type Difficulty = typeof DIFFICULTIES[number];
+
 export default function SudokuSolver() {
-  // 題目輸入狀態：初始為空格子
   const [puzzle, setPuzzle] = useState<Grid>(EMPTY_GRID.map((row) => [...row]));
-  const [clues, setClues] = useState<Grid | null>(null); // 鎖定時的線索快照
-  const [solution, setSolution] = useState<Grid | null>(null); // 解答
-  const [selected, setSelected] = useState<Selected>(null); // 目前選取的格子
-  const [locked, setLocked] = useState<boolean>(false); // 題目是否已固定
-  const [error, setError] = useState<string | null>(null); // 錯誤訊息
-  const [steps, setSteps] = useState<SolveStep[]>([]); // 求解步驟記錄
+  const [clues, setClues] = useState<Grid | null>(null);
+  const [solution, setSolution] = useState<Grid | null>(null);
+  const [selected, setSelected] = useState<Selected>(null);
+  const [locked, setLocked] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<SolveStep[]>([]);
+  const [difficulty, setDifficulty] = useState<Difficulty>("Medium");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // 填入數字到指定格子（functional update 避免 stale closure）
   const setCell = (row: number, col: number, value: number | null) => {
@@ -218,6 +224,29 @@ export default function SudokuSolver() {
       setSolution(null);
       setSteps([]);
       setError("此題目無解，請確認輸入是否正確。");
+    }
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await axios.get<{ success: boolean; data: { Board: number[][] } }>(
+        `${API_BASE}/api/SudokuSolver/problem`,
+        { params: { difficulty }, withCredentials: true }
+      );
+      const board = res.data.data.Board;
+      const grid: Grid = board.map(row => row.map(n => n === 0 ? null : n));
+      setPuzzle(grid);
+      setClues(grid.map(r => [...r]));
+      setSolution(null);
+      setLocked(true);
+      setSelected(null);
+      setSteps([]);
+    } catch {
+      setError("出題失敗，請確認後端是否運行中。");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -314,8 +343,26 @@ export default function SudokuSolver() {
 
       {error && <p style={styles.error}>{error}</p>}
 
+      {/* 出題區 */}
       <div style={styles.buttonRow}>
-        {/* 未固定時顯示「設定題目」，固定後顯示灰色提示 */}
+        <select
+          value={difficulty}
+          onChange={e => setDifficulty(e.target.value as Difficulty)}
+          style={styles.select}
+        >
+          {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <button
+          style={{ ...styles.generateBtn, opacity: isGenerating ? 0.6 : 1 }}
+          onClick={handleGenerate}
+          disabled={isGenerating}
+        >
+          {isGenerating ? "出題中…" : "出題"}
+        </button>
+      </div>
+
+      {/* 操作區 */}
+      <div style={styles.buttonRow}>
         <button style={{ ...styles.solveBtn, ...dimStyle(locked) }} onClick={handleSetPuzzle} disabled={locked}>
           設定
         </button>
@@ -429,6 +476,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#333",
     border: "1px solid #bbb",
     borderRadius: "8px",
+    cursor: "pointer",
+  },
+  generateBtn: {
+    padding: "10px 32px",
+    fontSize: "16px",
+    fontWeight: "bold",
+    background: "#2e7d32",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+  },
+  select: {
+    padding: "10px 16px",
+    fontSize: "15px",
+    borderRadius: "8px",
+    border: "1px solid #bbb",
+    background: "#fafafa",
     cursor: "pointer",
   },
   logPanel: {

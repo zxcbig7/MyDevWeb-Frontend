@@ -225,11 +225,11 @@ export default function RuleViewer() {
           <button
             onClick={() => setUseNewIcons(true)}
             className={cn("px-3 py-1 rounded cursor-pointer transition-colors", useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-          >New Icon</button>
+          >Modern</button>
           <button
             onClick={() => setUseNewIcons(false)}
             className={cn("px-3 py-1 rounded cursor-pointer transition-colors", !useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-          >Old Icon</button>
+          >Classic</button>
         </div>
       </div>
 
