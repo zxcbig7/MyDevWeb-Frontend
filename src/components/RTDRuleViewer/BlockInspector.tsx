@@ -12,7 +12,7 @@
 // 共用元件：SectionTitle / MetaRow / ValueCard / HighlightedValue
 // ============================================================
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Block, BlockType, BlockValue, RuleData } from "./types";
 import { cn } from "../../utils/clsx";
 
@@ -29,6 +29,7 @@ type BlockInspectorProps = {
   onPositionChange?: (x: number, y: number) => void;
   onFocus?: () => void;
   zIndex?: number;
+  onViewImportData?: (tableName: string) => void;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -96,10 +97,11 @@ export function BlockInspector({
   onPositionChange,
   onFocus,
   zIndex = 100,
+  onViewImportData,
 }: BlockInspectorProps) {
   const onPositionChangeRef = useRef(onPositionChange);
-  // eslint-disable-next-line react-hooks/refs
-  onPositionChangeRef.current = onPositionChange;
+  useEffect(() => { onPositionChangeRef.current = onPositionChange; });
+  const [showInfo, setShowInfo] = useState(false);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -219,10 +221,25 @@ export function BlockInspector({
           {block.type}
         </span>
         <strong className="text-sm truncate min-w-0">{r.BLOCK_NAME}</strong>
-        <span className="text-gray-300 text-[10px] shrink-0">|</span>
-        <span className="text-[10px] text-gray-400 shrink-0">Seq: <span className="font-mono text-gray-600">{r.BLOCK_SEQ}</span></span>
-        <span className="text-[10px] text-gray-400 shrink-0">Group: <span className="font-mono text-gray-600">{r.BLOCK_GROUP}</span></span>
         <div className="flex items-center gap-1 shrink-0 ml-auto">
+          {block.type === "Import" && r.VALUES?.[0]?.KEY && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewImportData?.(r.VALUES[0].KEY!); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="text-[10px] px-2 py-0.5 rounded border border-blue-300 text-blue-500 hover:bg-blue-50 bg-transparent cursor-pointer"
+            >
+              View Data
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowInfo((s) => !s); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            className={cn("text-[11px] w-4 h-4 rounded-full border flex items-center justify-center cursor-pointer transition-colors bg-transparent",
+              showInfo ? "border-blue-400 text-blue-500" : "border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600"
+            )}
+          >
+            i
+          </button>
           <span className="text-[10px] text-gray-300 select-none">Esc</span>
           <button
             onClick={onClose}
@@ -232,6 +249,26 @@ export function BlockInspector({
           </button>
         </div>
       </div>
+
+      {/* Info Panel */}
+      {showInfo && (
+        <div className="shrink-0 border-b border-gray-100 bg-gray-50 px-3 py-2 flex flex-wrap items-start gap-x-4 gap-y-1">
+          <MetaRow label="Phase"  value={r.PHASE} />
+          <MetaRow label="Rule"   value={r.RULE_NAME} />
+          <MetaRow label="Group"  value={r.BLOCK_GROUP} />
+          <MetaRow label="Seq"    value={r.BLOCK_SEQ} />
+          {r.PREBLOCK && r.PREBLOCK.length > 0 && (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-gray-400 font-medium">Pre-Blocks</span>
+              <div className="flex flex-wrap gap-1">
+                {r.PREBLOCK.map((name, i) => (
+                  <PreBlockBadge key={name} name={name} isPrimary={i === 0} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Body（捲動區） */}
       <div className="flex-1 min-h-0 overflow-auto">
@@ -317,59 +354,128 @@ const VALUE_CARD_THEMES: Record<"gray" | "blue", ValueCardTheme> = {
 };
 
 // ValueCard：顯示一個條件值的卡片，包含欄位標籤、值，以及可選的箭頭（表示與前置 Block 的連線）
-function ValueCard({ index, v, theme = "gray", col1Label, col2Label, showArrow = false }: {
-  index: number; v: BlockValue;
+function ValueCard({ v, theme = "gray", col1Label, col2Label, showArrow = false, showKey = false }: {
+  v: BlockValue;
   theme?: "gray" | "blue";
   col1Label: string; col2Label: string;
   showArrow?: boolean;
+  showKey?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(true);
   const t = VALUE_CARD_THEMES[theme];
   const isBlue = theme === "blue";
   const labelCls = isBlue ? "text-blue-400" : "text-gray-400";
+  const hasValue = v.VALUE != null && v.VALUE !== "";
+
   return (
     <div className={cn("rounded border p-2.5", t.border, t.bg)}>
       <div className="flex items-center gap-2 mb-1.5">
-        <span className={cn("text-[10px] font-medium w-4 text-right shrink-0", t.indexCls)}>{index + 1}</span>
         {showArrow && <span className="text-[10px] text-gray-400">←</span>}
-        <div className="flex gap-3 text-xs min-w-0">
+        <div className="flex gap-3 text-xs min-w-0 flex-1">
+          {showKey && v.KEY && <ColField label="TBL" value={v.KEY} labelCls={labelCls} valueCls="text-gray-800" />}
           {v.COLUMN1 && <ColField label={col1Label} value={v.COLUMN1} labelCls={labelCls} valueCls="text-blue-700" />}
           {v.COLUMN2 && <ColField label={col2Label} value={v.COLUMN2} labelCls={labelCls} valueCls={isBlue ? "text-blue-500" : "text-gray-500"} />}
         </div>
+        {hasValue && (
+          <button
+            className="shrink-0 text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer bg-transparent border-0 px-1 leading-none"
+            onClick={() => setExpanded((e) => !e)}
+          >
+            {expanded ? "▾" : "▸"}
+          </button>
+        )}
       </div>
-      {v.VALUE != null && (
-        <pre className={cn("font-mono text-xs leading-relaxed bg-white border rounded px-2.5 py-1.5 m-0 whitespace-pre-wrap break-all ml-6", t.border)}>
-          <HighlightedValue code={v.VALUE} />
-        </pre>
+      {hasValue && (
+        expanded ? (
+          <pre className={cn("font-mono text-xs leading-relaxed bg-white border rounded px-2.5 py-1.5 m-0 whitespace-pre-wrap break-all", t.border)}>
+            <HighlightedValue code={formatAPF(v.VALUE!)} />
+          </pre>
+        ) : (
+          <div
+            className={cn("font-mono text-xs bg-white border rounded px-2.5 py-1.5 truncate text-gray-500 cursor-pointer", t.border)}
+            onClick={() => setExpanded(true)}
+          >
+            {v.VALUE!.replace(/\n/g, " ")}
+          </div>
+        )
       )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
+// APF Formatter — 在非字串區段插入換行與縮排，提升可讀性
+// ─────────────────────────────────────────────────────────────
+function formatAPF(code: string): string {
+  const KEYWORDS: [RegExp, string][] = [
+    [/^\s+ELSE\s+IF\s+/, "\nELSE IF "],
+    [/^\s+AND\s+/,       "\n  AND "],
+    [/^\s+OR\s+/,        "\n  OR "],
+    [/^\s+THEN\s+/,      "\n  THEN "],
+    [/^\s+ELSE\s+/,      "\nELSE "],
+  ];
+
+  // 整條字串統一掃描，depth 跨字串區段持續累積
+  let out = "", i = 0, depth = 0;
+
+  while (i < code.length) {
+    // 字串字面值：整段照抄，不修改也不追蹤括號
+    if (code[i] === '"') {
+      let j = i + 1;
+      while (j < code.length) {
+        if (code[j] === '\\') { j += 2; continue; }
+        if (code[j] === '"')  { j++; break; }
+        j++;
+      }
+      out += code.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    if (code[i] === '(') { depth++; out += '('; i++; continue; }
+    if (code[i] === ')') { depth--; out += ')'; i++; continue; }
+
+    // 只在括號外插入換行
+    if (depth === 0) {
+      const rest = code.slice(i);
+      let matched = false;
+      for (const [pat, rep] of KEYWORDS) {
+        const hit = rest.match(pat);
+        if (hit) { out += rep; i += hit[0].length; matched = true; break; }
+      }
+      if (!matched) out += code[i++];
+    } else {
+      out += code[i++];
+    }
+  }
+
+  return out.trim();
+}
+
+// ─────────────────────────────────────────────────────────────
 // Syntax Highlighter
 // ─────────────────────────────────────────────────────────────
-type TokenType = "comment" | "string" | "keyword" | "variable" | "text";
+type TokenType = "comment" | "string" | "keyword" | "function" | "variable" | "text";
 type Token = { type: TokenType; text: string };
 
-// 簡單的語法高亮實作，針對賦值表達式中的關鍵字、變數、字串和註解進行著色
-const HIGHLIGHT_RE = /("(?:[^"\\]|\\.)*")|(\/\*[\s\S]*?\*\/)|(\/\/[^\n]*)|(\b(?:IF|ELSE|THEN|OR|AND)\b)|(\$[^\s"]+)|([^\s"]+)/g;
+// group1: string  group2/3: comment  group4: keyword  group5: function call  group6: variable  group7: text
+const HIGHLIGHT_RE = /("(?:[^"\\]|\\.)*")|(\/\*[\s\S]*?\*\/)|(\/\/[^\n]*)|(\b(?:IF|ELSE|THEN|OR|AND)\b)|(\b[A-Za-z_]\w*(?=\s*\())|(\$[^\s"]+)|([^\s"]+)/g;
 
-// 將賦值表達式切分成不同類型的 token，以便在 HighlightedValue 中渲染不同顏色
 function tokenize(code: string): Token[] {
   const result: Token[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
   HIGHLIGHT_RE.lastIndex = 0;
 
-  // 迭代所有匹配，根據捕獲群組判斷 token 類型，並將未匹配的部分作為普通文本
   while ((m = HIGHLIGHT_RE.exec(code)) !== null) {
     if (m.index > last) result.push({ type: "text", text: code.slice(last, m.index) });
-    if (m[1]) result.push({ type: "string", text: m[1] });
-    else if (m[2]) result.push({ type: "comment", text: m[2] });
-    else if (m[3]) result.push({ type: "comment", text: m[3] });
-    else if (m[4]) result.push({ type: "keyword", text: m[4] });
-    else if (m[5]) result.push({ type: "variable", text: m[5] });
-    else result.push({ type: "text", text: m[6]! });
+    if (m[1])      result.push({ type: "string",   text: m[1] });
+    else if (m[2]) result.push({ type: "comment",  text: m[2] });
+    else if (m[3]) result.push({ type: "comment",  text: m[3] });
+    else if (m[4]) result.push({ type: "keyword",  text: m[4] });
+    else if (m[5]) result.push({ type: "function", text: m[5] });
+    else if (m[6]) result.push({ type: "variable", text: m[6] });
+    else           result.push({ type: "text",     text: m[7]! });
     last = HIGHLIGHT_RE.lastIndex;
   }
 
@@ -378,9 +484,10 @@ function tokenize(code: string): Token[] {
 }
 
 const TOKEN_CLASS: Record<TokenType, string> = {
-  comment: "text-green-600",
-  string: "text-amber-800",
-  keyword: "text-blue-700",
+  comment:  "text-green-600",
+  string:   "text-amber-800",
+  keyword:  "text-violet-600",
+  function: "text-blue-600",
   variable: "text-amber-700",
   text: "",
 };
@@ -422,7 +529,7 @@ const BODY_REGISTRY: Partial<Record<string, BodyComponent>> = {
 
 // 依 category 決定預設模板（當 BODY_REGISTRY 沒有對應 type 時使用）
 const CATEGORY_DEFAULT_BODY: Record<BlockCategory, BodyComponent> = {
-  input: ProcessBody,
+  input: DataSourceBody,
   tableop: FunctionBody,
   function: FunctionBody,
   output: ProcessBody,
@@ -439,33 +546,23 @@ function InspectorBody({ block, r }: { block: Block; r: RuleData }) {
 // ─────────────────────────────────────────────────────────────
 // BodyBase — Metadata + Pre-Blocks + Values（共用骨架）
 // ─────────────────────────────────────────────────────────────
-function BodyBase({ r, sectionLabel, theme = "gray", col1Label, col2Label, showArrow = false }: {
+function BodyBase({ r, sectionLabel, theme = "gray", col1Label, col2Label, showArrow = false, showKey = false }: {
   r: RuleData;
   sectionLabel: string;
   theme?: "gray" | "blue";
   col1Label: string;
   col2Label: string;
   showArrow?: boolean;
+  showKey?: boolean;
 }) {
   return (
     <div className="p-3 flex flex-col gap-2">
-      {r.PREBLOCK && r.PREBLOCK.length > 0 && (
-        <>
-          <SectionTitle>Pre-Blocks</SectionTitle>
-          <div className="flex flex-wrap gap-1.5">
-            {r.PREBLOCK.map((name, i) => (
-              <PreBlockBadge key={name} name={name} isPrimary={i === 0} />
-            ))}
-          </div>
-        </>
-      )}
-
       {(r.VALUES?.length ?? 0) > 0 && (
         <>
           <SectionTitle>{sectionLabel} ({r.VALUES?.length})</SectionTitle>
           <div className="flex flex-col gap-2">
             {(r.VALUES ?? []).map((v, i) => (
-              <ValueCard key={i} index={i} v={v} theme={theme} col1Label={col1Label} col2Label={col2Label} showArrow={showArrow} />
+              <ValueCard key={i} v={v} theme={theme} col1Label={col1Label} col2Label={col2Label} showArrow={showArrow} showKey={showKey} />
             ))}
           </div>
         </>
@@ -473,6 +570,11 @@ function BodyBase({ r, sectionLabel, theme = "gray", col1Label, col2Label, showA
     </div>
   );
 }
+
+function DataSourceBody({ r }: { r: RuleData }) {
+  return <BodyBase r={r} sectionLabel="Import" theme="gray" col1Label="Columns" col2Label="" showKey />;
+}
+
 
 function FunctionBody({ r }: { r: RuleData }) {
   return <BodyBase r={r} sectionLabel="Operations" theme="blue" col1Label="Output" col2Label="Source" />;

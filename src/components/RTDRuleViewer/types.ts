@@ -24,6 +24,12 @@ export interface EqpRuleListDTO {
 };
 
 // 取得 Rule 所有資訊
+export interface ImportTableDTO {
+  TableName: string;
+  Columns: string[];
+  Rows: string[][];
+}
+
 export interface RuleInfoDTO {
   PHASE: string | null;
   RULE_NAME: string | null;

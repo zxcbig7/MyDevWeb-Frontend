@@ -142,3 +142,20 @@ export const useResourceDataResponse = (imfileName: string | null) =>
         imfileName ? `/api/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
             : null
     );
+
+// 單一物件信封（import endpoint 回傳非陣列）
+interface SingleAPIResponse<T> {
+    data: T;
+    success: boolean;
+    message: string;
+    code: number;
+}
+
+export const useImportTableResponse = (tableName: string | null) => {
+    const { data, error, isLoading } = useSWR<SingleAPIResponse<RTDDTO.ImportTableDTO>>(
+        tableName ? `/api/RuleViewer/ImportFile/${encodeURIComponent(tableName)}` : null,
+        (u) => fetcher<SingleAPIResponse<RTDDTO.ImportTableDTO>>(u),
+        { revalidateOnFocus: false }
+    );
+    return { data: data?.data ?? null, error: error ?? null, isLoading };
+};

@@ -21,6 +21,8 @@ import { buildArrows, drawArrows } from "./arrowUtils";
 import { drawGrid, drawMinimap, getWorldBounds, snap, GRID_SIZE } from "./canvasUtils";
 import { BlockTooltip } from "./BlockTooltip";
 import { BlockInspector } from "./BlockInspector";
+import { TableInspector } from "./tableinfo";
+import { useImportTableResponse } from "./api";
 
 type RuleViewProps = {
   rules: RuleData[];
@@ -55,8 +57,15 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
     // ── UI 狀態 ───────────────────────────────────────────
     const [inspectors, setInspectors] = useState<InspectorState[]>([]);
-    // focusStack：block.id 按點擊順序排列，尾端 = 最近點擊 = Esc 最優先關閉
     const [focusStack, setFocusStack] = useState<string[]>([]);
+    const [importTableName, setImportTableName] = useState<string | null>(null);
+    const { data: importTableData, isLoading: importTableLoading } = useImportTableResponse(importTableName);
+    const importTableRows = useMemo(() => {
+      if (!importTableData) return null;
+      return importTableData.Rows.map((row: string[]) =>
+        Object.fromEntries(importTableData.Columns.map((col: string, i: number) => [col, row[i]]))
+      );
+    }, [importTableData]);
     const [hoveredBlock, setHoveredBlock] = useState<Block | null>(null);
     const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
@@ -87,7 +96,11 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     }, [inspectors]);
 
     // ── 視圖狀態（pan / zoom） ────────────────────────────
-    const viewRef = useRef({ translateX: 0, translateY: 0, scale: 1 });
+    // NATURAL_SCALE：block 看起來「正常大小」的縮放比例，作為 1:1 的基準
+    const NATURAL_SCALE = 0.7;
+    const DEFAULT_SCALE = NATURAL_SCALE; // 載入預設 1:1
+    const viewRef = useRef({ translateX: 0, translateY: 0, scale: DEFAULT_SCALE });
+    const [displayScale, setDisplayScale] = useState(DEFAULT_SCALE);
 
     const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 });
 
@@ -246,6 +259,27 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       canvas.style.height = `${rect.height}px`;
 
       syncMinimapSize(rect.width, rect.height);
+
+      // blocks 載入時自動 fit-to-view，並確保最低縮放不低於 1.2
+      if (blocks.length > 0) {
+        const bounds = getWorldBounds(blocks);
+        const worldW = bounds.maxX - bounds.minX;
+        const worldH = bounds.maxY - bounds.minY;
+        const fitScale = Math.min(
+          (rect.width * 0.85) / worldW,
+          (rect.height * 0.85) / worldH
+        );
+        const scale = Math.max(DEFAULT_SCALE, fitScale);
+        const cx = (bounds.minX + bounds.maxX) / 2;
+        const cy = (bounds.minY + bounds.maxY) / 2;
+        viewRef.current = {
+          scale,
+          translateX: rect.width / 2 - cx * scale,
+          translateY: rect.height / 2 - cy * scale,
+        };
+        setDisplayScale(scale);
+      }
+
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [blocks]);
 
@@ -430,6 +464,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         view.scale = newScale;
         view.translateX = mx - wx * newScale;
         view.translateY = my - wy * newScale;
+        setDisplayScale(newScale);
 
         redraw(ctx, blocks);
       }
@@ -589,13 +624,15 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       view.scale = newScale;
       view.translateX = cx - wx * newScale;
       view.translateY = cy - wy * newScale;
+      setDisplayScale(newScale);
       redraw(ctx, blocks);
     }, [blocks, redraw]);
 
     const zoomReset = useCallback(() => {
       const ctx = ctxRef.current;
       if (!ctx) return;
-      viewRef.current = { translateX: 0, translateY: 0, scale: 1 };
+      viewRef.current = { translateX: 0, translateY: 0, scale: NATURAL_SCALE };
+      setDisplayScale(NATURAL_SCALE);
       redraw(ctx, blocks);
     }, [blocks, redraw]);
 
@@ -647,20 +684,33 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                     return [...filtered, block.id];
                   })
                 }
+                onViewImportData={(tableName) => setImportTableName(tableName)}
               />
             );
           })}
+          {importTableName && (
+            <TableInspector
+              tableName={importTableName}
+              data={importTableRows}
+              isLoading={importTableLoading}
+              initialX={Math.max(0, (sizeRef.current.w - 700) / 2)}
+              initialY={Math.max(0, (sizeRef.current.h - 500) / 2)}
+              wrapperRef={canvasStageRef}
+              inspectorDraggingRef={inspectorDraggingRef}
+              onClose={() => setImportTableName(null)}
+            />
+          )}
         </div>
 
         {/* Minimap + Controls */}
-        <div className="absolute left-5 bottom-5 flex flex-col gap-1.5">
+        <div className="absolute left-5 bottom-5 flex flex-col gap-1.5 items-start">
           {/* Minimap — 用 hidden 隱藏而非 unmount，保持 ref 與事件監聽器有效 */}
           <div className={cn("border border-gray-400 bg-white self-start", !showMinimap && "hidden")}>
             <canvas ref={minimapRef} width={minimapSize.w} height={minimapSize.h} style={{ display: "block" }} />
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 h-9">
             {/* Connector lines toggle  ╌ = dashed line */}
             <button
               onClick={() => {
@@ -703,7 +753,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                 )}
             >⊡</button>
             {/* Divider */}
-            <div className="w-px h-6 bg-gray-300" />
+            <div className="w-px self-stretch bg-gray-300 mx-0.5" />
             {/* Zoom buttons */}
             <button
               onClick={() => zoomBy(1.25)}
@@ -717,9 +767,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             >−</button>
             <button
               onClick={zoomReset}
-              title="標準縮放"
-              className="px-2 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-xs hover:bg-gray-100 cursor-pointer shadow-sm"
-            >1:1</button>
+              title="重置縮放"
+              className="px-2 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-xs hover:bg-gray-100 cursor-pointer shadow-sm tabular-nums"
+            >{Math.round((displayScale / NATURAL_SCALE) * 100)}%</button>
           </div>
         </div>
       </div>

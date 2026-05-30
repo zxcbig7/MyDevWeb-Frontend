@@ -40,11 +40,11 @@ export function convertDtosToData(dtos: RuleInfoDTO[]): RuleData[] {
       });
     }
 
-    // 有值才推入
-    if (dto.VALUE && dto.VALUE.trim() !== "") {
+    // COLUMN1、COLUMN2、VALUE 任一有資料就推入
+    if (dto.COLUMN1 || dto.COLUMN2 || (dto.VALUE && dto.VALUE.trim() !== "")) {
       const entry = blockMap.get(baseName)!;
       entry.VALUES ??= [];
-      entry.VALUES.push({ KEY: dto.KEY, COLUMN1: dto.COLUMN1, COLUMN2: dto.COLUMN2, VALUE: dto.VALUE });
+      entry.VALUES.push({ KEY: dto.KEY, COLUMN1: dto.COLUMN1, COLUMN2: dto.COLUMN2, VALUE: dto.VALUE || null });
     }
   }
 

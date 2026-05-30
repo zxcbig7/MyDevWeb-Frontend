@@ -14,11 +14,13 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
   type ColumnOrderState,
+  type PaginationState,
   type Header,
   type Table,
 } from "@tanstack/react-table";
@@ -248,6 +250,7 @@ export function TableInspector({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 100 });
 
   // 欄位定義變更時重置欄位順序
   useEffect(() => {
@@ -262,18 +265,21 @@ export function TableInspector({
   const table = useReactTable({
     data: data ?? [],
     columns,
-    state: { sorting, columnFilters, columnOrder },
+    state: { sorting, columnFilters, columnOrder, pagination },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnOrderChange: setColumnOrder,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     columnResizeMode: "onChange",
   });
 
   const filteredCount = table.getFilteredRowModel().rows.length;
   const totalCount = data?.length ?? 0;
+  const pageCount = table.getPageCount();
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -370,6 +376,26 @@ export function TableInspector({
           </table>
         )}
       </div>
+
+      {/* ── Pagination Footer ── */}
+      {pageCount > 1 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-t border-gray-200 bg-gray-50 shrink-0 text-xs text-gray-500">
+          <button
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="px-2 py-0.5 rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default cursor-pointer"
+          >‹</button>
+          <span className="tabular-nums">
+            {pagination.pageIndex + 1} / {pageCount}
+          </span>
+          <button
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="px-2 py-0.5 rounded border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default cursor-pointer"
+          >›</button>
+          <span className="ml-auto text-gray-400">{pagination.pageSize} rows/page</span>
+        </div>
+      )}
 
       {/* ── Resize Handle ── */}
       <div
