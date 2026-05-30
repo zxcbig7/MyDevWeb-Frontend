@@ -37,11 +37,8 @@ export interface RuleInfoDTO {
   PREBLOCK: string | null;
   COLUMN1: string | null;
   COLUMN2: string | null;
-  VALUE1: string | null;
-  VALUE2: string | null;
-  VALUE3: string | null;
-  VALUE4: string | null;
-  VALUE5: string | null;
+  VALUE: string | null;
+  CLAIM_TIME: string | null;
 };
 
 // ── 資料轉換後的 Block 資料 ─────────────────────────────────
@@ -52,7 +49,6 @@ export type RuleData = {
   BLOCK_TYPE: string;
   BLOCK_GROUP: string;
   BLOCK_SEQ: string;
-  KEY: string | null;
   POSX: number | null;
   POSY: number | null;
   /** 前置 Block 名稱，長度 0-2。[0] = 主線來源，[1] = 副線來源（選用） */
@@ -62,6 +58,7 @@ export type RuleData = {
 
 // ── 合併後單一條件的 Value ──────────────────────────────────
 export interface BlockValue {
+  KEY: string | null;
   COLUMN1: string | null;
   COLUMN2: string | null;
   VALUE: string | null;
@@ -141,6 +138,7 @@ export type Arrow = {
   from: string;
   to: string;
   isPrimary: boolean;
+  isMainLine: boolean;
 };
 
 export type ArrowRenderStyle = {

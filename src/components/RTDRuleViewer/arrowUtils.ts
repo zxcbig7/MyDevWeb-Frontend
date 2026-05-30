@@ -8,24 +8,27 @@ import { blockCenter } from "./blockUtils";
 
 // ── 建構箭頭陣列 ─────────────────────────────────────────────
 export function buildArrows(data: RuleData[]): Arrow[] {
+  const groupMap = new Map(data.map((r) => [r.BLOCK_NAME, r.BLOCK_GROUP]));
+
   return data.flatMap((r) => {
     if (!r.PREBLOCK || r.PREBLOCK.length === 0) return [];
 
     const arrows: Arrow[] = [];
+    const toIsMain = r.BLOCK_GROUP === "MAIN";
 
-    // 主線：第一個前置 Block
     arrows.push({
       from: r.PREBLOCK[0],
       to: r.BLOCK_NAME,
       isPrimary: true,
+      isMainLine: toIsMain && groupMap.get(r.PREBLOCK[0]) === "MAIN",
     });
 
-    // 副線：第二個前置 Block（可選，例如 DECISION 節點的 false 線）
     if (r.PREBLOCK.length >= 2) {
       arrows.push({
         from: r.PREBLOCK[1],
         to: r.BLOCK_NAME,
         isPrimary: false,
+        isMainLine: toIsMain && groupMap.get(r.PREBLOCK[1]) === "MAIN",
       });
     }
 
@@ -121,8 +124,9 @@ export function drawArrows(
   arrows: Arrow[],
   scale: number
 ) {
-  const PRIMARY_COLOR   = "#374151"; // 主線：深灰
-  const SECONDARY_COLOR = "#555555"; // 副線：橘
+  const MAIN_COLOR      = "#2563EB"; // 兩端都是 MAIN：藍
+  const PRIMARY_COLOR   = "#374151"; // 一般主線：深灰
+  const SECONDARY_COLOR = "#9CA3AF"; // 副線：淺灰
 
   arrows.forEach((a) => {
     const from = blocks.find((b) => b.id === a.from);
@@ -133,15 +137,15 @@ export function drawArrows(
     const start = getSideCenter(from, fromSide);
     const end   = getSideCenter(to,   toSide);
 
-    const color = a.isPrimary ? PRIMARY_COLOR : SECONDARY_COLOR;
+    const color = a.isMainLine ? MAIN_COLOR : (a.isPrimary ? PRIMARY_COLOR : SECONDARY_COLOR);
 
     ctx.save();
 
     ctx.strokeStyle = color;
     ctx.fillStyle   = color;
-    ctx.lineWidth   = (a.isPrimary ? 1.5 : 1.2) / scale;
+    ctx.lineWidth   = (a.isMainLine ? 2.2 : a.isPrimary ? 1.5 : 1.2) / scale;
 
-    // 副線：虛線
+    // 副線：虛線；主線 / MAIN 線：實線
     ctx.setLineDash(a.isPrimary ? [] : [6 / scale, 3 / scale]);
 
     drawArrow(ctx, start.x, start.y, end.x, end.y, {

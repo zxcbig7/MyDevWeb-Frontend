@@ -21,20 +21,15 @@ export function BlockTooltip({ block, mousePos, canvasSize }: BlockTooltipProps)
 
     const rect = ref.current.getBoundingClientRect();
     
-    let x = mousePos.x + 12;
-    let y = mousePos.y + 12;
+    let x = mousePos.x - rect.width / 2;
+    let y = mousePos.y + 16;
 
-    // 超出右邊界時往左貼
-    if (x + rect.width > canvasSize.w) {
-      x = canvasSize.w - rect.width - 4;
-    }
-    // 超出下邊界時往上貼
-    if (y + rect.height > canvasSize.h) {
-      y = canvasSize.h - rect.height - 4;
-    }
-
+    // 超出右邊界
+    if (x + rect.width > canvasSize.w) x = canvasSize.w - rect.width - 4;
+    // 超出左邊界
     if (x < 4) x = 4;
-    if (y < 4) y = 4;
+    // 超出下邊界時往上貼（顯示在滑鼠正上方）
+    if (y + rect.height > canvasSize.h) y = mousePos.y - rect.height - 8;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPos({ x, y });
@@ -47,16 +42,18 @@ export function BlockTooltip({ block, mousePos, canvasSize }: BlockTooltipProps)
   return (
     <div
       ref={ref}
-      className="absolute bg-black/90 text-white px-2 py-1.5 rounded text-xs pointer-events-none whitespace-nowrap"
+      className="absolute bg-black/90 text-white px-2 py-1.5 rounded text-[10px] pointer-events-none max-w-80"
       style={{
         left: pos?.x ?? -9999,
         top: pos?.y ?? -9999,
       }}
     >
-      <div><b>Block:</b> {r.BLOCK_NAME}</div>
-      <div><b>Type:</b>  {r.BLOCK_TYPE}</div>
-      {r.KEY && <div><b>Key:</b> {r.KEY}</div>}
-      <div><b>Conditions:</b> {r.VALUES.length}</div>
+      {r.VALUES.map((v, i) => {
+        const meta = [v.KEY, [v.COLUMN1, v.COLUMN2].filter(Boolean).join("/") || null].filter(Boolean).join(" ");
+        const val = v.VALUE ? (v.VALUE.length > 55 ? v.VALUE.slice(0, 55) + "…" : v.VALUE) : null;
+        const line = [meta, val].filter(Boolean).join(" ");
+        return <div key={i} className="opacity-80 truncate">{`{ ${line} }`}</div>;
+      })}
     </div>
   );
 }

@@ -24,9 +24,9 @@ type RuleContentSearchProps = {
 // 判斷 RuleData 是否符合搜尋關鍵字
 function matchRule(rule: RuleData, kw: string): boolean {
   if (rule.BLOCK_NAME.toLowerCase().includes(kw)) return true;
-  if (rule.KEY && rule.KEY.toLowerCase().includes(kw)) return true;
   return (rule.VALUES ?? []).some(
     (v) =>
+      (v.KEY && v.KEY.toLowerCase().includes(kw)) ||
       (v.COLUMN1 && v.COLUMN1.toLowerCase().includes(kw)) ||
       (v.COLUMN2 && v.COLUMN2.toLowerCase().includes(kw)) ||
       (v.VALUE != null && v.VALUE.toLowerCase().includes(kw))
@@ -52,8 +52,8 @@ function getSnippet(rule: RuleData, keyword: string): string {
     }
     if (v.COLUMN1?.toLowerCase().includes(kw)) return `col: ${v.COLUMN1}`;
     if (v.COLUMN2?.toLowerCase().includes(kw)) return `ref: ${v.COLUMN2}`;
+    if (v.KEY?.toLowerCase().includes(kw)) return `key: ${v.KEY}`;
   }
-  if (rule.KEY?.toLowerCase().includes(kw)) return `key: ${rule.KEY}`;
   return "";
 }
 

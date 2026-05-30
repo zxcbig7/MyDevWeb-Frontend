@@ -123,11 +123,8 @@ export const useRuleResponse = (phase: string | null) =>
  *     "PREBLOCK":    "DataSource1",   // 前置 Block 名稱，多個用逗號分隔（最多取前 2 個）；可為 null
  *     "COLUMN1":     "OUTPUT_VAR",    // 輸出變數名稱；可為 null
  *     "COLUMN2":     "SOURCE_COL",    // 來源欄位；可為 null
- *     "VALUE1":      "IF $LOG$ THEN", // 條件表達式片段；可為 null
- *     "VALUE2":      null,            // VALUE1~5 會合併串接成單一字串
- *     "VALUE3":      null,
- *     "VALUE4":      null,
- *     "VALUE5":      null
+ *     "VALUE":       "IF $LOG$ THEN", // 條件表達式（後端已將 VALUE1~5 合併）；可為 null
+ *     "CLAIM_TIME":  null             // 最後更新時間；可為 null
  *   },
  *   ...
  * ]

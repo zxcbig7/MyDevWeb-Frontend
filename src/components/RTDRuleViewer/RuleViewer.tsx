@@ -49,6 +49,13 @@ export default function RuleViewer() {
   const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
   const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
 
+  const claimTime = useMemo(() => {
+    const raw = ruleInfoDTOs?.find((d) => d.CLAIM_TIME)?.CLAIM_TIME;
+    if (!raw) return null;
+    const d = new Date(raw);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }, [ruleInfoDTOs]);
+
   // ── SWR 錯誤通知（合併為單一 effect） ────────────────────
   useEffect(() => {
     if (phaseError)    notifApi.error({ title: "無法載入 Phase 清單",    description: phaseError.message,    placement: "topRight", duration: 5, key: "phaseError" });
@@ -218,6 +225,12 @@ export default function RuleViewer() {
             <span className="text-slate-400 shrink-0">{loadedPhase}</span>
             <span className="text-white/30 shrink-0">/</span>
             <span className="text-white font-semibold font-mono truncate max-w-50">{selectedRule}</span>
+            {claimTime && (
+              <>
+                <span className="text-white/30 shrink-0">|</span>
+                <span className="text-slate-400 font-mono shrink-0">{claimTime}</span>
+              </>
+            )}
           </div>
         )}
 

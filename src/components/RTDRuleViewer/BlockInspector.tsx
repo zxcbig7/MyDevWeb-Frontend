@@ -192,7 +192,7 @@ export function BlockInspector({
   return (
     <div
       ref={panelRef}
-      className={cn("absolute top-0 left-0 w-90 min-w-75 min-h-50 max-h-full flex flex-col bg-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] pointer-events-auto overflow-hidden border border-gray-200 border-l-4 rounded-[1px]", accent.borderLeft)}
+      className={cn("absolute top-0 left-0 w-90 min-w-75 min-h-50 max-h-140 flex flex-col bg-white shadow-[0_12px_30px_rgba(0,0,0,0.18)] pointer-events-auto overflow-hidden border border-gray-200 border-l-4 rounded-[1px]", accent.borderLeft)}
       style={{ zIndex }}
       onMouseDown={(e) => { e.stopPropagation(); onFocus?.(); }}
     >
@@ -203,8 +203,12 @@ export function BlockInspector({
           e.stopPropagation();
           onFocus?.();
           const wrapper = wrapperRef.current;
-          if (!wrapper) return;
+          const panel = panelRef.current;
+          if (!wrapper || !panel) return;
           const rect = wrapper.getBoundingClientRect();
+          const matrix = new DOMMatrix(panel.style.transform);
+          dragRef.current.originX = matrix.m41;
+          dragRef.current.originY = matrix.m42;
           inspectorDraggingRef.current = true;
           dragRef.current.dragging = true;
           dragRef.current.startX = e.clientX - rect.left;
@@ -445,8 +449,6 @@ function BodyBase({ r, sectionLabel, theme = "gray", col1Label, col2Label, showA
 }) {
   return (
     <div className="p-3 flex flex-col gap-2">
-      {r.KEY && <MetaRow label="Key" value={r.KEY} />}
-
       {r.PREBLOCK && r.PREBLOCK.length > 0 && (
         <>
           <SectionTitle>Pre-Blocks</SectionTitle>

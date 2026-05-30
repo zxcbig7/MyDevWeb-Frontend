@@ -337,9 +337,12 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
         if (!hitBlock) return;
 
+        const { w, h } = sizeRef.current;
+        const ix = Math.max(0, w / 2 - 170);
+        const iy = Math.max(0, h / 4);
         setInspectors((prev) => {
           if (prev.some((i) => i.block.id === hitBlock.id)) return prev;
-          return [...prev, { block: hitBlock, x: mx, y: my }];
+          return [...prev, { block: hitBlock, x: ix, y: iy }];
         });
         setFocusStack((prev) => {
           if (prev.includes(hitBlock.id)) return prev;

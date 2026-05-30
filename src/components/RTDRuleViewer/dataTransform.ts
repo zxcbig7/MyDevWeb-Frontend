@@ -24,11 +24,6 @@ export function convertDtosToData(dtos: RuleInfoDTO[]): RuleData[] {
         ? dto.PREBLOCK.split(",").map((s) => getBaseBlockName(s.trim())).slice(0, 2)
         : null;
 
-    // VALUE1~5 合併為單一字串，過濾掉空值
-    const values = [dto.VALUE1, dto.VALUE2, dto.VALUE3, dto.VALUE4, dto.VALUE5]
-      .filter((v): v is string => v !== null && v.trim() !== "")
-      .join("");
-
     // 第一次看到這個 baseName，先建立空的 entry
     if (!blockMap.has(baseName)) {
       blockMap.set(baseName, {
@@ -38,7 +33,6 @@ export function convertDtosToData(dtos: RuleInfoDTO[]): RuleData[] {
         BLOCK_TYPE: dto.BLOCK_TYPE ?? "",
         BLOCK_GROUP: dto.BLOCK_GROUP ?? "",
         BLOCK_SEQ: dto.BLOCK_SEQ ?? "",
-        KEY: dto.KEY,
         POSX: dto.POSX,
         POSY: dto.POSY,
         PREBLOCK: preBlock,
@@ -47,10 +41,10 @@ export function convertDtosToData(dtos: RuleInfoDTO[]): RuleData[] {
     }
 
     // 有值才推入
-    if (values !== "") {
+    if (dto.VALUE && dto.VALUE.trim() !== "") {
       const entry = blockMap.get(baseName)!;
       entry.VALUES ??= [];
-      entry.VALUES.push({ COLUMN1: dto.COLUMN1, COLUMN2: dto.COLUMN2, VALUE: values });
+      entry.VALUES.push({ KEY: dto.KEY, COLUMN1: dto.COLUMN1, COLUMN2: dto.COLUMN2, VALUE: dto.VALUE });
     }
   }
 
