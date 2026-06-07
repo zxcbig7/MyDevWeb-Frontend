@@ -21,38 +21,45 @@ type RuleContentSearchProps = {
 
 // ── 工具函式 ──────────────────────────────────────────────────
 
-// 判斷 RuleData 是否符合搜尋關鍵字
+// 把所有空白（換行 / 多空格 / tab）正規化成單一空格。
+// 讓「搜尋」與「渲染」脫鉤：使用者從 formatAPF 排版後的畫面複製含換行的字串來查詢，
+// 也能比對到原始資料（原始值該處是空格）。比對兩邊都先過這個函式。
+const normWs = (s: string): string => s.replace(/\s+/g, " ").trim();
+
+// 判斷 RuleData 是否符合搜尋關鍵字（kw 須為已 normWs + toLowerCase 的字串）
 function matchRule(rule: RuleData, kw: string): boolean {
-  if (rule.BLOCK_NAME.toLowerCase().includes(kw)) return true;
+  if (normWs(rule.BLOCK_NAME).toLowerCase().includes(kw)) return true;
   return (rule.VALUES ?? []).some(
     (v) =>
-      (v.KEY && v.KEY.toLowerCase().includes(kw)) ||
-      (v.COLUMN1 && v.COLUMN1.toLowerCase().includes(kw)) ||
-      (v.COLUMN2 && v.COLUMN2.toLowerCase().includes(kw)) ||
-      (v.VALUE != null && v.VALUE.toLowerCase().includes(kw))
+      (v.KEY && normWs(v.KEY).toLowerCase().includes(kw)) ||
+      (v.COLUMN1 && normWs(v.COLUMN1).toLowerCase().includes(kw)) ||
+      (v.COLUMN2 && normWs(v.COLUMN2).toLowerCase().includes(kw)) ||
+      (v.VALUE != null && normWs(v.VALUE).toLowerCase().includes(kw))
   );
 }
 
 /** 取最具代表性的命中摘要（優先 VALUE > COLUMN > KEY > BLOCK_NAME） */
 function getSnippet(rule: RuleData, keyword: string): string {
-  const kw = keyword.toLowerCase();
+  const kw = normWs(keyword).toLowerCase();
 
   // 先找 VALUE 命中（最有資訊量）
   for (const v of rule.VALUES ?? []) {
     const val = v.VALUE;
-    if (val && val.toLowerCase().includes(kw)) {
-      const flat = val.replace(/\n/g, " "); // 換行轉空白，保持單行顯示
+    if (val) {
+      const flat = normWs(val); // 與比對一致：換行 / 多空白 → 單空格
       const idx = flat.toLowerCase().indexOf(kw);
-      // 擷取關鍵字前後各 18 個字元作為摘要視窗
-      // Math.max/min 確保不超出字串邊界
-      const s = Math.max(0, idx - 18);
-      const e = Math.min(flat.length, idx + kw.length + 18);
-      // 若被截斷（s > 0 或 e < length）則加上「…」提示使用者
-      return (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
+      if (idx >= 0) {
+        // 擷取關鍵字前後各 18 個字元作為摘要視窗
+        // Math.max/min 確保不超出字串邊界
+        const s = Math.max(0, idx - 18);
+        const e = Math.min(flat.length, idx + kw.length + 18);
+        // 若被截斷（s > 0 或 e < length）則加上「…」提示使用者
+        return (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
+      }
     }
-    if (v.COLUMN1?.toLowerCase().includes(kw)) return `col: ${v.COLUMN1}`;
-    if (v.COLUMN2?.toLowerCase().includes(kw)) return `ref: ${v.COLUMN2}`;
-    if (v.KEY?.toLowerCase().includes(kw)) return `key: ${v.KEY}`;
+    if (v.COLUMN1 && normWs(v.COLUMN1).toLowerCase().includes(kw)) return `col: ${v.COLUMN1}`;
+    if (v.COLUMN2 && normWs(v.COLUMN2).toLowerCase().includes(kw)) return `ref: ${v.COLUMN2}`;
+    if (v.KEY && normWs(v.KEY).toLowerCase().includes(kw)) return `key: ${v.KEY}`;
   }
   return "";
 }
@@ -123,19 +130,21 @@ export function RuleContentSearch({ rules, onMatchChange }: RuleContentSearchPro
   const handleSearch = useCallback(() => {
     const kw = keyword.trim();
     if (!kw) { onMatchChange(null, ""); return; }
+    const kwNorm = normWs(kw).toLowerCase(); // 比對用：正規化空白 + 小寫
 
     const matchedSet = new Set(
-      rules.filter((r) => matchRule(r, kw.toLowerCase())).map((r) => r.BLOCK_NAME)
+      rules.filter((r) => matchRule(r, kwNorm)).map((r) => r.BLOCK_NAME)
     );
     const sorted = topoSort(rules).filter((name) => matchedSet.has(name));
     const ruleMap = new Map(rules.map((r) => [r.BLOCK_NAME, r]));
 
     const results: MatchResult[] = sorted.map((id) => ({
       id,
-      snippet: getSnippet(ruleMap.get(id)!, kw),
+      snippet: getSnippet(ruleMap.get(id)!, kwNorm),
     }));
 
-    onMatchChange(results, kw);
+    // 傳出正規化（保留大小寫）的關鍵字，讓 snippet 高亮與正規化後的摘要一致
+    onMatchChange(results, normWs(kw));
   }, [keyword, rules, onMatchChange]);
 
   const handleClear = useCallback(() => {

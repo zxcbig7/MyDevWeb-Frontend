@@ -31,6 +31,8 @@ type RuleViewProps = {
   trackerLogIds?: Set<string>;
   trackerVarIds?: Set<string>;
   useNewIcons?: boolean;
+  searchKeyword?: string;
+  trackedLogName?: string;
 };
 
 type InspectorState = {
@@ -40,7 +42,7 @@ type InspectorState = {
 };
 
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons = true }, ref) {
+  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons = true, searchKeyword = "", trackedLogName = "" }, ref) {
 
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
@@ -668,6 +670,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
               <BlockInspector
                 key={block.id}
                 block={block}
+                searchKeyword={searchKeyword}
+                trackedLogName={trackedLogName}
                 initialX={x}
                 initialY={y}
                 wrapperRef={canvasStageRef}

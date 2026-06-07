@@ -57,6 +57,8 @@ IF <欄位> <運算子> <值> THEN <結果> ELSE IF ... ELSE <結果>
 
 Canvas 上兩端都是 MAIN 的連線顯示為藍色粗實線；其他為灰色細線。
 
+**Filter 擺放慣例**：Filter 放在副線（例如 `DB(G1) → FUNC(G1) → FILTER(G1) → INDEX`）做去重 / 篩選，避免副線重複列在 INDEX join 後讓主線資料爆炸（fan-out）。**主線不放 Filter**——會直接讓主資料流的資料列消失。
+
 ---
 
 ## APF 表達式語法（VALUE 欄位）
@@ -68,6 +70,9 @@ IF <var> <op> <val> THEN <result> ELSE IF ... ELSE <result>
 - 條件：`field op value`（例如 `HOLD_COUNT > 10`、`LOT_STATUS == "HOLD"`）
 - 結果：字串 `"PASS"`、數字 `10`、欄位名稱、或 Log 引用 `[$LOG_NAME$]`
 - `[$LOG_NAME$]` 只能出現在 THEN 位置
+- `[$LOG_NAME$]` 慣例只在**主線**的決策 Function 產出（副線負責串資料，不產 log）
+- 凡 VALUE 含 `[$LOG_NAME$]` 的 Function，其變數名（KEY / COLUMN1）**一律命名 `disablereason`**
+- 可加註解：`/* 區塊註解 */`、`// 行註解`（formatAPF 與 highlighter 會整段略過，不影響語意）
 
 ---
 
@@ -92,7 +97,7 @@ IF <var> <op> <val> THEN <result> ELSE IF ... ELSE <result>
 
 | Type | KEY | COLUMN1 | COLUMN2 | VALUE | 說明 | 確認 |
 |------|-----|---------|---------|-------|------|------|
-| **Index** | Index 識別名稱 | 排序欄位 | — | 計算分數的 APF 表達式 | 依 BLOCK_GROUP 將副線串回主線，產生排序權重 | ✅ |
+| **Index** | Index 識別名稱 | 主線對應 Key | 副線對應 Key | 要從副線插入主線的欄位 | 主副線做 column mapping（join key 對應）後，把副線特定欄位的資料插入主線 | ✅ |
 | **Join** | 待確認 | 主線 Join Key | 副線 Join Key | Join 條件 | 合併兩個資料流（類 SQL JOIN） | 🔶 |
 | **Union** | 待確認 | 待確認 | 待確認 | — | 合併多個資料集（類 SQL UNION） | 🔶 |
 | **Procedure** | 待確認 | 待確認 | 待確認 | 待確認 | 呼叫預存程序或自訂邏輯 | ❓ |
@@ -104,8 +109,8 @@ IF <var> <op> <val> THEN <result> ELSE IF ... ELSE <result>
 
 | Type | KEY | COLUMN1 | COLUMN2 | VALUE | 說明 | 確認 |
 |------|-----|---------|---------|-------|------|------|
-| **Function** | 要設定的變數名稱 | — | — | APF 表達式（IF-THEN-ELSE） | 條件運算產出新變數，可展開多個 `[idx]` | ✅ |
-| **Filter** | — | — | — | 篩選條件表達式（APF） | 篩選符合特定條件的資料，不符合的資料列會被排除 | ✅ |
+| **Function** | 變數名稱（= 新增欄位名） | 輸出變數名（Output，同 KEY） | 來源欄位（Source） | APF 判斷式（IF-THEN-ELSE） | 基於現有欄位資料判斷，每筆 VALUE 指派一個新變數；多變數用多個 `[idx]` 展開 | ✅ |
+| **Filter** | — | — | — | 篩選條件表達式（APF） | 篩選符合條件的資料列（不符的排除）。慣例放**副線去重**，避免 join 後資料爆炸；主線少用（會讓主資料流的資料消失） | ✅ |
 | **Select** | — | 要保留的欄位（逗號分隔） | — | — | 從現有資料選擇特定欄位，未選到的欄位會被移除 | ✅ |
 | **Sort** | 待確認 | 排序欄位 | 排序方向 | — | 依欄位排序資料 | 🔶 |
 | **Batch** | Batch 名稱 | 待確認 | 待確認 | 待確認 | 批次處理邏輯 | ❓ |

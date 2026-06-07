@@ -20,7 +20,7 @@ export function BlockTooltip({ block, mousePos, canvasSize }: BlockTooltipProps)
     if (!ref.current || !mousePos) return;
 
     const rect = ref.current.getBoundingClientRect();
-    
+
     let x = mousePos.x - rect.width / 2;
     let y = mousePos.y + 16;
 

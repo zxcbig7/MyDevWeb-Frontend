@@ -12,9 +12,15 @@
 // 共用元件：SectionTitle / MetaRow / ValueCard / HighlightedValue
 // ============================================================
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Block, BlockType, BlockValue, RuleData } from "./types";
 import { cn } from "../../utils/clsx";
+
+// 高亮資訊以 Context 注入，讓 ColField / Value 標出命中內容，與「搜尋 / Tracker」邏輯解耦。
+//   keyword    = 搜尋關鍵字（已 normWs、保留大小寫）→ 黃底
+//   trackedLog = Tracker 選定的 [$LOG$] 名稱 → 該 log 觸發條件橘底
+type HighlightInfo = { keyword: string; trackedLog: string };
+const HighlightCtx = React.createContext<HighlightInfo>({ keyword: "", trackedLog: "" });
 
 // ─────────────────────────────────────────────────────────────
 // Shell Props
@@ -30,6 +36,8 @@ type BlockInspectorProps = {
   onFocus?: () => void;
   zIndex?: number;
   onViewImportData?: (tableName: string) => void;
+  searchKeyword?: string;
+  trackedLogName?: string;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -98,6 +106,8 @@ export function BlockInspector({
   onFocus,
   zIndex = 100,
   onViewImportData,
+  searchKeyword = "",
+  trackedLogName = "",
 }: BlockInspectorProps) {
   const onPositionChangeRef = useRef(onPositionChange);
   useEffect(() => { onPositionChangeRef.current = onPositionChange; });
@@ -270,14 +280,16 @@ export function BlockInspector({
         </div>
       )}
 
-      {/* Body（捲動區） */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        <InspectorBody block={block} r={r} />
+      {/* Body（捲動區）：底部留 12px，讓捲軸不與右下角 resize 把手重疊 */}
+      <div className="flex-1 min-h-0 overflow-auto mb-3">
+        <HighlightCtx.Provider value={{ keyword: searchKeyword, trackedLog: trackedLogName }}>
+          <InspectorBody block={block} r={r} />
+        </HighlightCtx.Provider>
       </div>
 
       {/* Resize Handle */}
       <div
-        className="absolute right-0.5 bottom-0.5 w-3.5 h-3.5 cursor-se-resize flex items-end justify-end"
+        className="absolute right-0.5 bottom-0 w-3 h-3 cursor-se-resize flex items-end justify-end"
         onMouseDown={(e) => {
           e.stopPropagation();
           onFocus?.();
@@ -338,10 +350,11 @@ function ColField({ label, value, labelCls = "text-gray-400", valueCls = "text-g
   label: string; value: string;
   labelCls?: string; valueCls?: string;
 }) {
+  const { keyword } = useContext(HighlightCtx);
   return (
     <span className="flex flex-col gap-0.5">
       <span className={cn("text-[9px] font-medium", labelCls)}>{label}</span>
-      <span className={cn("font-mono font-semibold", valueCls)}>{value}</span>
+      <span className={cn("font-mono font-semibold", valueCls)}>{highlightPlain(value, keyword)}</span>
     </span>
   );
 }
@@ -362,6 +375,8 @@ function ValueCard({ v, theme = "gray", col1Label, col2Label, showArrow = false,
   showKey?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const { keyword, trackedLog } = useContext(HighlightCtx);
+  const hlActive = keyword !== "" || trackedLog !== "";
   const t = VALUE_CARD_THEMES[theme];
   const isBlue = theme === "blue";
   const labelCls = isBlue ? "text-blue-400" : "text-gray-400";
@@ -387,15 +402,24 @@ function ValueCard({ v, theme = "gray", col1Label, col2Label, showArrow = false,
       </div>
       {hasValue && (
         expanded ? (
-          <pre className={cn("font-mono text-xs leading-relaxed bg-white border rounded px-2.5 py-1.5 m-0 whitespace-pre-wrap break-all", t.border)}>
-            <HighlightedValue code={formatAPF(v.VALUE!)} />
-          </pre>
+          hlActive ? (
+            // 搜尋 / Tracker 中：唯讀「語法色 + 命中螢光底」版（避免與 contentEditable 編輯互相干擾）
+            <pre className={cn("font-mono text-xs leading-relaxed bg-white border rounded px-2.5 py-1.5 m-0 whitespace-pre-wrap break-all", t.border)}>
+              <HighlightedValueWithMarks code={formatAPF(v.VALUE!)} keyword={keyword} trackedLog={trackedLog} />
+            </pre>
+          ) : (
+            // 無高亮：可就地編輯版（草稿，不寫回資料）
+            <EditableHighlighted
+              className={cn("font-mono text-xs leading-relaxed bg-white border rounded px-2.5 py-1.5 m-0 whitespace-pre-wrap break-all cursor-text focus:outline-none focus:ring-1 focus:ring-blue-300", t.border)}
+              code={formatAPF(v.VALUE!)}
+            />
+          )
         ) : (
           <div
             className={cn("font-mono text-xs bg-white border rounded px-2.5 py-1.5 truncate text-gray-500 cursor-pointer", t.border)}
             onClick={() => setExpanded(true)}
           >
-            {v.VALUE!.replace(/\n/g, " ")}
+            {highlightPlain(v.VALUE!.replace(/\n/g, " "), keyword)}
           </div>
         )
       )}
@@ -427,6 +451,29 @@ function formatAPF(code: string): string {
         if (code[j] === '"')  { j++; break; }
         j++;
       }
+      out += code.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    // 區塊註解 /* ... */：整段照抄，不追蹤括號 / 關鍵字；註解後強制換行（自成一行）
+    if (code[i] === '/' && code[i + 1] === '*') {
+      let j = i + 2;
+      while (j < code.length && !(code[j] === '*' && code[j + 1] === '/')) j++;
+      j = Math.min(j + 2, code.length); // 含結尾 */；未閉合則到字串尾
+      out += code.slice(i, j);
+      while (j < code.length && (code[j] === ' ' || code[j] === '\t')) j++; // 吃掉註解後的空白
+      out += "\n";
+      i = j;
+      continue;
+    }
+
+    // 行註解 // ...：照抄到行尾；若同行前面有內容，先換行讓它自成一行
+    if (code[i] === '/' && code[i + 1] === '/') {
+      let j = i + 2;
+      while (j < code.length && code[j] !== '\n') j++;
+      out = out.replace(/[ \t]+$/, "");                       // 去掉註解前的尾隨空白
+      if (out.length > 0 && !out.endsWith("\n")) out += "\n"; // 自成一行
       out += code.slice(i, j);
       i = j;
       continue;
@@ -504,6 +551,167 @@ function HighlightedValue({ code }: { code: string }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// EditableHighlighted — 就地可編輯的高亮值（草稿性質）
+//   - contentEditable：使用者可直接改字
+//   - 高亮只算一次 → 顏色不變（打字不會重新 tokenize，既有 token 顏色固定）
+//   - React.memo 永不重繪 → 拖曳 / 父層重繪不會洗掉使用者的編輯
+//   - 純 DOM 編輯，不寫回 v.VALUE；關閉 inspector 再開（unmount→remount）即還原原始資料
+// ─────────────────────────────────────────────────────────────
+const EditableHighlighted = React.memo(
+  function EditableHighlighted({ code, className }: { code: string; className: string }) {
+    return (
+      <pre
+        className={className}
+        contentEditable
+        suppressContentEditableWarning
+        spellCheck={false}
+        title="可就地編輯（暫存草稿；關閉 inspector 重開即還原原始資料）"
+      >
+        <HighlightedValue code={code} />
+      </pre>
+    );
+  },
+  () => true, // 掛載後永不重繪，保住使用者的就地編輯內容
+);
+
+// ─────────────────────────────────────────────────────────────
+// 搜尋命中高亮（與搜尋比對共用「空白不敏感」語意）
+// ─────────────────────────────────────────────────────────────
+
+// 純字串（KEY / COLUMN）的命中高亮：大小寫不敏感，標出所有出現處
+function highlightPlain(text: string, keyword: string): React.ReactNode {
+  const kw = keyword.replace(/\s+/g, " ").trim();
+  if (!kw) return text;
+  const lower = text.toLowerCase();
+  const k = kw.toLowerCase();
+  const out: React.ReactNode[] = [];
+  let i = 0, n = 0;
+  for (;;) {
+    const idx = lower.indexOf(k, i);
+    if (idx === -1) { out.push(text.slice(i)); break; }
+    if (idx > i) out.push(text.slice(i, idx));
+    out.push(
+      <mark key={n++} className="bg-yellow-200/70 text-inherit rounded-sm px-0.5">
+        {text.slice(idx, idx + k.length)}
+      </mark>
+    );
+    i = idx + k.length;
+  }
+  return <>{out}</>;
+}
+
+// 在「已 formatAPF」的字串上，算出每個字元是否落在搜尋命中範圍內。
+// 搜尋空白不敏感：把字串正規化（\s+→單空格）後找命中，再映射回原字元位置，
+// 因此跨 formatAPF 換行的命中也能標成連續螢光底。
+function computeMatchMask(code: string, keyword: string): boolean[] {
+  const mask = new Array<boolean>(code.length).fill(false);
+  const kw = keyword.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!kw) return mask;
+
+  // norm：正規化字串；map[k]=norm[k] 對應 code 的起始索引（含尾端哨兵）
+  let norm = "";
+  const map: number[] = [];
+  let i = 0;
+  while (i < code.length) {
+    if (/\s/.test(code[i])) {
+      norm += " ";
+      map.push(i);
+      while (i < code.length && /\s/.test(code[i])) i++;
+    } else {
+      norm += code[i];
+      map.push(i);
+      i++;
+    }
+  }
+  map.push(code.length);
+
+  const hay = norm.toLowerCase();
+  let from = 0;
+  for (;;) {
+    const idx = hay.indexOf(kw, from);
+    if (idx === -1) break;
+    for (let p = map[idx]; p < map[idx + kw.length]; p++) mask[p] = true;
+    from = idx + kw.length;
+  }
+  return mask;
+}
+
+// 算出「觸發某個 [$LOG$] 的 IF/ELSE-IF 條件」落在哪些字元（含該 clause 的 IF 關鍵字，到 THEN 之前）。
+// 用既有 tokenize 取結構關鍵字（IF/THEN/ELSE；AND/OR 屬條件內容不計），找出「THEN 結果含目標 log」那條，
+// 標記其 [IF .. 條件結尾]。Tracker 選定某 log 時，用來高亮它的觸發條件。
+function computeLogConditionMask(code: string, logName: string): boolean[] {
+  const mask = new Array<boolean>(code.length).fill(false);
+  if (!logName) return mask;
+  const needle = `$${logName}$`;
+
+  // 收集結構關鍵字位置（IF / THEN / ELSE）
+  const kws: { text: string; start: number; end: number }[] = [];
+  let pos = 0;
+  for (const tok of tokenize(code)) {
+    if (tok.type === "keyword" && (tok.text === "IF" || tok.text === "THEN" || tok.text === "ELSE")) {
+      kws.push({ text: tok.text, start: pos, end: pos + tok.text.length });
+    }
+    pos += tok.text.length;
+  }
+
+  for (let i = 0; i < kws.length; i++) {
+    if (kws[i].text !== "THEN") continue;
+    // 往前找最近的 IF（此 clause 開頭）
+    let ifKw: { start: number; end: number } | null = null;
+    for (let j = i - 1; j >= 0; j--) {
+      if (kws[j].text === "IF") { ifKw = kws[j]; break; }
+    }
+    if (!ifKw) continue;
+    // THEN 之後到下一個 ELSE（或結尾）= 此 clause 的結果
+    let resultEnd = code.length;
+    for (let j = i + 1; j < kws.length; j++) {
+      if (kws[j].text === "ELSE") { resultEnd = kws[j].start; break; }
+    }
+    if (!code.slice(kws[i].end, resultEnd).includes(needle)) continue;
+    // 標記 [IF .. 條件結尾]（去掉 THEN 前的尾隨空白）
+    const a = ifKw.start;
+    let b = kws[i].start;
+    while (b > a && /\s/.test(code[b - 1])) b--;
+    for (let p = a; p < b; p++) mask[p] = true;
+  }
+  return mask;
+}
+
+// VALUE 命中高亮：語法色（tokenize）+ 兩種螢光底疊加。
+//   黃底（lv 2）= 搜尋命中字串；橘底（lv 1）= Tracker 選定 log 的觸發條件
+const HighlightedValueWithMarks = React.memo(function HighlightedValueWithMarks(
+  { code, keyword, trackedLog }: { code: string; keyword: string; trackedLog: string }
+) {
+  const searchMask = useMemo(() => computeMatchMask(code, keyword), [code, keyword]);
+  const condMask = useMemo(() => computeLogConditionMask(code, trackedLog), [code, trackedLog]);
+  const tokens = useMemo(() => tokenize(code), [code]);
+
+  const level = (p: number): number => (searchMask[p] ? 2 : condMask[p] ? 1 : 0);
+
+  const parts: React.ReactNode[] = [];
+  let pos = 0, key = 0;
+  for (const tok of tokens) {
+    const cls = TOKEN_CLASS[tok.type];
+    let i = 0;
+    while (i < tok.text.length) {
+      const lv = level(pos + i);
+      let j = i + 1;
+      while (j < tok.text.length && level(pos + j) === lv) j++;
+      const seg = tok.text.slice(i, j);
+      const bg = lv === 2 ? "bg-yellow-200/70" : lv === 1 ? "bg-orange-200/70" : "";
+      parts.push(
+        bg
+          ? <mark key={key++} className={cn(bg, "text-inherit", cls)}>{seg}</mark>
+          : <span key={key++} className={cls}>{seg}</span>
+      );
+      i = j;
+    }
+    pos += tok.text.length;
+  }
+  return <>{parts}</>;
+});
+
 
 // #region Body Design (每一個都是獨立的 React Component)
 
@@ -518,6 +726,7 @@ const BODY_REGISTRY: Partial<Record<string, BodyComponent>> = {
   // Data:        ProcessBody,
 
   // TableOperation
+  Index: IndexBody,
   // Join:        FunctionBody,
 
   // Function
@@ -582,5 +791,11 @@ function FunctionBody({ r }: { r: RuleData }) {
 
 function ProcessBody({ r }: { r: RuleData }) {
   return <BodyBase r={r} sectionLabel="Assignments" theme="gray" col1Label="Target" col2Label="Depends on" showArrow />;
+}
+
+// Index：主副線 column mapping（join key 對應）後，把副線特定欄位插入主線
+// COLUMN1=主線 Key、COLUMN2=副線 Key、VALUE=要插入的副線欄位
+function IndexBody({ r }: { r: RuleData }) {
+  return <BodyBase r={r} sectionLabel="Insert Columns" theme="blue" col1Label="主線 Key" col2Label="副線 Key" showArrow />;
 }
 // #endregion

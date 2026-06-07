@@ -75,6 +75,7 @@ export default function RuleViewer() {
   // ── Tracker 高亮 ──────────────────────────────────────────
   const [trackerLogIds, setTrackerLogIds] = useState<string[]>([]);
   const [trackerVarIds, setTrackerVarIds] = useState<string[]>([]);
+  const [trackedLogName, setTrackedLogName] = useState<string>(""); // Tracker 選定的 log → inspector 內高亮其觸發條件
 
   const ruleViewRef = useRef<RuleViewHandle | null>(null);
 
@@ -145,6 +146,7 @@ export default function RuleViewer() {
     setSearchKey((k) => k + 1);
     setTrackerLogIds([]);
     setTrackerVarIds([]);
+    setTrackedLogName("");
   }, [selectedRule]);
 
   // ── 搜尋導覽 handlers ─────────────────────────────────────
@@ -189,9 +191,10 @@ export default function RuleViewer() {
     setMatchIndex(0);
   }, []);
 
-  const handleHighlight = useCallback((logIds: string[], varIds: string[]) => {
+  const handleHighlight = useCallback((logIds: string[], varIds: string[], logName?: string | null) => {
     setTrackerLogIds(logIds);
     setTrackerVarIds(varIds);
+    setTrackedLogName(logName ?? "");
   }, []);
 
   const handleTabChange = useCallback((tab: RightTab) => {
@@ -259,6 +262,8 @@ export default function RuleViewer() {
             trackerLogIds={trackerLogIdsSet}
             trackerVarIds={trackerVarIdsSet}
             useNewIcons={useNewIcons}
+            searchKeyword={searchKeyword}
+            trackedLogName={trackedLogName}
           />
         </div>
 

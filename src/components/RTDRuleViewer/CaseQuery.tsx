@@ -380,7 +380,7 @@ function AntiBlueBadge({ name, active }: { name: string; active?: boolean }) {
 export type CaseQueryProps = {
   rules: RuleData[];
   selectedRule: string | null;
-  onHighlight?: (logBlockIds: string[], varBlockIds: string[]) => void;
+  onHighlight?: (logBlockIds: string[], varBlockIds: string[], logName?: string | null) => void;
 };
 
 export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) {
@@ -445,13 +445,13 @@ export function CaseQuery({ rules, selectedRule, onHighlight }: CaseQueryProps) 
     const logBlocks = findLogBlocks(logName, sortedRules);
     const treeNodes = buildLayerTree(logName, logBlocks, sortedRules);
     setMode({ tag: "log", logName, treeNodes });
-    onHighlight?.(logBlocks.map((b) => b.BLOCK_NAME), []);
+    onHighlight?.(logBlocks.map((b) => b.BLOCK_NAME), [], logName);
   }
 
   function handleBack() {
     setMode({ tag: "idle" });
     setSearchInput("");
-    onHighlight?.([], []);
+    onHighlight?.([], [], null);
   }
 
   function handleLogKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
