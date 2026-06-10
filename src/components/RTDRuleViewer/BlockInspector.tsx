@@ -15,6 +15,7 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Block, BlockType, BlockValue, RuleData } from "./types";
 import { cn } from "../../utils/clsx";
+import { tokenize, type TokenType } from "./apfParse";
 
 // 高亮資訊以 Context 注入，讓 ColField / Value 標出命中內容，與「搜尋 / Tracker」邏輯解耦。
 //   keyword    = 搜尋關鍵字（已 normWs、保留大小寫）→ 黃底
@@ -500,36 +501,8 @@ function formatAPF(code: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Syntax Highlighter
+// Syntax Highlighter（tokenize / Token 共用自 apfParse.ts）
 // ─────────────────────────────────────────────────────────────
-type TokenType = "comment" | "string" | "keyword" | "function" | "variable" | "text";
-type Token = { type: TokenType; text: string };
-
-// group1: string  group2/3: comment  group4: keyword  group5: function call  group6: variable  group7: text
-const HIGHLIGHT_RE = /("(?:[^"\\]|\\.)*")|(\/\*[\s\S]*?\*\/)|(\/\/[^\n]*)|(\b(?:IF|ELSE|THEN|OR|AND)\b)|(\b[A-Za-z_]\w*(?=\s*\())|(\$[^\s"]+)|([^\s"]+)/g;
-
-function tokenize(code: string): Token[] {
-  const result: Token[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  HIGHLIGHT_RE.lastIndex = 0;
-
-  while ((m = HIGHLIGHT_RE.exec(code)) !== null) {
-    if (m.index > last) result.push({ type: "text", text: code.slice(last, m.index) });
-    if (m[1])      result.push({ type: "string",   text: m[1] });
-    else if (m[2]) result.push({ type: "comment",  text: m[2] });
-    else if (m[3]) result.push({ type: "comment",  text: m[3] });
-    else if (m[4]) result.push({ type: "keyword",  text: m[4] });
-    else if (m[5]) result.push({ type: "function", text: m[5] });
-    else if (m[6]) result.push({ type: "variable", text: m[6] });
-    else           result.push({ type: "text",     text: m[7]! });
-    last = HIGHLIGHT_RE.lastIndex;
-  }
-
-  if (last < code.length) result.push({ type: "text", text: code.slice(last) });
-  return result;
-}
-
 const TOKEN_CLASS: Record<TokenType, string> = {
   comment:  "text-green-600",
   string:   "text-amber-800",

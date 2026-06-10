@@ -167,3 +167,64 @@ export type RuleViewHandle = {
   focusBlockById: (id: string) => void;
   openInspectorById: (id: string) => void;
 };
+
+// ── Tracker 依賴圖（DAG）─ 整條 rule 建一次，所有 log 共用 ────
+// spec: specs/2026-06-07-tracker-dep-graph.md
+// 唯一真相是圖；顯示用的多元樹（ViewNode）是它的即時投影，不另存。
+
+/** 一條依賴邊：算某變數時引用到的上游變數 */
+export type DepRef = {
+  varName: string;                 // 指向另一個 VarNode
+  role: "cond" | "result";         // 出現在條件 / 結果位置
+  snippet: string;                 // 顯示用，如 "HOLD_COUNT > 10"
+};
+
+/** 變數的一個定義：哪個 Function block 算出它、依賴誰 */
+export type VarDef = {
+  block: string;                   // BLOCK_NAME
+  blockType: string;               // 目前一律 Function
+  deps: DepRef[];
+};
+
+/** 變數節點（全域去重，key = varName）。defs 為空 = root（DB 欄位 / 外部輸入）*/
+export type VarNode = {
+  name: string;
+  defs: VarDef[];
+};
+
+/** 反藍 log 的進入點（同一 log 可由多個 block / clause 觸發）*/
+export type LogEntry = {
+  logName: string;
+  triggers: { block: string; clauseCond: string; deps: DepRef[] }[];
+};
+
+/** 整條 rule 的依賴圖 */
+export type DepGraph = {
+  vars: Map<string, VarNode>;
+  logs: Map<string, LogEntry>;
+  roots: string[];                          // 全域 root（無任何 Function 定義 = DB 欄位），已排序
+  ancestors: Map<string, Set<string>>;      // 每個 block 沿 PREBLOCK 反向可達的上游 block 集合
+};
+
+// ── 顯示用節點（即時算，不存）──────────────────────────────
+export type ViewStatus = "normal" | "root" | "cycle" | "shared";
+
+export type ViewNode = {
+  varName: string;
+  edge: DepRef;                    // 連到父節點那條邊（snippet / role / runtime 值掛這）
+  status: ViewStatus;
+};
+
+/** 變數展開後、依定義 block 分組的一層 */
+export type ExpandedDef = {
+  block: string;
+  blockType: string;
+  children: ViewNode[];
+};
+
+/** Tracker canvas 連線：沿真實依賴鏈的 block→block 邊，depth = 對照 tree 的層次顏色 */
+export type TrackerEdge = {
+  from: string;    // 引用變數的 block（上游 / 父）
+  to: string;      // 定義該變數的 block（下游 / 子）
+  depth: number;   // 子變數在 tree 的深度（0=blue, 1=emerald, 2=purple, …）
+};

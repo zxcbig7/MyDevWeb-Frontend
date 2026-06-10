@@ -15,7 +15,7 @@ import {
 } from "react";
 import { cn } from "../../utils/clsx";
 
-import type { Block, RuleData, RuleViewHandle } from "./types";
+import type { Block, RuleData, RuleViewHandle, TrackerEdge } from "./types";
 import { buildBlocks, drawBlocks, hitTestBlock } from "./blockUtils";
 import { buildArrows, drawArrows } from "./arrowUtils";
 import { drawGrid, drawMinimap, getWorldBounds, snap, GRID_SIZE } from "./canvasUtils";
@@ -30,10 +30,20 @@ type RuleViewProps = {
   selectedBlockId?: string | null;
   trackerLogIds?: Set<string>;
   trackerVarIds?: Set<string>;
+  trackerEdges?: TrackerEdge[];
   useNewIcons?: boolean;
   searchKeyword?: string;
   trackedLogName?: string;
 };
+
+// Tracker 連線依層次的顏色（對照右側 tree 的 LAYER_STYLES：blue→emerald→purple→orange→pink）
+const TRACKER_EDGE_COLORS = [
+  "rgba(59,130,246,0.85)",   // 0 blue-500
+  "rgba(16,185,129,0.85)",   // 1 emerald-500
+  "rgba(168,85,247,0.85)",   // 2 purple-500
+  "rgba(249,115,22,0.85)",   // 3 orange-500
+  "rgba(236,72,153,0.85)",   // 4 pink-500
+];
 
 type InspectorState = {
   block: Block;
@@ -42,7 +52,7 @@ type InspectorState = {
 };
 
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons = true, searchKeyword = "", trackedLogName = "" }, ref) {
+  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], useNewIcons = true, searchKeyword = "", trackedLogName = "" }, ref) {
 
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
@@ -148,25 +158,36 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         drawArrows(ctx, blocks, arrows, view.scale);
         drawBlocks(ctx, blocks, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons);
 
-        // ── Tracker 連線（var 模式：log → var blocks） ─────
-        if (trackerLogIds?.size && trackerVarIds?.size) {
+        // ── Tracker 連線：沿真實依賴鏈 block→block，依 depth 上色（對照右側 tree）──
+        if (trackerEdges.length > 0) {
           ctx.save();
-          ctx.strokeStyle = "rgba(168,85,247,0.45)";
           ctx.lineWidth = 1.5;
           ctx.setLineDash([5, 5]);
-          ctx.shadowColor = "rgba(168,85,247,0.3)";
-          ctx.shadowBlur = 4;
-          for (const logId of trackerLogIds) {
-            const lb = blocks.find((b) => b.id === logId);
-            if (!lb) continue;
-            for (const varId of trackerVarIds) {
-              const vb = blocks.find((b) => b.id === varId);
-              if (!vb) continue;
-              ctx.beginPath();
-              ctx.moveTo(lb.x + lb.w / 2, lb.y + lb.h / 2);
-              ctx.lineTo(vb.x + vb.w / 2, vb.y + vb.h / 2);
-              ctx.stroke();
-            }
+          // 深的先畫、淺的後畫，淺色（離 log 近的因果主線）疊在上層較顯眼
+          for (const edge of [...trackerEdges].sort((a, b) => b.depth - a.depth)) {
+            const fb = blocks.find((b) => b.id === edge.from);
+            const tb = blocks.find((b) => b.id === edge.to);
+            if (!fb || !tb) continue;
+            const color = TRACKER_EDGE_COLORS[edge.depth % TRACKER_EDGE_COLORS.length];
+            const fx = fb.x + fb.w / 2, fy = fb.y + fb.h / 2;
+            const tx = tb.x + tb.w / 2, ty = tb.y + tb.h / 2;
+
+            ctx.strokeStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 4;
+            ctx.beginPath();
+            ctx.moveTo(fx, fy);
+            ctx.lineTo(tx, ty);
+            ctx.stroke();
+
+            // 子端（被依賴的 block）放方向圓點
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.setLineDash([5, 5]);
           }
           ctx.restore();
         }
@@ -234,7 +255,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           if (mmCtx) drawMinimap(mmCtx, blocks, viewRef.current, mm, sizeRef.current);
         }
       },
-      [arrows, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons]
+      [arrows, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, useNewIcons]
     );
 
     // ── 初始化 Canvas（只在 blocks 變更時重設畫布尺寸） ──

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Divider, notification } from "antd";
-import type { RuleViewHandle } from "./types";
+import type { RuleViewHandle, TrackerEdge } from "./types";
 import { cn } from "../../utils/clsx";
 import * as RTDAPI from "./api";
 import { convertDtosToData } from "./dataTransform";
@@ -73,8 +73,8 @@ export default function RuleViewer() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   // ── Tracker 高亮 ──────────────────────────────────────────
-  const [trackerLogIds, setTrackerLogIds] = useState<string[]>([]);
-  const [trackerVarIds, setTrackerVarIds] = useState<string[]>([]);
+  const [trackerLogIds, setTrackerLogIds] = useState<string[]>([]);  // log 產出 block（橘框，靜態錨點）
+  const [trackerEdges, setTrackerEdges] = useState<TrackerEdge[]>([]); // 右側展開的依賴鏈 → canvas 連線
   const [trackedLogName, setTrackedLogName] = useState<string>(""); // Tracker 選定的 log → inspector 內高亮其觸發條件
 
   const ruleViewRef = useRef<RuleViewHandle | null>(null);
@@ -89,10 +89,11 @@ export default function RuleViewer() {
     () => (trackerLogIds.length ? new Set(trackerLogIds) : undefined),
     [trackerLogIds],
   );
-  const trackerVarIdsSet = useMemo(
-    () => (trackerVarIds.length ? new Set(trackerVarIds) : undefined),
-    [trackerVarIds],
-  );
+  // 紫框（var 來源 block）= 目前展開的依賴鏈所摸到的定義 block → 跟著右側展開
+  const trackerVarIdsSet = useMemo(() => {
+    if (!trackerEdges.length) return undefined;
+    return new Set(trackerEdges.map((e) => e.to));
+  }, [trackerEdges]);
 
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
@@ -145,7 +146,7 @@ export default function RuleViewer() {
     setSelectedBlockId(null);
     setSearchKey((k) => k + 1);
     setTrackerLogIds([]);
-    setTrackerVarIds([]);
+    setTrackerEdges([]);
     setTrackedLogName("");
   }, [selectedRule]);
 
@@ -191,10 +192,20 @@ export default function RuleViewer() {
     setMatchIndex(0);
   }, []);
 
-  const handleHighlight = useCallback((logIds: string[], varIds: string[], logName?: string | null) => {
+  const handleHighlight = useCallback((logIds: string[], logName?: string | null) => {
     setTrackerLogIds(logIds);
-    setTrackerVarIds(varIds);
     setTrackedLogName(logName ?? "");
+  }, []);
+
+  // Tracker 右側展開的依賴鏈 → canvas 連線
+  const handleEdgesChange = useCallback((edges: TrackerEdge[]) => {
+    setTrackerEdges(edges);
+  }, []);
+
+  // Tracker 點「來自 / 觸發於 <block>」→ canvas 跳到該 block 並選取
+  const handleFocusBlock = useCallback((blockName: string) => {
+    setSelectedBlockId(blockName);
+    ruleViewRef.current?.focusBlockById(blockName);
   }, []);
 
   const handleTabChange = useCallback((tab: RightTab) => {
@@ -261,6 +272,7 @@ export default function RuleViewer() {
             selectedBlockId={selectedBlockId}
             trackerLogIds={trackerLogIdsSet}
             trackerVarIds={trackerVarIdsSet}
+            trackerEdges={trackerEdges}
             useNewIcons={useNewIcons}
             searchKeyword={searchKeyword}
             trackedLogName={trackedLogName}
@@ -409,6 +421,8 @@ export default function RuleViewer() {
                 rules={rules}
                 selectedRule={selectedRule}
                 onHighlight={handleHighlight}
+                onFocusBlock={handleFocusBlock}
+                onEdgesChange={handleEdgesChange}
               />
             </div>
           </div>
