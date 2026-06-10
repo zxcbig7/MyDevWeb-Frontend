@@ -5,10 +5,11 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Divider, notification } from "antd";
-import type { RuleViewHandle, TrackerEdge } from "./types";
+import type { RuleViewHandle } from "./types";
 import { cn } from "../../utils/clsx";
 import * as RTDAPI from "./api";
 import { convertDtosToData } from "./dataTransform";
+import { buildDepGraph, computeTrace } from "./depGraph";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
 import { type MatchResult, RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
@@ -72,10 +73,12 @@ export default function RuleViewer() {
   // ── 搜尋選中 Block ────────────────────────────────────────
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
-  // ── Tracker 高亮 ──────────────────────────────────────────
-  const [trackerLogIds, setTrackerLogIds] = useState<string[]>([]);  // log 產出 block（橘框，靜態錨點）
-  const [trackerEdges, setTrackerEdges] = useState<TrackerEdge[]>([]); // 右側展開的依賴鏈 → canvas 連線
-  const [trackedLogName, setTrackedLogName] = useState<string>(""); // Tracker 選定的 log → inspector 內高亮其觸發條件
+  // ── Tracker（block-level：canvas 主導展開，側欄 readout 同步）──
+  const graph = useMemo(() => buildDepGraph(rules), [rules]);
+  const [tracedLog, setTracedLog] = useState<string | null>(null);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const [runtimeValues, setRuntimeValues] = useState<Record<string, string>>({});
+  const [hoverBlock, setHoverBlock] = useState<string | null>(null);
 
   const ruleViewRef = useRef<RuleViewHandle | null>(null);
 
@@ -84,16 +87,29 @@ export default function RuleViewer() {
     return new Set(matchedBlockList.map((m) => m.id));
   }, [matchedBlockList]);
 
-  // Memoized Sets — prevent creating new Set object on every render
-  const trackerLogIdsSet = useMemo(
-    () => (trackerLogIds.length ? new Set(trackerLogIds) : undefined),
-    [trackerLogIds],
+  const rvForTrace = useMemo(
+    () => (Object.keys(runtimeValues).length ? runtimeValues : undefined),
+    [runtimeValues],
   );
-  // 紫框（var 來源 block）= 目前展開的依賴鏈所摸到的定義 block → 跟著右側展開
-  const trackerVarIdsSet = useMemo(() => {
-    if (!trackerEdges.length) return undefined;
-    return new Set(trackerEdges.map((e) => e.to));
-  }, [trackerEdges]);
+  // 目前展開的依賴鏈（canvas 連線 + 紫框來源）；fullTrace = 全展，hover 預覽用
+  const traceData = useMemo(
+    () => (tracedLog ? computeTrace(graph, tracedLog, expandedBlocks, rvForTrace) : { edges: [], logBlocks: [] }),
+    [graph, tracedLog, expandedBlocks, rvForTrace],
+  );
+  const fullTrace = useMemo(
+    () => (tracedLog ? computeTrace(graph, tracedLog, "all", rvForTrace) : { edges: [], logBlocks: [] }),
+    [graph, tracedLog, rvForTrace],
+  );
+
+  const trackerLogIdsSet = useMemo(
+    () => (traceData.logBlocks.length ? new Set(traceData.logBlocks) : undefined),
+    [traceData],
+  );
+  // 紫框（var 來源 block）= 目前展開的依賴鏈所摸到的定義 block
+  const trackerVarIdsSet = useMemo(
+    () => (traceData.edges.length ? new Set(traceData.edges.map((e) => e.to)) : undefined),
+    [traceData],
+  );
 
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
@@ -145,10 +161,21 @@ export default function RuleViewer() {
     setMatchIndex(0);
     setSelectedBlockId(null);
     setSearchKey((k) => k + 1);
-    setTrackerLogIds([]);
-    setTrackerEdges([]);
-    setTrackedLogName("");
+    setTracedLog(null);
+    setExpandedBlocks(new Set());
+    setRuntimeValues({});
+    setHoverBlock(null);
   }, [selectedRule]);
+
+  // 貼 runtime 值 → 自動展開「命中路徑」（沿 fired=yes 的邊往上鋪）
+  useEffect(() => {
+    if (!tracedLog || !Object.keys(runtimeValues).length) return;
+    const fired = new Set<string>();
+    for (const e of computeTrace(graph, tracedLog, "all", runtimeValues).edges)
+      if (e.fired === "yes") fired.add(e.to);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedBlocks(fired);
+  }, [tracedLog, runtimeValues, graph]);
 
   // ── 搜尋導覽 handlers ─────────────────────────────────────
   const handlePrev = useCallback(() => {
@@ -192,14 +219,38 @@ export default function RuleViewer() {
     setMatchIndex(0);
   }, []);
 
-  const handleHighlight = useCallback((logIds: string[], logName?: string | null) => {
-    setTrackerLogIds(logIds);
-    setTrackedLogName(logName ?? "");
+  // 選定 / 清除追蹤的 log（側欄搜尋或 canvas 點 log block 都走這）
+  const handleTraceLog = useCallback((logName: string | null) => {
+    setTracedLog(logName);
+    setExpandedBlocks(new Set());
+    setHoverBlock(null);
+    if (logName) {
+      const lb = graph.logs.get(logName)?.triggers[0]?.block;
+      if (lb) ruleViewRef.current?.focusBlockById(lb);
+    }
+  }, [graph]);
+
+  // 展開 / 收合某 block 的上游（canvas 點 block 或側欄點節點都走這）
+  const handleToggleBlock = useCallback((block: string) => {
+    setExpandedBlocks((prev) => {
+      const n = new Set(prev);
+      if (n.has(block)) n.delete(block); else n.add(block);
+      return n;
+    });
   }, []);
 
-  // Tracker 右側展開的依賴鏈 → canvas 連線
-  const handleEdgesChange = useCallback((edges: TrackerEdge[]) => {
-    setTrackerEdges(edges);
+  const handleRuntimeChange = useCallback((vals: Record<string, string>) => {
+    setRuntimeValues(vals);
+  }, []);
+
+  // canvas 右鍵 block → 依當前模式的 context action（左鍵雙擊一律開 inspector）
+  const handleBlockContextMenu = useCallback((id: string) => {
+    if (rightTab === "tracker" && tracedLog) handleToggleBlock(id);  // Tracker：展開 / 收合上游
+    // 其他模式暫無 context action（未來可擴充）
+  }, [rightTab, tracedLog, handleToggleBlock]);
+
+  const handleCanvasBlockHover = useCallback((id: string | null) => {
+    setHoverBlock(id);
   }, []);
 
   // Tracker 點「來自 / 觸發於 <block>」→ canvas 跳到該 block 並選取
@@ -272,10 +323,14 @@ export default function RuleViewer() {
             selectedBlockId={selectedBlockId}
             trackerLogIds={trackerLogIdsSet}
             trackerVarIds={trackerVarIdsSet}
-            trackerEdges={trackerEdges}
+            trackerEdges={traceData.edges}
+            previewEdges={fullTrace.edges}
+            hoverBlockId={hoverBlock}
             useNewIcons={useNewIcons}
             searchKeyword={searchKeyword}
-            trackedLogName={trackedLogName}
+            trackedLogName={tracedLog ?? ""}
+            onBlockContextMenu={handleBlockContextMenu}
+            onBlockHover={handleCanvasBlockHover}
           />
         </div>
 
@@ -418,11 +473,18 @@ export default function RuleViewer() {
             <div className={rightTab === "tracker" ? "flex-1 min-h-0 flex flex-col" : "hidden"}>
               <CaseQuery
                 key={selectedRule}
+                graph={graph}
                 rules={rules}
                 selectedRule={selectedRule}
-                onHighlight={handleHighlight}
+                tracedLog={tracedLog}
+                expandedBlocks={expandedBlocks}
+                runtimeValues={runtimeValues}
+                hoverBlock={hoverBlock}
+                onTraceLog={handleTraceLog}
+                onToggleBlock={handleToggleBlock}
+                onRuntimeChange={handleRuntimeChange}
+                onHoverBlock={handleCanvasBlockHover}
                 onFocusBlock={handleFocusBlock}
-                onEdgesChange={handleEdgesChange}
               />
             </div>
           </div>

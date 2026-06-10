@@ -1,35 +1,24 @@
 // ============================================================
-// CaseQuery.tsx  (Tracker mode)
+// CaseQuery.tsx  (Tracker — 受控 readout)
 //
-// 反藍 Log 溯源：輸入 [$LOG_NAME$] → 從依賴圖（DAG）lazy 展開成多元樹
-//   - 整條 rule 用 buildDepGraph 建一次圖（useMemo），所有 log 共用
-//   - 第一層 = traceLog（觸發條件變數）；點開才 expandVar 下一層
-//   - 狀態：root（DB 來源）/ cycle（成環）/ shared（多處引用）
-//   - 一鍵複製：buildLogReport 產出 AI 分析用的完整 context pack
-//   - Runtime Log = 可選 overlay，顯示各變數實際值
-// 唯一真相是 depGraph.ts 的 DAG；本檔只負責即時投影與互動。
+// 反藍 Log 溯源的「側欄 readout」：與 canvas 共用同一份 block-level 展開狀態。
+//   - 展開狀態 expandedBlocks（block-keyed）由父層 RuleViewer 持有，canvas 點 block 與
+//     本樹點節點都驅動同一份 → 完全同步。
+//   - 樹節點展開 = 它的定義 block 在 expandedBlocks。hover 節點 → 連動 canvas 高亮。
+//   - 有 runtime 值時：每列依條件命中與否上色（綠=成立 / 淡=不成立）。
+//   - 一鍵複製：buildLogReport 產出 AI 分析用 context pack。
 // spec: specs/2026-06-07-tracker-dep-graph.md
 // ============================================================
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import type { RuleData, DepGraph, ViewNode, TrackerEdge } from "./types";
+import { useState, useMemo, useRef, useEffect } from "react";
+import type { RuleData, DepGraph, ViewNode } from "./types";
 import { cn } from "../../utils/clsx";
-import { buildDepGraph, traceLog, expandVar, collectLogClosure, buildLogReport, resolveDefs } from "./depGraph";
-
-type RegisterEdges = (id: string, edges: TrackerEdge[] | null) => void;
-
-// ─── Tracker Mode ─────────────────────────────────────────────
-
-type Layer0 = { block: string; clauseCond: string; children: ViewNode[] };
-
-type TrackerMode =
-  | { tag: "idle" }
-  | { tag: "log"; logName: string; layers: Layer0[]; shared: Set<string> };
+import { traceLog, expandVar, collectLogClosure, buildLogReport, resolveDefs, evalSnippet } from "./depGraph";
 
 const EMPTY_PATH: ReadonlySet<string> = new Set();
+const EMPTY_SET: Set<string> = new Set();
 
 // ─── Pure Utils ────────────────────────────────────────────────
-
 function parseRuntimeLog(log: string): Record<string, string> {
   const result: Record<string, string> = {};
   const re = /\((\w+):\s*([^)]+)\)/g;
@@ -45,7 +34,6 @@ function parseLogName(input: string): string {
 }
 
 // ─── Layer 顏色（依深度循環） ──────────────────────────────────
-
 const LAYER_STYLES: [border: string, bg: string][] = [
   ["border-blue-500/35",    "bg-blue-500/5"],
   ["border-emerald-500/35", "bg-emerald-500/5"],
@@ -53,75 +41,71 @@ const LAYER_STYLES: [border: string, bg: string][] = [
   ["border-orange-500/35",  "bg-orange-500/5"],
   ["border-pink-500/35",    "bg-pink-500/5"],
 ];
+const getLayerStyle = (depth: number): [string, string] => LAYER_STYLES[depth % LAYER_STYLES.length];
 
-function getLayerStyle(depth: number): [string, string] {
-  return LAYER_STYLES[depth % LAYER_STYLES.length];
-}
-
-// ─── LayerNode（lazy 展開）────────────────────────────────────
-
-function LayerNode({
-  node,
-  graph,
-  path,
-  shared,
-  runtimeValues,
-  depth,
-  defaultExpanded,
-  onFocusBlock,
-  nodeId,
-  parentBlock,
-  registerEdges,
-}: {
-  node: ViewNode;
+// ─── LayerNode（受控：展開狀態來自 expandedBlocks）──────────────
+type NodeShared = {
   graph: DepGraph;
-  path: ReadonlySet<string>;
   shared: Set<string>;
   runtimeValues: Record<string, string>;
-  depth: number;
-  defaultExpanded?: boolean;
+  expandedBlocks: Set<string>;
+  hoverBlock: string | null;
+  onToggleBlock: (block: string) => void;
+  onHoverBlock: (block: string | null) => void;
   onFocusBlock?: (blockName: string) => void;
-  nodeId: string;                       // 樹中唯一位置 id（canvas 連線註冊用）
-  parentBlock: string;                  // 引用此變數的上游 block（連線起點）
-  registerEdges: RegisterEdges;
+};
+
+function LayerNode({
+  node, path, depth, parentBlock, ctx,
+}: {
+  node: ViewNode;
+  path: ReadonlySet<string>;
+  depth: number;
+  parentBlock: string;
+  ctx: NodeShared;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
-  const expandable = node.status === "normal" || node.status === "shared";
-  const runtimeValue = runtimeValues[node.varName];
+  const { graph, shared, runtimeValues, expandedBlocks, hoverBlock, onToggleBlock, onHoverBlock, onFocusBlock } = ctx;
+
+  const defBlocks = useMemo(
+    () => resolveDefs(graph, node.varName, parentBlock).map((d) => d.block),
+    [graph, node.varName, parentBlock],
+  );
+  const expandable = (node.status === "normal" || node.status === "shared") && defBlocks.length > 0;
+  const expanded = expandable && defBlocks.some((b) => expandedBlocks.has(b));
   const [borderCls, bgCls] = getLayerStyle(depth);
 
-  // 點開才即時展開下一層（來源限定 parentBlock 的 PREBLOCK 上游）
   const groups = useMemo(
-    () => (expanded && expandable ? expandVar(graph, node.varName, parentBlock, path as Set<string>, shared) : []),
-    [expanded, expandable, graph, node.varName, parentBlock, path, shared],
+    () => (expanded ? expandVar(graph, node.varName, parentBlock, path as Set<string>, shared) : []),
+    [expanded, graph, node.varName, parentBlock, path, shared],
   );
   const childPath = useMemo(() => new Set(path).add(node.varName), [path, node.varName]);
+
+  const runtimeValue = runtimeValues[node.varName];
+  const hasRuntime = Object.keys(runtimeValues).length > 0;
+  const fire = hasRuntime ? evalSnippet(node.edge.snippet, runtimeValues) : undefined;
+  const hovered = hoverBlock !== null && defBlocks.includes(hoverBlock);
   const snippet = node.edge.snippet;
-
-  // 此節點對應的 canvas 連線：parentBlock → 定義此變數的每個上游 block（depth = 上色層次）
-  const myEdges = useMemo<TrackerEdge[]>(() => {
-    if (!expandable) return [];
-    return resolveDefs(graph, node.varName, parentBlock).map((d) => ({ from: parentBlock, to: d.block, depth }));
-  }, [expandable, graph, node.varName, parentBlock, depth]);
-
-  // 展開時註冊連線、收合 / unmount 時移除 → canvas 只畫「右側已展開」的依賴鏈
-  useEffect(() => {
-    if (!(expanded && expandable)) return;
-    registerEdges(nodeId, myEdges);
-    return () => registerEdges(nodeId, null);
-  }, [expanded, expandable, nodeId, myEdges, registerEdges]);
+  const toggle = () => { if (expandable && defBlocks[0]) onToggleBlock(defBlocks[0]); };
 
   return (
     <div className="flex flex-col">
       {/* 變數列 */}
-      <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded border text-xs", borderCls, bgCls)}>
+      <div
+        className={cn(
+          "flex items-center gap-1.5 px-2 py-1 rounded border text-xs transition-colors",
+          borderCls, bgCls,
+          hovered && "ring-1 ring-sky-400/70",
+          fire === "yes" && "border-l-2 border-l-green-400/80",
+          fire === "no" && "opacity-45",
+        )}
+        onMouseEnter={() => onHoverBlock(defBlocks[0] ?? null)}
+        onMouseLeave={() => onHoverBlock(null)}
+      >
         <button
-          onClick={() => expandable && setExpanded((e) => !e)}
+          onClick={toggle}
           className={cn(
             "w-3 shrink-0 text-[9px] text-center transition-colors leading-none",
-            expandable
-              ? "cursor-pointer text-white/40 hover:text-white"
-              : "cursor-default text-transparent pointer-events-none",
+            expandable ? "cursor-pointer text-white/40 hover:text-white" : "cursor-default text-transparent pointer-events-none",
           )}
         >
           {expandable ? (expanded ? "▼" : "▶") : ""}
@@ -136,7 +120,12 @@ function LayerNode({
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {runtimeValue !== undefined && (
-            <span className="font-mono text-[10px] px-1.5 py-px rounded bg-yellow-400/15 text-yellow-300 border border-yellow-400/25">
+            <span className={cn(
+              "font-mono text-[10px] px-1.5 py-px rounded border",
+              fire === "yes" ? "bg-green-400/15 text-green-300 border-green-400/30"
+                : fire === "no" ? "bg-white/5 text-slate-400 border-white/10"
+                : "bg-yellow-400/15 text-yellow-300 border-yellow-400/25",
+            )}>
               = {runtimeValue}
             </span>
           )}
@@ -147,8 +136,8 @@ function LayerNode({
       </div>
 
       {/* 展開後：來源 Block + 子節點 */}
-      {expanded && expandable && (
-        <div className="ml-3.5 border-l border-white/8 pl-2.5 mt-0.5 flex flex-col gap-1.5">
+      {expanded && (
+        <div className="ml-1.5 border-l border-white/8 pl-2 mt-0.5 flex flex-col gap-1.5">
           {groups.map((g, gi) => (
             <div key={`${g.block}-${gi}`} className="flex flex-col gap-0.5">
               <div className="flex items-center gap-1.5 text-[10px] text-slate-500 px-0.5 py-0.5">
@@ -168,15 +157,10 @@ function LayerNode({
                     <LayerNode
                       key={`${child.varName}-${gi}-${ci}`}
                       node={child}
-                      graph={graph}
                       path={childPath}
-                      shared={shared}
-                      runtimeValues={runtimeValues}
                       depth={depth + 1}
-                      onFocusBlock={onFocusBlock}
-                      nodeId={`${nodeId}/${gi}-${ci}`}
                       parentBlock={g.block}
-                      registerEdges={registerEdges}
+                      ctx={ctx}
                     />
                   ))}
                 </div>
@@ -192,7 +176,6 @@ function LayerNode({
 }
 
 // ─── AntiBlueBadge ─────────────────────────────────────────────
-
 function AntiBlueBadge({ name, active }: { name: string; active?: boolean }) {
   return (
     <span
@@ -211,58 +194,47 @@ function AntiBlueBadge({ name, active }: { name: string; active?: boolean }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────
-
 export type CaseQueryProps = {
-  rules: RuleData[];
+  graph: DepGraph;
+  rules: RuleData[];                                   // buildLogReport 用
   selectedRule: string | null;
-  onHighlight?: (logBlockIds: string[], logName?: string | null) => void;   // log 產出 block（橘框錨點）
-  onFocusBlock?: (blockName: string) => void;        // 點「來自 / 觸發於 <block>」→ canvas 跳到該 block
-  onEdgesChange?: (edges: TrackerEdge[]) => void;     // 右側展開的依賴鏈 → canvas 連線
+  tracedLog: string | null;
+  expandedBlocks: Set<string>;
+  runtimeValues: Record<string, string>;
+  hoverBlock: string | null;
+  onTraceLog: (logName: string | null) => void;       // 選定 / 清除追蹤的 log
+  onToggleBlock: (block: string) => void;             // 展開 / 收合某 block 的上游
+  onRuntimeChange: (vals: Record<string, string>) => void;
+  onHoverBlock: (block: string | null) => void;
+  onFocusBlock?: (blockName: string) => void;
 };
 
-export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEdgesChange }: CaseQueryProps) {
+export function CaseQuery({
+  graph, rules, selectedRule, tracedLog, expandedBlocks, runtimeValues, hoverBlock,
+  onTraceLog, onToggleBlock, onRuntimeChange, onHoverBlock, onFocusBlock,
+}: CaseQueryProps) {
   const [searchInput, setSearchInput]         = useState("");
   const [dropOpen, setDropOpen]               = useState(false);
   const [logHighlightIdx, setLogHighlightIdx] = useState(-1);
-  const [mode, setMode]                       = useState<TrackerMode>({ tag: "idle" });
   const [runtimeLog, setRuntimeLog]           = useState("");
-  const [runtimeValues, setRuntimeValues]     = useState<Record<string, string>>({});
   const [logInputOpen, setLogInputOpen]       = useState(false);
   const [copied, setCopied]                   = useState(false);
   const searchWrapRef                         = useRef<HTMLDivElement>(null);
   const logListRef                            = useRef<HTMLUListElement>(null);
 
-  // 整條 rule 建一次依賴圖（唯一真相）
-  const graph = useMemo(() => buildDepGraph(rules), [rules]);
-
-  // canvas 連線：各 LayerNode 展開時註冊自己那段邊，收合 / unmount 移除；彙整去重（同 from→to 取最小 depth）
-  const edgeRegistry = useRef(new Map<string, TrackerEdge[]>());
-  const [visibleEdges, setVisibleEdges] = useState<TrackerEdge[]>([]);
-
-  const registerEdges = useCallback<RegisterEdges>((id, edges) => {
-    const reg = edgeRegistry.current;
-    if (edges === null) reg.delete(id);
-    else reg.set(id, edges);
-    const dedup = new Map<string, TrackerEdge>();
-    for (const list of reg.values())
-      for (const e of list) {
-        const k = `${e.from}|${e.to}`;
-        const ex = dedup.get(k);
-        if (!ex || e.depth < ex.depth) dedup.set(k, e);
-      }
-    setVisibleEdges([...dedup.values()]);
-  }, []);
-
-  useEffect(() => { onEdgesChange?.(visibleEdges); }, [visibleEdges, onEdgesChange]);
-
-  // 所有 log 名稱（下拉選單）
   const allLogNames = useMemo(() => [...graph.logs.keys()].sort(), [graph]);
-
   const filteredLogs = useMemo(() => {
     const kw = searchInput.replace(/^\[?\$|\$\]?$/g, "").trim().toLowerCase();
-    if (!kw) return allLogNames;
-    return allLogNames.filter((n) => n.toLowerCase().includes(kw));
+    return kw ? allLogNames.filter((n) => n.toLowerCase().includes(kw)) : allLogNames;
   }, [allLogNames, searchInput]);
+
+  // tracedLog → layer-0 + shared
+  const closure = useMemo(() => (tracedLog ? collectLogClosure(graph, tracedLog) : null), [graph, tracedLog]);
+  const shared = closure?.shared ?? EMPTY_SET;
+  const layers = useMemo(
+    () => (tracedLog ? (traceLog(graph, tracedLog, shared) ?? []) : []),
+    [graph, tracedLog, shared],
+  );
 
   // 點外部關閉下拉
   useEffect(() => {
@@ -274,7 +246,8 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
   }, []);
 
   useEffect(() => { setLogHighlightIdx(-1); }, [filteredLogs]);
-  useEffect(() => { setRuntimeValues(parseRuntimeLog(runtimeLog)); }, [runtimeLog]);
+  // 原始 runtime 文字 → 解析後上拋（canvas 與本樹共用）
+  useEffect(() => { onRuntimeChange(parseRuntimeLog(runtimeLog)); }, [runtimeLog, onRuntimeChange]);
 
   useEffect(() => {
     if (logHighlightIdx < 0 || !logListRef.current) return;
@@ -282,34 +255,20 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
     items[logHighlightIdx]?.scrollIntoView({ block: "nearest" });
   }, [logHighlightIdx]);
 
-  function handleSearch(overrideName?: string) {
+  function handleTrace(overrideName?: string) {
     const logName = overrideName ?? parseLogName(searchInput);
     if (!logName) return;
-    const entry = graph.logs.get(logName);
-    edgeRegistry.current.clear();
-    setVisibleEdges([]);
-    if (!entry) { setMode({ tag: "idle" }); onHighlight?.([], null); return; }
-
-    const closure = collectLogClosure(graph, logName);
-    const layers = traceLog(graph, logName, closure.shared) ?? [];
-    setMode({ tag: "log", logName, layers, shared: closure.shared });
-
-    // 橘框 = log 產出 block（靜態錨點）；紫框（var 來源）改由展開的依賴鏈推導，見 onEdgesChange
-    const triggerBlocks = [...new Set(entry.triggers.map((t) => t.block))];
-    onHighlight?.(triggerBlocks, logName);
+    onTraceLog(graph.logs.has(logName) ? logName : null);
   }
 
   function handleBack() {
-    setMode({ tag: "idle" });
     setSearchInput("");
-    edgeRegistry.current.clear();
-    setVisibleEdges([]);
-    onHighlight?.([], null);
+    onTraceLog(null);
   }
 
   function handleCopy() {
-    if (mode.tag !== "log") return;
-    const report = buildLogReport(graph, rules, mode.logName, runtimeValues);
+    if (!tracedLog) return;
+    const report = buildLogReport(graph, rules, tracedLog, runtimeValues);
     navigator.clipboard.writeText(report).then(
       () => { setCopied(true); setTimeout(() => setCopied(false), 1500); },
       () => { /* clipboard 失敗時靜默 */ },
@@ -331,10 +290,10 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
         setSearchInput(`[$${name}$]`);
         setDropOpen(false);
         setLogHighlightIdx(-1);
-        handleSearch(name);
+        handleTrace(name);
       } else {
         setDropOpen(false);
-        handleSearch();
+        handleTrace();
       }
     } else if (e.key === "Escape") {
       setDropOpen(false);
@@ -352,6 +311,11 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
   }
 
   const runtimeValueCount = Object.keys(runtimeValues).length;
+  const totalL0 = layers.reduce((n, l) => n + l.children.length, 0);
+
+  const nodeCtx: NodeShared = {
+    graph, shared, runtimeValues, expandedBlocks, hoverBlock, onToggleBlock, onHoverBlock, onFocusBlock,
+  };
 
   // ── Search Bar ──────────────────────────────────────────────
   const searchBar = (
@@ -385,7 +349,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
                   setSearchInput(`[$${name}$]`);
                   setDropOpen(false);
                   setLogHighlightIdx(-1);
-                  handleSearch(name);
+                  handleTrace(name);
                 }}
               >
                 <span className="text-red-400/60">[$</span>
@@ -397,7 +361,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
         )}
       </div>
       <button
-        onClick={() => { setDropOpen(false); handleSearch(); }}
+        onClick={() => { setDropOpen(false); handleTrace(); }}
         className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shrink-0 cursor-pointer transition-colors"
       >
         Trace
@@ -415,7 +379,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
         <span className="text-slate-400 text-xs">Runtime Log</span>
         {runtimeValueCount > 0 && (
           <span className="text-green-400 font-mono text-[10px] px-1.5 py-px rounded bg-green-400/10 border border-green-400/25">
-            {runtimeValueCount} vars
+            {runtimeValueCount} vars · 自動展開命中路徑
           </span>
         )}
         <span className="ml-auto text-slate-600 text-xs leading-none">{logInputOpen ? "▼" : "▶"}</span>
@@ -437,25 +401,22 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
   );
 
   // ── Idle ────────────────────────────────────────────────────
-  if (mode.tag === "idle") {
+  if (!tracedLog) {
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-2">
         {searchBar}
         {logInputSection}
         <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-slate-400 text-xs text-center">
           <span className="text-xl opacity-20">[$]</span>
-          輸入反藍 Log 名稱
+          選 / 輸入反藍 Log 開始追蹤
           <br />
-          追蹤觸發條件與變數來源
+          右鍵 canvas block 往上游展開 · 雙擊 block 看完整定義
         </div>
       </div>
     );
   }
 
   // ── Log Mode ────────────────────────────────────────────────
-  const { logName, layers, shared } = mode;
-  const totalL0 = layers.reduce((n, l) => n + l.children.length, 0);
-
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2">
       {searchBar}
@@ -471,7 +432,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
           ←
         </button>
         <span className="text-slate-600 text-xs">/</span>
-        <AntiBlueBadge name={logName} active />
+        <AntiBlueBadge name={tracedLog} active />
 
         <button
           onClick={handleCopy}
@@ -488,7 +449,7 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
       </div>
 
       <div className="shrink-0 text-slate-600 text-[10px] tabular-nums text-right">
-        {totalL0 > 0 ? `L0 · ${totalL0} 變數` : "無條件變數"}
+        {totalL0 > 0 ? `L0 · ${totalL0} 變數（點節點 ▶ 或右鍵 canvas block 展開）` : "無條件變數"}
       </div>
 
       {/* Layer Tree */}
@@ -515,16 +476,10 @@ export function CaseQuery({ rules, selectedRule, onHighlight, onFocusBlock, onEd
                   <LayerNode
                     key={`${node.varName}-${li}-${ni}`}
                     node={node}
-                    graph={graph}
                     path={EMPTY_PATH}
-                    shared={shared}
-                    runtimeValues={runtimeValues}
                     depth={0}
-                    defaultExpanded
-                    onFocusBlock={onFocusBlock}
-                    nodeId={`L${li}-${ni}`}
                     parentBlock={layer.block}
-                    registerEdges={registerEdges}
+                    ctx={nodeCtx}
                   />
                 ))}
               </div>

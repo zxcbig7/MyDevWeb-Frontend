@@ -1,7 +1,7 @@
 // ============================================================
 // RuleView.tsx
 // Canvas 主體元件：負責渲染 Block、Arrow、Grid、Minimap，
-// 以及處理所有滑鼠互動（拖曳、縮放、hover、雙擊）
+// 以及處理所有滑鼠互動（拖曳、縮放、hover、雙擊 inspector、右鍵 context action）
 // ============================================================
 
 import {
@@ -31,9 +31,13 @@ type RuleViewProps = {
   trackerLogIds?: Set<string>;
   trackerVarIds?: Set<string>;
   trackerEdges?: TrackerEdge[];
+  previewEdges?: TrackerEdge[];                   // 全展邊集，hover 預覽用
+  hoverBlockId?: string | null;                   // 外部（側欄）hover 的 block → canvas 連動高亮
   useNewIcons?: boolean;
   searchKeyword?: string;
   trackedLogName?: string;
+  onBlockContextMenu?: (id: string) => void;      // 右鍵 block → 依模式的 context action（Tracker: 展開上游）
+  onBlockHover?: (id: string | null) => void;     // hover block → 連動側欄
 };
 
 // Tracker 連線依層次的顏色（對照右側 tree 的 LAYER_STYLES：blue→emerald→purple→orange→pink）
@@ -52,7 +56,7 @@ type InspectorState = {
 };
 
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], useNewIcons = true, searchKeyword = "", trackedLogName = "" }, ref) {
+  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
 
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
@@ -84,10 +88,24 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     const inspectorDraggingRef = useRef(false);
     const activeBlockRef = useRef<Block | null>(null);
 
+    const lastHoverIdRef = useRef<string | null>(null);
+    // callback 用 ref 持有，避免進 mouse effect 依賴而重掛 listener
+    const onBlockContextMenuRef = useRef(onBlockContextMenu);
+    const onBlockHoverRef = useRef(onBlockHover);
+    useEffect(() => { onBlockContextMenuRef.current = onBlockContextMenu; onBlockHoverRef.current = onBlockHover; });
+
     const inspectedBlockIds = useMemo(
       () => new Set(inspectors.map((i) => i.block.id)),
       [inspectors]
     );
+
+    // hover 預覽：被 hover 的 block + 它的直接上游 block（畫 sky 環）；僅追蹤中啟用
+    const hoverPreviewIds = useMemo(() => {
+      if (!hoverBlockId || previewEdges.length === 0) return null;
+      const s = new Set<string>([hoverBlockId]);
+      for (const e of previewEdges) if (e.from === hoverBlockId) s.add(e.to);
+      return s;
+    }, [hoverBlockId, previewEdges]);
 
     // ── Inspector 面板的當前位置（用於畫虛線連線） ────────
     const inspectorPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -158,23 +176,28 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         drawArrows(ctx, blocks, arrows, view.scale);
         drawBlocks(ctx, blocks, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons);
 
-        // ── Tracker 連線：沿真實依賴鏈 block→block，依 depth 上色（對照右側 tree）──
+        // ── Tracker 連線：沿真實依賴鏈 block→block。
+        //    有 runtime 值 → 命中(yes)綠、未成立(no)淡灰；否則依 depth 上色（對照右側 tree）──
         if (trackerEdges.length > 0) {
           ctx.save();
-          ctx.lineWidth = 1.5;
           ctx.setLineDash([5, 5]);
-          // 深的先畫、淺的後畫，淺色（離 log 近的因果主線）疊在上層較顯眼
-          for (const edge of [...trackerEdges].sort((a, b) => b.depth - a.depth)) {
+          // 深的先畫、淺的後畫；命中(yes)最後畫疊最上層
+          const order = (e: TrackerEdge) => (e.fired === "yes" ? -1 : e.depth);
+          for (const edge of [...trackerEdges].sort((a, b) => order(b) - order(a))) {
             const fb = blocks.find((b) => b.id === edge.from);
             const tb = blocks.find((b) => b.id === edge.to);
             if (!fb || !tb) continue;
-            const color = TRACKER_EDGE_COLORS[edge.depth % TRACKER_EDGE_COLORS.length];
+            const hit = edge.fired === "yes";
+            const color = hit ? "rgba(34,197,94,0.95)"
+              : edge.fired === "no" ? "rgba(148,163,184,0.35)"
+              : TRACKER_EDGE_COLORS[edge.depth % TRACKER_EDGE_COLORS.length];
             const fx = fb.x + fb.w / 2, fy = fb.y + fb.h / 2;
             const tx = tb.x + tb.w / 2, ty = tb.y + tb.h / 2;
 
+            ctx.lineWidth = hit ? 2.5 : 1.5;
             ctx.strokeStyle = color;
             ctx.shadowColor = color;
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = hit ? 7 : 4;
             ctx.beginPath();
             ctx.moveTo(fx, fy);
             ctx.lineTo(tx, ty);
@@ -185,9 +208,27 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             ctx.shadowBlur = 0;
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+            ctx.arc(tx, ty, hit ? 4 : 3.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.setLineDash([5, 5]);
+          }
+          ctx.restore();
+        }
+
+        // ── hover 預覽：被 hover 的 block + 其直接上游 block，畫 sky 虛線環 ──
+        if (hoverPreviewIds) {
+          ctx.save();
+          ctx.setLineDash([4, 3]);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(56,189,248,0.9)";
+          ctx.shadowColor = "rgba(56,189,248,0.5)";
+          ctx.shadowBlur = 6;
+          for (const id of hoverPreviewIds) {
+            const b = blocks.find((bl) => bl.id === id);
+            if (!b) continue;
+            ctx.beginPath();
+            ctx.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 7);
+            ctx.stroke();
           }
           ctx.restore();
         }
@@ -255,7 +296,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           if (mmCtx) drawMinimap(mmCtx, blocks, viewRef.current, mm, sizeRef.current);
         }
       },
-      [arrows, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, useNewIcons]
+      [arrows, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, hoverPreviewIds, useNewIcons]
     );
 
     // ── 初始化 Canvas（只在 blocks 變更時重設畫布尺寸） ──
@@ -375,36 +416,33 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         }
       }
 
+      // 左鍵雙擊 → 開 inspector
       function onDoubleClick(e: MouseEvent) {
-        const wrapper = wrapperRef.current;
-        if (!wrapper || !canvas) return;
-
-        const wrapperRect = wrapper.getBoundingClientRect();
+        if (!canvas) return;
         const canvasRect = canvas.getBoundingClientRect();
-
-        // Inspector 位置：相對 wrapper
-        const mx = e.clientX - canvasRect.left + (canvasRect.left - wrapperRect.left);
-        const my = e.clientY - canvasRect.top + (canvasRect.top - wrapperRect.top);
-
-        // hit-test 用 canvas 座標
         const cx = e.clientX - canvasRect.left;
         const cy = e.clientY - canvasRect.top;
         const { x: wx, y: wy } = screenToWorld(cx, cy);
         const hitBlock = hitTestBlock(wx, wy, blocks);
-
         if (!hitBlock) return;
 
         const { w, h } = sizeRef.current;
         const ix = Math.max(0, w / 2 - 170);
         const iy = Math.max(0, h / 4);
-        setInspectors((prev) => {
-          if (prev.some((i) => i.block.id === hitBlock.id)) return prev;
-          return [...prev, { block: hitBlock, x: ix, y: iy }];
-        });
-        setFocusStack((prev) => {
-          if (prev.includes(hitBlock.id)) return prev;
-          return [...prev, hitBlock.id];
-        });
+        setInspectors((prev) => prev.some((i) => i.block.id === hitBlock.id) ? prev : [...prev, { block: hitBlock, x: ix, y: iy }]);
+        setFocusStack((prev) => prev.includes(hitBlock.id) ? prev : [...prev, hitBlock.id]);
+      }
+
+      // 右鍵 → 依模式的 context action（交由父層處理；擋掉瀏覽器原生選單）
+      function onContextMenu(e: MouseEvent) {
+        e.preventDefault();
+        if (!canvas) return;
+        const canvasRect = canvas.getBoundingClientRect();
+        const cx = e.clientX - canvasRect.left;
+        const cy = e.clientY - canvasRect.top;
+        const { x: wx, y: wy } = screenToWorld(cx, cy);
+        const hitBlock = hitTestBlock(wx, wy, blocks);
+        if (hitBlock) onBlockContextMenuRef.current?.(hitBlock.id);
       }
 
       function onMouseMove(e: MouseEvent) {
@@ -436,8 +474,11 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         } else {
           // Hover
           const { x: wx, y: wy } = screenToWorld(mx, my);
-          setHoveredBlock(hitTestBlock(wx, wy, blocks));
+          const hit = hitTestBlock(wx, wy, blocks);
+          setHoveredBlock(hit);
           setMousePos({ x: mx, y: my });
+          const hid = hit?.id ?? null;
+          if (hid !== lastHoverIdRef.current) { lastHoverIdRef.current = hid; onBlockHoverRef.current?.(hid); }
         }
 
         dragRef.current.lastX = e.clientX;
@@ -501,17 +542,27 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       canvas.style.cursor = "default";
       canvas.style.touchAction = "none";
 
+      function onMouseLeave() {
+        setHoveredBlock(null);
+        setMousePos(null);
+        if (lastHoverIdRef.current !== null) { lastHoverIdRef.current = null; onBlockHoverRef.current?.(null); }
+      }
+
       canvas.addEventListener("dblclick", onDoubleClick);
+      canvas.addEventListener("contextmenu", onContextMenu);
       canvas.addEventListener("mousedown", onMouseDown);
       canvas.addEventListener("mousemove", onMouseMove);
+      canvas.addEventListener("mouseleave", onMouseLeave);
       canvas.addEventListener("wheel", onWheel, { passive: false });
       window.addEventListener("mouseup", onMouseUp);
       window.addEventListener("blur", onWindowBlur);
 
       return () => {
         canvas.removeEventListener("dblclick", onDoubleClick);
+        canvas.removeEventListener("contextmenu", onContextMenu);
         canvas.removeEventListener("mousedown", onMouseDown);
         canvas.removeEventListener("mousemove", onMouseMove);
+        canvas.removeEventListener("mouseleave", onMouseLeave);
         canvas.removeEventListener("wheel", onWheel);
         window.removeEventListener("mouseup", onMouseUp);
         window.removeEventListener("blur", onWindowBlur);

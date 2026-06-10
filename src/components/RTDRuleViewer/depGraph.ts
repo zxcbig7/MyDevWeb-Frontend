@@ -9,7 +9,7 @@
 // ============================================================
 
 import type {
-  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus,
+  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState,
 } from "./types";
 import { parseAPF, extractVars } from "./apfParse";
 
@@ -148,6 +148,76 @@ export function expandVar(
     blockType: def.blockType,
     children: def.deps.map((d) => toViewNode(graph, d, def.block, nextPath, seen)),
   }));
+}
+
+// ─── runtime 評估 + block-level 追蹤（canvas 主導用）────────
+/** 用 runtime 值評估一條子條件 snippet（如 `HOLD_RISK == "RISK"` / `WAIT_TIME > 120`）。 */
+export function evalSnippet(snippet: string | undefined, rv: Record<string, string>): FireState {
+  if (!snippet) return "unknown";
+  const m = snippet.match(/^([A-Z][A-Z0-9_]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
+  if (!m) return "unknown";
+  const [, varName, op, rhsRaw] = m;
+  const actual = rv[varName];
+  if (actual === undefined) return "unknown";
+  const rhs = rhsRaw.trim().replace(/^"(.*)"$/, "$1");
+  const a = Number(actual), b = Number(rhs);
+  const numeric = !Number.isNaN(a) && !Number.isNaN(b);
+  let r: boolean;
+  switch (op) {
+    case "==": r = actual === rhs; break;
+    case "!=": r = actual !== rhs; break;
+    case ">":  r = numeric ? a > b  : actual > rhs;  break;
+    case "<":  r = numeric ? a < b  : actual < rhs;  break;
+    case ">=": r = numeric ? a >= b : actual >= rhs; break;
+    case "<=": r = numeric ? a <= b : actual <= rhs; break;
+    default:   return "unknown";
+  }
+  return r ? "yes" : "no";
+}
+
+/**
+ * 區塊級追蹤：從 log 沿 PREBLOCK-scoped 依賴鏈算出 canvas 連線（block→block）。
+ * 只有「已展開的 block」會再往上游展（log 產出 block 一律隱含展開＝永遠顯示第一層）。
+ * expandedBlocks 傳 "all" 則全展（hover 預覽 / 展開全部用）。有 runtime 值時標記每條邊是否命中。
+ */
+export function computeTrace(
+  graph: DepGraph,
+  logName: string,
+  expandedBlocks: Set<string> | "all",
+  runtimeValues?: Record<string, string>,
+): { edges: TrackerEdge[]; logBlocks: string[] } {
+  const entry = graph.logs.get(logName);
+  if (!entry) return { edges: [], logBlocks: [] };
+  const isExpanded = (b: string) => expandedBlocks === "all" || expandedBlocks.has(b);
+
+  const edges = new Map<string, TrackerEdge>();
+  const seen = new Set<string>();
+  const addEdge = (from: string, to: string, depth: number, snippet: string) => {
+    if (from === to) return;
+    const key = `${from}|${to}`;
+    const ex = edges.get(key);
+    if (ex && ex.depth <= depth) return;
+    const fired = runtimeValues ? evalSnippet(snippet, runtimeValues) : undefined;
+    edges.set(key, { from, to, depth, snippet, fired });
+  };
+
+  const walk = (ref: DepRef, refBlock: string, depth: number, path: Set<string>): void => {
+    for (const def of resolveDefs(graph, ref.varName, refBlock)) {
+      addEdge(refBlock, def.block, depth, ref.snippet);
+      const wk = `${refBlock}>${ref.varName}>${def.block}`;
+      if (isExpanded(def.block) && !path.has(def.block) && !seen.has(wk)) {
+        seen.add(wk);
+        const np = new Set(path).add(def.block);
+        for (const d of def.deps) walk(d, def.block, depth + 1, np);
+      }
+    }
+  };
+
+  const logBlocks = [...new Set(entry.triggers.map((t) => t.block))];
+  for (const t of entry.triggers)
+    for (const d of t.deps) walk(d, t.block, 0, new Set([t.block]));
+
+  return { edges: [...edges.values()], logBlocks };
 }
 
 // ─── 驗證用 dump ────────────────────────────────────────────

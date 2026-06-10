@@ -222,9 +222,14 @@ export type ExpandedDef = {
   children: ViewNode[];
 };
 
+/** runtime 值評估某條件 snippet 的結果 */
+export type FireState = "yes" | "no" | "unknown";
+
 /** Tracker canvas 連線：沿真實依賴鏈的 block→block 邊，depth = 對照 tree 的層次顏色 */
 export type TrackerEdge = {
-  from: string;    // 引用變數的 block（上游 / 父）
-  to: string;      // 定義該變數的 block（下游 / 子）
-  depth: number;   // 子變數在 tree 的深度（0=blue, 1=emerald, 2=purple, …）
+  from: string;        // 引用變數的 block（上游 / 父）
+  to: string;          // 定義該變數的 block（下游 / 子）
+  depth: number;       // 子變數在 tree 的深度（0=blue, 1=emerald, 2=purple, …）
+  snippet?: string;    // 此引用的子條件，如 "HOLD_RISK == \"RISK\""（tooltip / 評估用）
+  fired?: FireState;   // 有 runtime 值時：此條件是否成立（命中路徑上色）
 };
