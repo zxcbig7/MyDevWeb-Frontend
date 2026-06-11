@@ -304,7 +304,6 @@ export function CaseQuery({
   if (!selectedRule || rules.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs text-center">
-        <span className="text-2xl opacity-20">⚙</span>
         請先選擇 Rule
       </div>
     );
@@ -382,7 +381,7 @@ export function CaseQuery({
             {runtimeValueCount} vars · 自動展開命中路徑
           </span>
         )}
-        <span className="ml-auto text-slate-600 text-xs leading-none">{logInputOpen ? "▼" : "▶"}</span>
+        <span className="ml-auto text-slate-600 text-xs leading-none">{logInputOpen ? "▼" : "▶" }</span>
       </button>
       {logInputOpen && (
         <div className="px-2.5 pb-2.5">
@@ -444,12 +443,12 @@ export function CaseQuery({
               : "bg-white/8 text-slate-300 border-white/15 hover:bg-white/15 hover:text-white",
           )}
         >
-          {copied ? "✓ 已複製" : "⧉ 複製給 AI"}
+          {copied ? "✓ 已複製" : "複製結構"}
         </button>
       </div>
 
       <div className="shrink-0 text-slate-600 text-[10px] tabular-nums text-right">
-        {totalL0 > 0 ? `L0 · ${totalL0} 變數（點節點 ▶ 或右鍵 canvas block 展開）` : "無條件變數"}
+        {totalL0 > 0 ? `L0 · ${totalL0} 變數（點節點 ▸ 或右鍵 canvas block 展開）` : "無條件變數"}
       </div>
 
       {/* Layer Tree */}

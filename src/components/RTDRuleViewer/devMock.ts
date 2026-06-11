@@ -153,6 +153,99 @@ export const DEV_MOCK_RULES: RuleData[] = [
 
 
 
+// ── HOLD_DECISION：Tracker / Runtime Log 壓力測試用複雜鏈 ──────
+//
+// 設計目的：在 DevCaseQuery 不開後端就能測 Tracker 全功能（多層 / log 多觸發 / root / 共用 / runtime 上色）。
+//
+// 資料流（PREBLOCK 指向上游來源；buildAncestors 反向 BFS 決定變數可解析範圍）：
+//   DATA_SRC ─┬─ FN_SEVERITY ── FN_HOLD_RISK ─┐
+//             └─ FN_WIP ───────────────────────┴─ FN_RISK ── FN_URGENCY ── ACT_HOLD →[$LOT_ON_HOLD$]
+//                  └────────────────────────────── ACT_BLOCK →[$EQP_BLOCKED$]
+//   ACT_HOLD_P0 →[$LOT_ON_HOLD$]（同 log 的第二觸發點，演示「觸發於 <block>」多觸發 UI）
+//
+// 依賴樹（trace [$LOT_ON_HOLD$]）：
+//   L0 URGENCY == "CRITICAL"
+//   L1 ├─ RISK_SCORE >= 80
+//      ├─ WIP_RISK == "HIGH"          ← 共用（同時被 RISK_SCORE 引用 → refCount≥2、非 root）
+//      └─ HOLD_PRIORITY == "P1"       ← root
+//   L2 (RISK_SCORE) ├─ HOLD_RISK == "HIGH"
+//                   ├─ WIP_RISK == "HIGH"   ← 共用
+//                   └─ HOLD_PRIORITY        ← root
+//   L3 (HOLD_RISK)  ├─ HOLD_SEVERITY == "SEV1"
+//                   └─ CONSTRAINT_FLAG == "Y"  ← root
+//      (WIP_RISK)   ├─ WAIT_HR > 120          ← root
+//                   └─ QUEUE_DEPTH > 50        ← root
+//   L4 (HOLD_SEVERITY) ├─ HOLD_FLAG == "Y"    ← root
+//                      └─ LOT_GRADE == "A"     ← root
+//
+// snippet 一律 `VAR op 字面值` → Runtime Log 貼值即可乾淨上色（綠=成立 / 淡=不成立）。
+// 全綠 payload：
+//   (URGENCY: CRITICAL) (RISK_SCORE: 90) (WIP_RISK: HIGH) (HOLD_PRIORITY: P1) (HOLD_RISK: HIGH)
+//   (HOLD_SEVERITY: SEV1) (CONSTRAINT_FLAG: Y) (WAIT_HR: 200) (QUEUE_DEPTH: 80) (HOLD_FLAG: Y) (LOT_GRADE: A)
+export const HOLD_DECISION_RULE = "HOLD_DECISION";
+
+const hd = (
+  blockName: string,
+  blockType: string,
+  posx: number,
+  posy: number,
+  preblock: string[] | null,
+  values: { COLUMN1: string | null; VALUE: string | null }[],
+): RuleData => ({
+  PHASE: "DEV", RULE_NAME: HOLD_DECISION_RULE,
+  BLOCK_NAME: blockName, BLOCK_TYPE: blockType,
+  BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
+  POSX: posx, POSY: posy, PREBLOCK: preblock,
+  VALUES: values.map((v) => ({ KEY: null, COLUMN1: v.COLUMN1, COLUMN2: null, VALUE: v.VALUE })),
+});
+
+export const HOLD_DECISION_RULES: RuleData[] = [
+  // 來源（roots 由「從未被任一 Function 定義」自動判定，這裡只當資料流起點）
+  hd("DATA_SRC", BlockTypes.Repository, 100, 350, null, [
+    { COLUMN1: "HOLD_FLAG,LOT_GRADE,WAIT_HR,QUEUE_DEPTH,CONSTRAINT_FLAG,HOLD_PRIORITY", VALUE: null },
+  ]),
+
+  // L4 來源：HOLD_SEVERITY ← HOLD_FLAG, LOT_GRADE
+  hd("FN_SEVERITY", BlockTypes.Function, 320, 200, ["DATA_SRC"], [
+    { COLUMN1: "HOLD_SEVERITY", VALUE: 'IF HOLD_FLAG == "Y" AND LOT_GRADE == "A" THEN "SEV1" ELSE IF HOLD_FLAG == "Y" THEN "SEV2" ELSE "SEV3"' },
+  ]),
+
+  // 副線：WIP_RISK ← WAIT_HR, QUEUE_DEPTH
+  hd("FN_WIP", BlockTypes.Function, 320, 500, ["DATA_SRC"], [
+    { COLUMN1: "WIP_RISK", VALUE: 'IF WAIT_HR > 120 AND QUEUE_DEPTH > 50 THEN "HIGH" ELSE IF WAIT_HR > 60 THEN "MED" ELSE "LOW"' },
+  ]),
+
+  // L3：HOLD_RISK ← HOLD_SEVERITY, CONSTRAINT_FLAG
+  hd("FN_HOLD_RISK", BlockTypes.Function, 540, 200, ["FN_SEVERITY"], [
+    { COLUMN1: "HOLD_RISK", VALUE: 'IF HOLD_SEVERITY == "SEV1" AND CONSTRAINT_FLAG == "Y" THEN "HIGH" ELSE IF HOLD_SEVERITY == "SEV2" THEN "MED" ELSE "LOW"' },
+  ]),
+
+  // L2：RISK_SCORE ← HOLD_RISK(主), WIP_RISK(副), HOLD_PRIORITY(root)。PREBLOCK 兩個來源＝主+副線
+  hd("FN_RISK", BlockTypes.Function, 760, 350, ["FN_HOLD_RISK", "FN_WIP"], [
+    { COLUMN1: "RISK_SCORE", VALUE: 'IF HOLD_RISK == "HIGH" AND WIP_RISK == "HIGH" THEN "90" ELSE IF HOLD_RISK == "MED" OR HOLD_PRIORITY == "P1" THEN "70" ELSE "30"' },
+  ]),
+
+  // L1：URGENCY ← RISK_SCORE, WIP_RISK(再次引用→共用), HOLD_PRIORITY(root)
+  hd("FN_URGENCY", BlockTypes.Function, 980, 350, ["FN_RISK"], [
+    { COLUMN1: "URGENCY", VALUE: 'IF RISK_SCORE >= 80 OR WIP_RISK == "HIGH" AND HOLD_PRIORITY == "P1" THEN "CRITICAL" ELSE IF RISK_SCORE >= 50 THEN "HIGH" ELSE "NORMAL"' },
+  ]),
+
+  // log 觸發 1：URGENCY 為 CRITICAL → [$LOT_ON_HOLD$]
+  hd("ACT_HOLD", BlockTypes.Action, 1200, 300, ["FN_URGENCY"], [
+    { COLUMN1: null, VALUE: 'IF URGENCY == "CRITICAL" THEN [$LOT_ON_HOLD$]' },
+  ]),
+
+  // log 觸發 2：同一 log 第二觸發點（HOLD_PRIORITY 直接命中 P0）→ 演示多觸發
+  hd("ACT_HOLD_P0", BlockTypes.Action, 1200, 480, null, [
+    { COLUMN1: null, VALUE: 'IF HOLD_PRIORITY == "P0" THEN [$LOT_ON_HOLD$]' },
+  ]),
+
+  // 第二條 log：[$EQP_BLOCKED$] ← WIP_RISK, QUEUE_DEPTH（較短的獨立鏈）
+  hd("ACT_BLOCK", BlockTypes.Action, 540, 600, ["FN_WIP"], [
+    { COLUMN1: null, VALUE: 'IF WIP_RISK == "HIGH" AND QUEUE_DEPTH > 50 THEN [$EQP_BLOCKED$]' },
+  ]),
+];
+
 // ── 變數資料來源 Mock（實際由後端 API 提供） ──────────────────
 
 export type VariableSource = {
@@ -239,4 +332,5 @@ export const MOCK_VAR_SOURCES: Record<string, VariableSource> = {
 // ── 統一查詢入口 ──────────────────────────────────────────────
 export const MOCK_RULE_DATA: Record<string, RuleData[]> = {
   "DEV": DEV_MOCK_RULES,
+  "HOLD_DECISION": HOLD_DECISION_RULES,
 };
