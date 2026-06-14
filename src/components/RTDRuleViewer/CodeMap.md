@@ -1,8 +1,8 @@
 ---
-updated: 2026-06-13
+updated: 2026-06-14
 type: module-map
 module: RTDRuleViewer
-loc: ~6600
+loc: ~6700
 spec: specs/2026-06-07-tracker-dep-graph.md
 specs_applied:
   - specs/2026-06-07-tracker-dep-graph.md
@@ -78,18 +78,18 @@ graph TD
 
 | 檔案 | 行數 | 職責 | 備註 |
 |------|------|------|------|
-| `RuleViewer.tsx` | 625 | 主入口；持有全部跨元件狀態（選擇 / 搜尋 / tracker 展開 / runtime 值 / **mode / impactVar**）；**URL deep link 還原+同步**；canvas 與側欄完全受控同步 | phase/rule/log/mode/var 入 URL；runtime/expanded 不入 |
+| `RuleViewer.tsx` | 658 | 主入口；持有全部跨元件狀態；**selection（selectedFab/Phase）與 loaded（loadedFab/Phase/Rule）分離**：dropdown 只改 selection，按「載入」才提交成 loaded；**URL deep link 還原+同步**；canvas 與側欄完全受控同步 | rule 資料只依 loaded 三元組抓 → dropdown 操作不清畫面；按載入時 tuple 相同則 no-op（不重抓/重排）。loaded 三元組入 URL（+log/mode/var）；runtime/expanded 不入 |
 | `types.ts` | 256 | DTO / RuleData / Block / Arrow / DepGraph / ViewNode / **TrackerMode / ImpactResult / ImpactPath** 全型別 | `Repository: "Database"` 為 icon 對應，刻意不一致 |
-| `api.ts` | 160 | axios client + `useAPI<T>` 信封拆解 + 5 個 SWR hooks | 標頭註解稱「DEV fallback mock」但未實作（drift）|
+| `api.ts` | 162 | axios client + `useAPI<T>` 信封拆解 + 6 個 SWR hooks（全部首參吃 `fab`，路徑 `/api/{fab}/RuleViewer/...`，fab 為 null 不打 API）| 後端 route `[Route("api/{fab}/[controller]")]`；fab 目前後端不驗證（隨便輸入）|
 | `dataTransform.ts` | 52 | DTO 多列 → 以 baseName 合併為 RuleData（PREBLOCK split、去 `[n]` 後綴、取前 2）| |
 | `apfParse.ts` | 205 | APF DSL：tokenize（上色共用）/ parseAPF（IF-THEN-ELSE clause）/ extractVars（跳字串註解 $log$ 函式名）| Tracker 解析正確性的根基 |
 | `apfEval.ts` | 233 | APF 條件三值評估：lex（括號/AND/OR/NOT，跳字串註解、函式整段標 unknown）+ 遞迴下降 parseCond + evalCond（三值邏輯）| 自帶 lexer，不依賴 apfParse；evalSnippet 委派它 |
 | `depGraph.ts` | 452 | 整條 rule 建一次 DAG；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS → 受影響 log + 最短路徑 + 邊）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
 | `CaseQuery.tsx` | 608 | Tracker 側欄：**Trace/Impact 模式切換**；log 搜尋下拉、LayerNode 受控樹、Runtime Log + **trigger 命中 badge**、一鍵複製；**Impact 面板（變數 autocomplete → 受影響 log 清單 → 點擊跳 Trace）** | 「查案」主介面 |
-| `RuleView.tsx` | 1056 | Canvas：blocks/arrows/grid/minimap 繪製、pan/zoom、hover/雙擊/右鍵、inspector 管理、tracker 邊上色；**group 框選（Shift marquee）+ 整組拖曳 + 對齊/分佈 toolbar + ESC/方向鍵/雙擊整組 inspector** | 模組內最大檔 |
+| `RuleView.tsx` | 1060 | Canvas：blocks/arrows/grid/minimap 繪製、pan/zoom、hover/雙擊/右鍵、inspector 管理、tracker 邊上色；**group 框選（Shift marquee）+ 整組拖曳 + 對齊/分佈 toolbar + ESC/方向鍵/雙擊整組 inspector** | 模組內最大檔；收 `fab` prop 供 import table fetch |
 | `BlockInspector.tsx` | 774 | 浮動詳情面板：Shell（拖曳/縮放/z-index）+ 依類型 Body + 搜尋/Tracker 高亮 | |
 | `tableinfo.tsx` | 420 | Import table 浮動面板：搜尋 / 排序 / 欄位拖曳與寬度 | |
-| `RuleDropdownSearch.tsx` | 341 | Phase → EQP/Rule 互斥兩段選擇 | |
+| `RuleDropdownSearch.tsx` | 387 | **FAB（受控，props）**→ Phase → EQP/Rule 三段選擇；選 FAB 才開放下游 | FAB 清單寫死 `FAB_OPTIONS`，狀態提升至 RuleViewer |
 | `RuleContentSearch.tsx` | 205 | Rule 內容關鍵字搜尋 → MatchResult[] | |
 | `blockUtils.ts` | 230 | Block 建構 / icon 快取 / hit test / `blocksInRect`（marquee 相交）/ 繪製 | |
 | `arrowUtils.ts` | 158 | PREBLOCK → Arrow 建構與繪製（主/副線）| MAIN 線改最深灰（非藍）|
@@ -107,7 +107,7 @@ graph TD
 | `depGraph.ts` | `buildDepGraph` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、Dev；dump 僅 console |
 | `apfParse.ts` | `tokenize` `HIGHLIGHT_RE` `parseAPF` `extractVars` `Token` `Clause` | depGraph、BlockInspector |
 | `apfEval.ts` | `parseCond` `evalCond` `CondNode` `CmpOp` | depGraph（evalSnippet 委派）、apfEval.test |
-| `api.ts` | `usePhaseResponse` `useEQPRuleResponse` `useRuleResponse` `useRuleInfoResponse` `useResourceDataResponse` `useImportTableResponse` | RuleViewer、RuleView |
+| `api.ts` | `usePhaseResponse` `useEQPRuleResponse` `useRuleResponse` `useRuleInfoResponse` `useResourceDataResponse` `useImportTableResponse`（全部首參 `fab`）| RuleViewer、RuleView |
 | `dataTransform.ts` | `convertDtosToData` | RuleViewer、Dev pages |
 | `blockUtils.ts` | `buildBlocks` `getBlockImage` `hitTestBlock` `blocksInRect` `blockCenter` `drawBlock(s)` `BLOCK_SIZE` | RuleView、canvasUtils、arrowUtils |
 | `alignUtils.ts` | `alignBlocks` `distributeBlocks` | RuleView（align toolbar）、groupOps.test |
@@ -120,7 +120,7 @@ graph TD
 
 ## 資料流（查案視角）
 
-1. **載入**：`RuleDropdownSearch` 選 Phase/Rule → `useRuleInfoResponse` → `convertDtosToData` → `RuleData[]`
+1. **載入**：`RuleDropdownSearch` 選 FAB → Phase（= selection，驅動 phase/eqp 清單）→ 按「載入」提交成 **loaded** → `useRuleInfoResponse(loadedFab, loadedPhase, loadedRule)` → `convertDtosToData` → `RuleData[]`（dropdown 改 selection 不重抓；未選 FAB 時清單 hook 不打 API）
 2. **建圖**：`buildDepGraph(rules)`（`useMemo`，整條 rule 一次）→ vars / logs / roots / ancestors（PREBLOCK 反向 BFS）
 3. **追蹤**：輸入 `[$LOG$]` → `traceLog` 第一層 → 點節點 / 右鍵 canvas block → `expandedBlocks`（block-keyed，canvas 與側欄共用）→ `computeTrace` 算 canvas 邊
 4. **Runtime**：貼 `(VAR: value)` log → `parseRuntimeLog` → `evalSnippet` 逐邊判 fired → 自動展開命中路徑

@@ -9,16 +9,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Select } from "antd";
-import { ApartmentOutlined, DesktopOutlined, FileTextOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, BankOutlined, DesktopOutlined, FileTextOutlined } from "@ant-design/icons";
 import { cn } from "../../utils/clsx";
 import type { EqpRuleListDTO } from "./types";
+
+// FAB 清單先寫死；目前假設 F01/F02/F03 都回一樣的資料（後端 fab 不驗證）。之後接後端再換成 SWR。
+const FAB_OPTIONS = ["F01", "F02", "F03"];
 
 type Props = {
   phases: string[];
   eqpRules: EqpRuleListDTO[];
+  selectedFab: string | null;   // 受控：FAB 狀態提升到 RuleViewer（route /api/{fab}/...）
   selectedPhase: string | null;
   phasesLoading?: boolean;   // Phase 清單載入中 → Select 顯示「讀取中…」且停用
   eqpLoading?: boolean;      // 該 Phase 的 EQP/Rule 載入中 → 兩欄顯示「讀取中…」且停用
+  onFabChange: (fab: string | null) => void;   // 換/清 FAB → 由 RuleViewer 連帶清下游
   onPhaseChange: (phase: string | null) => void;
   onRuleSelect: (ruleName: string) => void;
 };
@@ -26,12 +31,17 @@ type Props = {
 export function RuleDropdownSearch({
   phases,
   eqpRules,
+  selectedFab,
   selectedPhase,
   phasesLoading = false,
   eqpLoading = false,
+  onFabChange,
   onPhaseChange,
   onRuleSelect,
 }: Props) {
+  // FAB 清單先寫死（FAB_OPTIONS）；選了 FAB 才往下開放 Phase。
+  // 狀態與「換 FAB 清下游」邏輯都在 RuleViewer，此處只負責呈現 + 回拋 onFabChange。
+
   // ── 從 eqpRules 衍生當前 phase 的資料 ────────────────────
   const phaseEqpRules = useMemo(
     () => (selectedPhase ? eqpRules.filter((e) => e.PHASE === selectedPhase) : []),
@@ -214,6 +224,24 @@ export function RuleDropdownSearch({
   return (
     <div className="flex items-center gap-2">
 
+      {/* ── FAB（先寫死 F01/F02/F03，純 UI、不影響 API）── */}
+      <div className="flex items-center gap-1.5">
+        <BankOutlined style={{ color: "white", fontSize: 14 }} />
+        <Select
+          placeholder="FAB"
+          options={FAB_OPTIONS.map((f) => ({ label: f, value: f }))}
+          value={selectedFab ?? undefined}
+          onChange={(v) => onFabChange(v ?? null)}
+          allowClear
+          style={{ width: 110 }}
+          popupMatchSelectWidth={false}
+          styles={{ popup: { root: { zIndex: 2000 } } }}
+        />
+      </div>
+
+      {/* 選了 FAB 才開放 Phase 以下 */}
+      {selectedFab && (<>
+
       {/* ── Phase ── */}
       <div className="flex items-center gap-1.5">
         <ApartmentOutlined style={{ color: "white", fontSize: 14 }} />
@@ -352,6 +380,7 @@ export function RuleDropdownSearch({
           載入
         </button>
 
+      </>)}
       </>)}
     </div>
   );

@@ -61,21 +61,23 @@ function useAPI<T>(url: string | null) {
 }
 
 /**
- * 取得所有 Phase 清單
+ * 取得所有 Phase 清單；fab 為 null 時不打 API
  *
- * GET /api/RuleViewer/phases
+ * GET /api/{fab}/RuleViewer/phases
  *
  * data: [
  *   { "PHASE": "APF" },
  * ]
  */
-export const usePhaseResponse = () =>
-    useAPI<RTDDTO.PhaseDTO>("/api/RuleViewer/phases");
+export const usePhaseResponse = (fab: string | null) =>
+    useAPI<RTDDTO.PhaseDTO>(
+        fab ? `/api/${encodeURIComponent(fab)}/RuleViewer/phases` : null
+    );
 
 /**
- * 取得指定 Phase 的 EQP-Rule 對照表；phase 為 null 時不打 API
+ * 取得指定 Phase 的 EQP-Rule 對照表；fab / phase 任一為 null 時不打 API
  *
- * GET /api/RuleViewer/{phase}/eqprules
+ * GET /api/{fab}/RuleViewer/{phase}/eqprules
  *
  * data: [
  *   { "PHASE": "APF", "EQP_ID": "APF01", "RULE_NAME": "RULE_A" },
@@ -83,30 +85,30 @@ export const usePhaseResponse = () =>
  * ]
  * 同一台 EQP 可對應多條 Rule，同一條 Rule 也可被多台 EQP 使用
  */
-export const useEQPRuleResponse = (phase: string | null) =>
+export const useEQPRuleResponse = (fab: string | null, phase: string | null) =>
     useAPI<RTDDTO.EqpRuleListDTO>(
-        phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
+        fab && phase ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
     );
 
 /**
- * 取得指定 Phase 的 Rule 清單；phase 為 null 時不打 API
+ * 取得指定 Phase 的 Rule 清單；fab / phase 任一為 null 時不打 API
  *
- * GET /api/RuleViewer/{phase}/rules
+ * GET /api/{fab}/RuleViewer/{phase}/rules
  *
  * data: [
  *   { "RULE_NAME": "RULE_A" },
  *   ...
  * ]
  */
-export const useRuleResponse = (phase: string | null) =>
+export const useRuleResponse = (fab: string | null, phase: string | null) =>
     useAPI<RTDDTO.RuleListDTO>(
-        phase ? `/api/RuleViewer/${encodeURIComponent(phase)}/rules` : null
+        fab && phase ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/rules` : null
     );
 
 /**
- * 取得指定 Phase + Rule 的詳細資料（所有 Block 展開成多列）；phase / ruleName 任一為 null 時不打 API
+ * 取得指定 Phase + Rule 的詳細資料（所有 Block 展開成多列）；fab / phase / ruleName 任一為 null 時不打 API
  *
- * GET /api/RuleViewer/{phase}/{ruleName}
+ * GET /api/{fab}/RuleViewer/{phase}/{ruleName}
  *
  * 一個 Block 的多筆條件會展開成多列（同 BLOCK_NAME，不同 VALUE1~5）：
  * data: [
@@ -129,17 +131,17 @@ export const useRuleResponse = (phase: string | null) =>
  *   ...
  * ]
  */
-export const useRuleInfoResponse = (phase: string | null, ruleName: string | null) =>
+export const useRuleInfoResponse = (fab: string | null, phase: string | null, ruleName: string | null) =>
     useAPI<RTDDTO.RuleInfoDTO>(
-        phase && ruleName
-            ? `/api/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
+        fab && phase && ruleName
+            ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
             : null
     );
 
 
-export const useResourceDataResponse = (imfileName: string | null) =>
+export const useResourceDataResponse = (fab: string | null, imfileName: string | null) =>
     useAPI<RTDDTO.RuleInfoDTO>(
-        imfileName ? `/api/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
+        fab && imfileName ? `/api/${encodeURIComponent(fab)}/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
             : null
     );
 
@@ -151,9 +153,9 @@ interface SingleAPIResponse<T> {
     code: number;
 }
 
-export const useImportTableResponse = (tableName: string | null) => {
+export const useImportTableResponse = (fab: string | null, tableName: string | null) => {
     const { data, error, isLoading } = useSWR<SingleAPIResponse<RTDDTO.ImportTableDTO>>(
-        tableName ? `/api/RuleViewer/ImportFile/${encodeURIComponent(tableName)}` : null,
+        fab && tableName ? `/api/${encodeURIComponent(fab)}/RuleViewer/ImportFile/${encodeURIComponent(tableName)}` : null,
         (u) => fetcher<SingleAPIResponse<RTDDTO.ImportTableDTO>>(u),
         { revalidateOnFocus: false }
     );

@@ -40,16 +40,20 @@ export default function RuleViewer() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── 選擇狀態 ──────────────────────────────────────────────
+  // FAB 為最外層維度（route /api/{fab}/...）；未選 FAB → 下游 hook 全不打 API。
+  // 不預設選取：需使用者主動選 fab。F01/F02/F03 回相同資料，選任一即可載到 phase。
+  const [selectedFab, setSelectedFab] = useState<string | null>(null);
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
-  const [selectedRule, setSelectedRule] = useState<string | null>(null);
-
-  // 最後一次實際載入時的 Phase，與 selectedPhase 不同步（切換 Phase 不影響它）
+  // selection（上方）vs loaded（下方）分離：dropdown 只改 selection；
+  // 只有按「載入」才把 selection 提交成 loaded → dropdown 操作不會清掉已載入的 rule 資料。
+  const [loadedFab, setLoadedFab] = useState<string | null>(null);
   const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
+  const [loadedRule, setLoadedRule] = useState<string | null>(null);
 
   // ── SWR 資料讀取 ──────────────────────────────────────────
-  const { data: phaseDTOs, error: phaseError, isLoading: phasesLoading } = RTDAPI.usePhaseResponse();
-  const { data: eqpRules,  error: eqpError,  isLoading: eqpLoading }     = RTDAPI.useEQPRuleResponse(selectedPhase);
-  const { data: ruleInfoDTOs, error: ruleInfoError, isLoading: ruleInfoLoading, mutate: reloadRuleInfo } = RTDAPI.useRuleInfoResponse(selectedPhase, selectedRule);
+  const { data: phaseDTOs, error: phaseError, isLoading: phasesLoading } = RTDAPI.usePhaseResponse(selectedFab);
+  const { data: eqpRules,  error: eqpError,  isLoading: eqpLoading }     = RTDAPI.useEQPRuleResponse(selectedFab, selectedPhase);
+  const { data: ruleInfoDTOs, error: ruleInfoError, isLoading: ruleInfoLoading } = RTDAPI.useRuleInfoResponse(loadedFab, loadedPhase, loadedRule);
 
   // 按「載入」時 +1 → 強制 RuleView 重建 blocks（block 位置回原始 POSX/POSY）
   const [layoutVersion, setLayoutVersion] = useState(0);
@@ -201,7 +205,7 @@ export default function RuleViewer() {
     setHoverBlock(null);
     setTrackerMode("trace");
     setImpactVar("");
-  }, [selectedRule]);
+  }, [loadedRule]);
 
   // ── URL deep link（spec ②）─────────────────────────────────
   // 還原順序：mount 先吃 phase/rule 觸發載入 → 等 graph ready 再補 log/mode/var（避免 SWR race）。
@@ -211,18 +215,21 @@ export default function RuleViewer() {
 
   // mount：讀 URL，phase+rule 先設好；其餘暫存待 graph ready
   useEffect(() => {
+    const fab = searchParams.get("fab");
     const phase = searchParams.get("phase");
     const rule = searchParams.get("rule");
-    if (phase && rule) {
+    if (fab) setSelectedFab(fab);                       // fab 在最外層；下游 fetch 全依賴它
+    if (fab && phase && rule) {
       pendingRestoreRef.current = {
         log: searchParams.get("log"),
         mode: searchParams.get("mode"),
         var: searchParams.get("var"),
       };
       /* eslint-disable react-hooks/set-state-in-effect */
-      setSelectedPhase(phase);
-      setSelectedRule(rule);
+      setSelectedPhase(phase);          // selection 與 loaded 一起還原（連結代表已載入的現場）
+      setLoadedFab(fab);
       setLoadedPhase(phase);
+      setLoadedRule(rule);
       /* eslint-enable react-hooks/set-state-in-effect */
     } else {
       setUrlRestored(true);   // 無可還原 → 直接開放 URL 寫入
@@ -236,7 +243,7 @@ export default function RuleViewer() {
     const pending = pendingRestoreRef.current;
     if (urlRestored || !pending) return;
     if (ruleInfoLoading) return;                       // 等 rule 資料載完才判定
-    // mount 首個 commit：effect 1 才剛 setSelectedRule，本 effect 仍讀到 selectedRule=null 的快照
+    // mount 首個 commit：effect 1 才剛 setLoadedRule，本 effect 仍讀到 loadedRule=null 的快照
     // → SWR key 為 null → isLoading=false、ruleInfoDTOs=null。此刻不可判定 rule 不存在，
     //   否則會在 fetch 還沒開始前就誤清參數。等 SWR 對此 rule 真的有結果（資料或錯誤）再判。
     if (ruleInfoDTOs == null && !ruleInfoError) return;
@@ -245,7 +252,7 @@ export default function RuleViewer() {
 
     if (rules.length === 0) {                          // rule 不存在 / 已變更（網路錯誤另有 error 通知）
       if (!ruleInfoError) notifApi.warning({ message: "Rule 不存在或已變更", description: "已清除連結中的 Rule 參數", placement: "topRight", duration: 5, key: "urlBadRule" });
-      setSelectedRule(null);
+      setLoadedRule(null);
       setUrlRestored(true);
       return;
     }
@@ -270,15 +277,16 @@ export default function RuleViewer() {
   useEffect(() => {
     if (!urlRestored) return;
     const params = new URLSearchParams();
+    if (loadedFab) params.set("fab", loadedFab);
     if (loadedPhase) params.set("phase", loadedPhase);
-    if (selectedRule) params.set("rule", selectedRule);
+    if (loadedRule) params.set("rule", loadedRule);
     if (tracedLog) params.set("log", tracedLog);
     if (trackerMode === "impact") {
       params.set("mode", "impact");
       if (impactVar) params.set("var", impactVar);
     }
     setSearchParams(params, { replace: true });
-  }, [urlRestored, loadedPhase, selectedRule, tracedLog, trackerMode, impactVar, setSearchParams]);
+  }, [urlRestored, loadedFab, loadedPhase, loadedRule, tracedLog, trackerMode, impactVar, setSearchParams]);
 
   // 複製當前查案現場連結（URL 已即時同步，直接複製 location.href）
   const handleCopyLink = useCallback(() => {
@@ -321,21 +329,24 @@ export default function RuleViewer() {
   }, [matchedBlockList]);
 
   // ── Prop handlers ─────────────────────────────────────────
-  const handlePhaseChange = useCallback((phase: string | null) => {
-    setSelectedPhase(phase);
-    setSelectedRule(null);
-    setLoadedPhase(null);
+  // 換 / 清 FAB 只動 selection；已載入的資料不動（F01/F02/F03 回相同資料，phase/rule 仍適用）
+  const handleFabChange = useCallback((fab: string | null) => {
+    setSelectedFab(fab);
   }, []);
 
+  // 換 Phase 只動 selection（更新下方 EQP/Rule 清單）；已載入的 rule 資料保留，等按「載入」才換
+  const handlePhaseChange = useCallback((phase: string | null) => {
+    setSelectedPhase(phase);
+  }, []);
+
+  // 按「載入」才把 dropdown selection 提交成 loaded；與目前已載入完全相同 → 不動資料（不重抓、不重排）
   const handleRuleSelect = useCallback((ruleName: string) => {
-    if (ruleName !== selectedRule) {
-      setSelectedRule(ruleName);
-      setLoadedPhase(selectedPhase);
-    } else {
-      reloadRuleInfo();                 // 同一條 rule 也強制重 fetch 最新內容
-    }
-    setLayoutVersion((v) => v + 1);     // 強制 RuleView 重建 blocks → 位置回原始 POSX/POSY
-  }, [selectedRule, selectedPhase, reloadRuleInfo]);
+    if (selectedFab === loadedFab && selectedPhase === loadedPhase && ruleName === loadedRule) return;
+    setLoadedFab(selectedFab);
+    setLoadedPhase(selectedPhase);
+    setLoadedRule(ruleName);
+    setLayoutVersion((v) => v + 1);     // 重建 blocks → 位置回原始 POSX/POSY
+  }, [selectedFab, selectedPhase, loadedFab, loadedPhase, loadedRule]);
 
   const handleMatchChange = useCallback((list: MatchResult[] | null, kw: string) => {
     setMatchedBlockList(list);
@@ -408,19 +419,23 @@ export default function RuleViewer() {
         <RuleDropdownSearch
           phases={phases}
           eqpRules={eqpRules ?? []}
+          selectedFab={selectedFab}
           selectedPhase={selectedPhase}
           phasesLoading={phasesLoading}
           eqpLoading={eqpLoading}
+          onFabChange={handleFabChange}
           onPhaseChange={handlePhaseChange}
           onRuleSelect={handleRuleSelect}
         />
 
         {/* ── 當前載入的 Rule 麵包屑 ── */}
-        {selectedRule && (
+        {loadedRule && (
           <div className="flex items-center gap-1.5 text-xs pl-3 border-l border-white/15 min-w-0">
+            <span className="text-slate-400 shrink-0">{loadedFab}</span>
+            <span className="text-white/30 shrink-0">/</span>
             <span className="text-slate-400 shrink-0">{loadedPhase}</span>
             <span className="text-white/30 shrink-0">/</span>
-            <span className="text-white font-semibold font-mono truncate max-w-50">{selectedRule}</span>
+            <span className="text-white font-semibold font-mono truncate max-w-50">{loadedRule}</span>
             {claimTime && (
               <>
                 <span className="text-white/30 shrink-0">|</span>
@@ -431,7 +446,7 @@ export default function RuleViewer() {
         )}
 
         <div className="ml-auto shrink-0 flex items-center gap-2">
-          {selectedRule && (
+          {loadedRule && (
             <button
               onClick={handleCopyLink}
               title="複製當前查案現場連結（Phase / Rule / Log / 模式 / 變數）"
@@ -460,6 +475,7 @@ export default function RuleViewer() {
         <div className="flex-1 min-w-0 rounded-xl bg-white border border-black/12 relative overflow-hidden">
           <RuleView
             ref={ruleViewRef}
+            fab={loadedFab}
             rules={rules}
             matchedBlockIds={matchedBlockIds}
             selectedBlockId={selectedBlockId}
@@ -579,10 +595,10 @@ export default function RuleViewer() {
 
               {/* 結果列表 */}
               <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-1.5">
-                {!selectedRule && (
+                {!loadedRule && (
                   <p className="text-slate-400 text-xs">請先選擇 Rule。</p>
                 )}
-                {selectedRule && !matchedBlockList && (
+                {loadedRule && !matchedBlockList && (
                   <p className="text-slate-400 text-xs">在上方輸入關鍵字，搜尋相關 Block。</p>
                 )}
                 {matchedBlockList?.length === 0 && (
@@ -615,10 +631,10 @@ export default function RuleViewer() {
             {/* ── Tracker 分頁 ── */}
             <div className={rightTab === "tracker" ? "flex-1 min-h-0 flex flex-col" : "hidden"}>
               <CaseQuery
-                key={selectedRule}
+                key={loadedRule}
                 graph={graph}
                 rules={rules}
-                selectedRule={selectedRule}
+                selectedRule={loadedRule}
                 tracedLog={tracedLog}
                 expandedBlocks={expandedBlocks}
                 runtimeValues={runtimeValues}

@@ -26,6 +26,7 @@ import { TableInspector } from "./tableinfo";
 import { useImportTableResponse } from "./api";
 
 type RuleViewProps = {
+  fab?: string | null;                            // route /api/{fab}/... — import table fetch 需要
   rules: RuleData[];
   matchedBlockIds: Set<string> | null;
   selectedBlockId?: string | null;
@@ -80,7 +81,7 @@ function structPath(from: string, to: string, parentsOf: Map<string, string[]>):
 }
 
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, layoutVersion = 0, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
+  function RuleView({ fab = null, rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, layoutVersion = 0, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
 
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
@@ -107,7 +108,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     const [inspectors, setInspectors] = useState<InspectorState[]>([]);
     const [focusStack, setFocusStack] = useState<string[]>([]);
     const [importTableName, setImportTableName] = useState<string | null>(null);
-    const { data: importTableData, isLoading: importTableLoading } = useImportTableResponse(importTableName);
+    const { data: importTableData, isLoading: importTableLoading } = useImportTableResponse(fab, importTableName);
     const importTableRows = useMemo(() => {
       if (!importTableData) return null;
       return importTableData.Rows.map((row: string[]) =>
