@@ -112,11 +112,11 @@ function LayerNode({
           {expandable ? (expanded ? "▼" : "▶") : ""}
         </button>
 
-        <span className="text-[9px] font-mono text-white/20 shrink-0 tabular-nums">L{depth}</span>
+        <span className="text-[9px] font-mono text-white/40 shrink-0 tabular-nums">L{depth}</span>
         <span className="font-mono font-bold text-sky-300 shrink-0">{node.varName}</span>
 
         {snippet && snippet !== node.varName && (
-          <span className="text-white/25 text-[10px] font-mono truncate min-w-0">{snippet}</span>
+          <span className="text-white/45 text-[10px] font-mono truncate min-w-0">{snippet}</span>
         )}
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -130,7 +130,7 @@ function LayerNode({
               = {runtimeValue}
             </span>
           )}
-          {node.status === "root" && <span className="text-[10px] text-slate-500 italic">root</span>}
+          {node.status === "root" && <span className="text-[10px] text-slate-400 italic">root</span>}
           {node.status === "cycle" && <span className="text-[10px] text-orange-400/70">↩ 循環</span>}
           {node.status === "shared" && <span className="text-[10px] text-indigo-300/70">⇇ 共用</span>}
         </div>
@@ -141,8 +141,8 @@ function LayerNode({
         <div className="ml-1.5 border-l border-white/8 pl-2 mt-0.5 flex flex-col gap-1.5">
           {groups.map((g, gi) => (
             <div key={`${g.block}-${gi}`} className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 px-0.5 py-0.5">
-                <span className="text-slate-600">來自</span>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 px-0.5 py-0.5">
+                <span className="text-slate-400">來自</span>
                 <button
                   onClick={() => onFocusBlock?.(g.block)}
                   onDoubleClick={() => onOpenInspector?.(g.block)}
@@ -151,7 +151,7 @@ function LayerNode({
                 >
                   {g.block}
                 </button>
-                <span className="px-1 py-px rounded bg-white/5 text-slate-600 text-[9px]">{g.blockType}</span>
+                <span className="px-1 py-px rounded bg-white/5 text-slate-400 text-[9px]">{g.blockType}</span>
               </div>
               {g.children.length > 0 ? (
                 <div className="flex flex-col gap-0.5">
@@ -167,7 +167,7 @@ function LayerNode({
                   ))}
                 </div>
               ) : (
-                <div className="text-[10px] text-slate-600 px-1 italic">無條件變數</div>
+                <div className="text-[10px] text-slate-400 px-1 italic">無條件變數</div>
               )}
             </div>
           ))}
@@ -370,7 +370,7 @@ export function CaseQuery({
           />
           {suggestions.length > 0 && (
             <ul className="absolute top-full left-0 mt-1 w-full max-h-50 overflow-y-auto rounded
-              border border-white/20 bg-slate-900 shadow-xl z-2000 list-none p-0 m-0">
+              border border-white/20 bg-slate-700 shadow-xl z-2000 list-none p-0 m-0">
               {suggestions.map((v) => (
                 <li
                   key={v}
@@ -396,7 +396,7 @@ export function CaseQuery({
           )}
           {res?.found && res.logs.length > 0 && (
             <>
-              <div className="shrink-0 text-slate-600 text-[10px] tabular-nums text-right">
+              <div className="shrink-0 text-slate-400 text-[10px] tabular-nums text-right">
                 {res.logs.length} 個受影響反藍（點擊跳去 Trace）
               </div>
               {res.logs.map((l) => (
@@ -436,7 +436,7 @@ export function CaseQuery({
           <ul
             ref={logListRef}
             className="absolute top-full left-0 mt-1 w-full max-h-50 overflow-y-auto
-              rounded border border-white/20 bg-slate-900 shadow-xl z-2000 list-none p-0 m-0"
+              rounded border border-white/20 bg-slate-700 shadow-xl z-2000 list-none p-0 m-0"
           >
             {filteredLogs.map((name, i) => (
               <li
@@ -484,7 +484,7 @@ export function CaseQuery({
             {runtimeValueCount} vars · 自動展開命中路徑
           </span>
         )}
-        <span className="ml-auto text-slate-600 text-xs leading-none">{logInputOpen ? "▼" : "▶" }</span>
+        <span className="ml-auto text-slate-400 text-xs leading-none">{logInputOpen ? "▼" : "▶" }</span>
       </button>
       {logInputOpen && (
         <div className="px-2.5 pb-2.5">
@@ -535,7 +535,7 @@ export function CaseQuery({
         >
           ←
         </button>
-        <span className="text-slate-600 text-xs">/</span>
+        <span className="text-slate-400 text-xs">/</span>
         <AntiBlueBadge name={tracedLog} active />
 
         <button
@@ -552,14 +552,14 @@ export function CaseQuery({
         </button>
       </div>
 
-      <div className="shrink-0 text-slate-600 text-[10px] tabular-nums text-right">
+      <div className="shrink-0 text-slate-400 text-[10px] tabular-nums text-right">
         {totalL0 > 0 ? `L0 · ${totalL0} 變數（點節點 ▸ 或右鍵 canvas block 展開）` : "無條件變數"}
       </div>
 
       {/* Layer Tree */}
       <div className="flex-1 min-h-0 overflow-auto">
         {totalL0 === 0 ? (
-          <div className="text-slate-500 text-xs text-center py-6 italic">此 LOG 的觸發條件無可追蹤變數</div>
+          <div className="text-slate-400 text-xs text-center py-6 italic">此 LOG 的觸發條件無可追蹤變數</div>
         ) : (
           <div className="flex flex-col gap-2">
             {layers.map((layer, li) => {
@@ -567,10 +567,10 @@ export function CaseQuery({
               return (
               <div key={`${layer.block}-${li}`} className="flex flex-col gap-1">
                 {(layers.length > 1 || triggerFire) && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 px-0.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 px-0.5">
                     {layers.length > 1 && (
                       <>
-                        <span className="text-slate-600">觸發於</span>
+                        <span className="text-slate-400">觸發於</span>
                         <button
                           onClick={() => onFocusBlock?.(layer.block)}
                           onDoubleClick={() => onOpenInspector?.(layer.block)}

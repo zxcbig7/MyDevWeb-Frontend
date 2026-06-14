@@ -498,7 +498,7 @@ export default function RuleViewer() {
 
         {/* 右側面板（始終掛載，收合時僅顯示展開按鈕） */}
         <div
-          className={cn("shrink-0 rounded-xl bg-slate-900 border border-black/12 text-white flex flex-col min-h-0 overflow-hidden", !rightCollapsed && "p-3")}
+          className={cn("shrink-0 rounded-xl bg-slate-800 border border-black/12 text-white flex flex-col min-h-0 overflow-hidden", !rightCollapsed && "p-3")}
           style={{ width: rightCollapsed ? 32 : rightPanelWidth }}
         >
           {/* 收合狀態：整個面板都可點擊展開 */}
