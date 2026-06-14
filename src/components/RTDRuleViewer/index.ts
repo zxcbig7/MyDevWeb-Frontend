@@ -18,7 +18,6 @@ export type {
 export { BlockTypes } from "./types";
 export type { MatchResult } from "./RuleContentSearch";
 export type { CaseQueryProps } from "./CaseQuery";
-export type { VariableSource } from "./devMock";
 
 // ── Components ───────────────────────────────────────────────
 export { default as RuleViewer } from "./RuleViewer";
@@ -35,5 +34,4 @@ export { buildArrows, drawArrow, drawArrows, getSideCenter, decideConnectionSide
 export { drawGrid, drawMinimap, snap, getWorldBounds, GRID_SIZE } from "./canvasUtils";
 export { convertDtosToData } from "./dataTransform";
 
-// ── Dev / Mock ───────────────────────────────────────────────
-export { DEV_MOCK_PHASE, DEV_MOCK_RULE_NAME, DEV_MOCK_RULES, MOCK_EQP_RULES, MOCK_RULE_DATA, MOCK_VAR_SOURCES } from "./devMock";
+// devMock.ts / stressRule.ts 不從 barrel 匯出 —— 只供 /dev/* 測試頁直接 import，避免牽連進 production bundle

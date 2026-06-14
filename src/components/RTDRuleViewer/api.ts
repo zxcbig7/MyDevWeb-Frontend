@@ -1,7 +1,7 @@
 // ============================================================
 // api.ts
-// DEV  → Mock + 真實 API 合併（API 失敗時 fallback mock）
-// STAGE / PROD → 打真實 API
+// 資料讀取一律打後端真實 API（DEV / STAGE / PROD 皆同，無 mock fallback）。
+// devMock.ts / stressRule.ts 只供 /dev/* 元件測試頁離線使用，不在此資料路徑內。
 // ============================================================
 
 import axios from "axios";

@@ -17,13 +17,20 @@ const RuleViewer            = lazy(() => import("./components/RTDRuleViewer/Rule
 const SQLVisualizer         = lazy(() => import("./pages/tools/SQLVisualizer"));
 const SudokuSolver          = lazy(() => import("./components/Sudoku/SudokuSolver"));
 const TailwindCheatsheet    = lazy(() => import("./pages/tools/TailwindCheatsheet"));
-const DevRuleView           = lazy(() => import("./pages/Dev/DevRuleView"));
-const DevRuleDropdownSearch = lazy(() => import("./pages/Dev/DevRuleDropdownSearch"));
-const DevRuleContentSearch  = lazy(() => import("./pages/Dev/DevRuleContentSearch"));
-const DevBlockInspector     = lazy(() => import("./pages/Dev/DevBlockInspector"));
-const DevBlockTooltip       = lazy(() => import("./pages/Dev/DevBlockTooltip"));
-const DevCaseQuery          = lazy(() => import("./pages/Dev/DevCaseQuery"));
-const DevTableInspector     = lazy(() => import("./pages/Dev/DevTableInspector"));
+
+// Dev harness 頁（吃 mock）—— 僅 dev build 納入；production 此整段為 dead code，
+// 連同 mock chunk 都不會被 Rollup 產出（import.meta.env.DEV → false）。
+const devPages = import.meta.env.DEV
+  ? {
+      DevRuleView:           lazy(() => import("./pages/Dev/DevRuleView")),
+      DevRuleDropdownSearch: lazy(() => import("./pages/Dev/DevRuleDropdownSearch")),
+      DevRuleContentSearch:  lazy(() => import("./pages/Dev/DevRuleContentSearch")),
+      DevBlockInspector:     lazy(() => import("./pages/Dev/DevBlockInspector")),
+      DevBlockTooltip:       lazy(() => import("./pages/Dev/DevBlockTooltip")),
+      DevCaseQuery:          lazy(() => import("./pages/Dev/DevCaseQuery")),
+      DevTableInspector:     lazy(() => import("./pages/Dev/DevTableInspector")),
+    }
+  : null;
 
 function App() {
   return (
@@ -49,13 +56,18 @@ function App() {
             {/* 私人頁面：需要登入 */}
             <Route path="ruleviewer" element={<ProtectedRoute><RuleViewer /></ProtectedRoute>} />
 
-            <Route path="dev/rule-view"       element={<ProtectedRoute><DevRuleView /></ProtectedRoute>} />
-            <Route path="dev/dropdown-search" element={<ProtectedRoute><DevRuleDropdownSearch /></ProtectedRoute>} />
-            <Route path="dev/content-search"  element={<ProtectedRoute><DevRuleContentSearch /></ProtectedRoute>} />
-            <Route path="dev/block-inspector" element={<ProtectedRoute><DevBlockInspector /></ProtectedRoute>} />
-            <Route path="dev/block-tooltip"   element={<ProtectedRoute><DevBlockTooltip /></ProtectedRoute>} />
-            <Route path="dev/case-query"      element={<ProtectedRoute><DevCaseQuery /></ProtectedRoute>} />
-            <Route path="dev/table-inspector" element={<ProtectedRoute><DevTableInspector /></ProtectedRoute>} />
+            {/* Dev harness 路由 —— dev-only，production 不掛載 */}
+            {devPages && (
+              <>
+                <Route path="dev/rule-view"       element={<ProtectedRoute><devPages.DevRuleView /></ProtectedRoute>} />
+                <Route path="dev/dropdown-search" element={<ProtectedRoute><devPages.DevRuleDropdownSearch /></ProtectedRoute>} />
+                <Route path="dev/content-search"  element={<ProtectedRoute><devPages.DevRuleContentSearch /></ProtectedRoute>} />
+                <Route path="dev/block-inspector" element={<ProtectedRoute><devPages.DevBlockInspector /></ProtectedRoute>} />
+                <Route path="dev/block-tooltip"   element={<ProtectedRoute><devPages.DevBlockTooltip /></ProtectedRoute>} />
+                <Route path="dev/case-query"      element={<ProtectedRoute><devPages.DevCaseQuery /></ProtectedRoute>} />
+                <Route path="dev/table-inspector" element={<ProtectedRoute><devPages.DevTableInspector /></ProtectedRoute>} />
+              </>
+            )}
 
             <Route path="sql-visualizer" element={<ProtectedRoute><SQLVisualizer /></ProtectedRoute>} />
             <Route path="sudoku"         element={<ProtectedRoute><SudokuSolver /></ProtectedRoute>} />

@@ -73,21 +73,24 @@ const items: MenuItem[] = [
     ],
   } as MenuItem,
 
-  {
-    key: "測試網站",
-    icon: <BranchesOutlined />,
-    label: privateLabel("測試網站"),
-    disabled: !IS_PRIVATE,
-    children: [
-      getItem("RuleView Canvas", "/dev/rule-view", <EyeOutlined />),
-      getItem("DropdownSearch", "/dev/dropdown-search", <SearchOutlined />),
-      getItem("ContentSearch", "/dev/content-search", <AimOutlined />),
-      getItem("BlockInspector", "/dev/block-inspector", <AppstoreOutlined />),
-      getItem("BlockTooltip", "/dev/block-tooltip", <TagsOutlined />),
-      getItem("CaseQuery (Tracker)", "/dev/case-query", <BranchesOutlined />),
-      getItem("TableInspector", "/dev/table-inspector", <TableOutlined />),
-    ],
-  } as MenuItem,
+  // 測試網站（吃 mock 的 Dev harness）—— 僅 dev build 顯示，production 不納入
+  ...(import.meta.env.DEV
+    ? [{
+        key: "測試網站",
+        icon: <BranchesOutlined />,
+        label: privateLabel("測試網站"),
+        disabled: !IS_PRIVATE,
+        children: [
+          getItem("RuleView Canvas", "/dev/rule-view", <EyeOutlined />),
+          getItem("DropdownSearch", "/dev/dropdown-search", <SearchOutlined />),
+          getItem("ContentSearch", "/dev/content-search", <AimOutlined />),
+          getItem("BlockInspector", "/dev/block-inspector", <AppstoreOutlined />),
+          getItem("BlockTooltip", "/dev/block-tooltip", <TagsOutlined />),
+          getItem("CaseQuery (Tracker)", "/dev/case-query", <BranchesOutlined />),
+          getItem("TableInspector", "/dev/table-inspector", <TableOutlined />),
+        ],
+      } as MenuItem]
+    : []),
 
   {
     key: "輔助工具",

@@ -132,7 +132,8 @@ graph TD
 |----|------|
 | 測試僅含純函式 | vitest 已建（`npm test`）；apfEval(12) + computeImpact(6) 已測；UI 互動（impact 面板 / canvas 高亮 / URL 還原 / trigger badge）仍靠 F5 目視 |
 | `_gen_stress.mjs` 失蹤 | stressRule.ts 標頭指向的生成器不存在 → 與後端 RTDMockData.cs 漂移無從重生 |
-| api.ts 註解 drift | 「DEV fallback mock」未實作 |
+| ~~api.ts 註解 drift~~ | ✅ 已修：改為據實「一律打後端、無 mock fallback」 |
+| mock 改 dev-only | `devMock.ts`/`stressRule.ts` + 7 個 `/dev/*` 頁以 `import.meta.env.DEV` gate（App.tsx 路由、HomeLayout 選單）；barrel 不再 re-export mock → production bundle 零 mock（build 已驗證） |
 | evalCond 函式呼叫保守 | `COUNT(...)` 等函式子條件一律 unknown（不模擬值）；AND/OR/NOT/括號複合條件已支援三值邏輯 |
 | 跨 rule impact 未做 | computeImpact 限當前載入 rule；跨 rule 影響需後端 endpoint（backlog）|
 | ~~正向 impact 分析~~ | ✅ 已做（computeImpact + Impact 模式 UI，spec 2026-06-13）|
