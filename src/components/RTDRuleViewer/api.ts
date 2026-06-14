@@ -153,6 +153,7 @@ interface SingleAPIResponse<T> {
     code: number;
 }
 
+// 取得指定 Import Table 的資料；fab / tableName 任一為 null 時不打 API
 export const useImportTableResponse = (fab: string | null, tableName: string | null) => {
     const { data, error, isLoading } = useSWR<SingleAPIResponse<RTDDTO.ImportTableDTO>>(
         fab && tableName ? `/api/${encodeURIComponent(fab)}/RuleViewer/ImportFile/${encodeURIComponent(tableName)}` : null,

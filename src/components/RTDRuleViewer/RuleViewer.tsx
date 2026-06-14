@@ -13,10 +13,14 @@ import { convertDtosToData } from "./dataTransform";
 import { buildDepGraph, computeTrace, computeImpact } from "./depGraph";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
-import { type MatchResult, RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
+import {
+  type MatchResult,
+  RuleContentSearch,
+  SearchNavigator,
+} from "./RuleContentSearch";
 import { CaseQuery } from "./CaseQuery";
 
-type RightTab = "search" | "tracker";
+type RightTab = "search" | "tracker" | "helper";
 
 // Defined outside component — pure function, no closure over state
 function highlightSnippet(snippet: string, kw: string) {
@@ -26,7 +30,9 @@ function highlightSnippet(snippet: string, kw: string) {
   return (
     <>
       {snippet.slice(0, idx)}
-      <span className="text-yellow-300 font-semibold">{snippet.slice(idx, idx + kw.length)}</span>
+      <span className="text-yellow-300 font-semibold">
+        {snippet.slice(idx, idx + kw.length)}
+      </span>
       {snippet.slice(idx + kw.length)}
     </>
   );
@@ -51,15 +57,33 @@ export default function RuleViewer() {
   const [loadedRule, setLoadedRule] = useState<string | null>(null);
 
   // ── SWR 資料讀取 ──────────────────────────────────────────
-  const { data: phaseDTOs, error: phaseError, isLoading: phasesLoading } = RTDAPI.usePhaseResponse(selectedFab);
-  const { data: eqpRules,  error: eqpError,  isLoading: eqpLoading }     = RTDAPI.useEQPRuleResponse(selectedFab, selectedPhase);
-  const { data: ruleInfoDTOs, error: ruleInfoError, isLoading: ruleInfoLoading } = RTDAPI.useRuleInfoResponse(loadedFab, loadedPhase, loadedRule);
+  const {
+    data: phaseDTOs,
+    error: phaseError,
+    isLoading: phasesLoading,
+  } = RTDAPI.usePhaseResponse(selectedFab);
+  const {
+    data: eqpRules,
+    error: eqpError,
+    isLoading: eqpLoading,
+  } = RTDAPI.useEQPRuleResponse(selectedFab, selectedPhase);
+  const {
+    data: ruleInfoDTOs,
+    error: ruleInfoError,
+    isLoading: ruleInfoLoading,
+  } = RTDAPI.useRuleInfoResponse(loadedFab, loadedPhase, loadedRule);
 
   // 按「載入」時 +1 → 強制 RuleView 重建 blocks（block 位置回原始 POSX/POSY）
   const [layoutVersion, setLayoutVersion] = useState(0);
 
-  const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
-  const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
+  const phases = useMemo(
+    () => phaseDTOs?.map((p) => p.PHASE) ?? [],
+    [phaseDTOs],
+  );
+  const rules = useMemo(
+    () => convertDtosToData(ruleInfoDTOs ?? []),
+    [ruleInfoDTOs],
+  );
 
   const claimTime = useMemo(() => {
     const raw = ruleInfoDTOs?.find((d) => d.CLAIM_TIME)?.CLAIM_TIME;
@@ -70,13 +94,36 @@ export default function RuleViewer() {
 
   // ── SWR 錯誤通知（合併為單一 effect） ────────────────────
   useEffect(() => {
-    if (phaseError)    notifApi.error({ title: "無法載入 Phase 清單",    description: phaseError.message,    placement: "topRight", duration: 5, key: "phaseError" });
-    if (eqpError)      notifApi.error({ title: "無法載入 EQP / Rule 清單", description: eqpError.message,    placement: "topRight", duration: 5, key: "eqpError" });
-    if (ruleInfoError) notifApi.error({ title: "無法載入 Rule 資料",      description: ruleInfoError.message, placement: "topRight", duration: 5, key: "ruleError" });
+    if (phaseError)
+      notifApi.error({
+        title: "無法載入 Phase 清單",
+        description: phaseError.message,
+        placement: "topRight",
+        duration: 5,
+        key: "phaseError",
+      });
+    if (eqpError)
+      notifApi.error({
+        title: "無法載入 EQP / Rule 清單",
+        description: eqpError.message,
+        placement: "topRight",
+        duration: 5,
+        key: "eqpError",
+      });
+    if (ruleInfoError)
+      notifApi.error({
+        title: "無法載入 Rule 資料",
+        description: ruleInfoError.message,
+        placement: "topRight",
+        duration: 5,
+        key: "ruleError",
+      });
   }, [phaseError, eqpError, ruleInfoError, notifApi]);
 
   // ── Block 搜尋 ────────────────────────────────────────────
-  const [matchedBlockList, setMatchedBlockList] = useState<MatchResult[] | null>(null);
+  const [matchedBlockList, setMatchedBlockList] = useState<
+    MatchResult[] | null
+  >(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const [searchKey, setSearchKey] = useState(0);
@@ -88,7 +135,9 @@ export default function RuleViewer() {
   const graph = useMemo(() => buildDepGraph(rules), [rules]);
   const [tracedLog, setTracedLog] = useState<string | null>(null);
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
-  const [runtimeValues, setRuntimeValues] = useState<Record<string, string>>({});
+  const [runtimeValues, setRuntimeValues] = useState<Record<string, string>>(
+    {},
+  );
   const [hoverBlock, setHoverBlock] = useState<string | null>(null);
   const [trackerMode, setTrackerMode] = useState<TrackerMode>("trace");
   const [impactVar, setImpactVar] = useState<string>("");
@@ -106,21 +155,31 @@ export default function RuleViewer() {
   );
   // 目前展開的依賴鏈（canvas 連線 + 紫框來源）；fullTrace = 全展，hover 預覽用
   const traceData = useMemo(
-    () => (tracedLog ? computeTrace(graph, tracedLog, expandedBlocks, rvForTrace) : { edges: [], logBlocks: [] }),
+    () =>
+      tracedLog
+        ? computeTrace(graph, tracedLog, expandedBlocks, rvForTrace)
+        : { edges: [], logBlocks: [] },
     [graph, tracedLog, expandedBlocks, rvForTrace],
   );
   const fullTrace = useMemo(
-    () => (tracedLog ? computeTrace(graph, tracedLog, "all", rvForTrace) : { edges: [], logBlocks: [] }),
+    () =>
+      tracedLog
+        ? computeTrace(graph, tracedLog, "all", rvForTrace)
+        : { edges: [], logBlocks: [] },
     [graph, tracedLog, rvForTrace],
   );
 
   const trackerLogIdsSet = useMemo(
-    () => (traceData.logBlocks.length ? new Set(traceData.logBlocks) : undefined),
+    () =>
+      traceData.logBlocks.length ? new Set(traceData.logBlocks) : undefined,
     [traceData],
   );
   // 紫框（var 來源 block）= 目前展開的依賴鏈所摸到的定義 block
   const trackerVarIdsSet = useMemo(
-    () => (traceData.edges.length ? new Set(traceData.edges.map((e) => e.to)) : undefined),
+    () =>
+      traceData.edges.length
+        ? new Set(traceData.edges.map((e) => e.to))
+        : undefined,
     [traceData],
   );
 
@@ -139,38 +198,46 @@ export default function RuleViewer() {
     return s.size ? s : undefined;
   }, [impactResult, graph]);
   const impactVarIdsSet = useMemo(
-    () => (impactResult?.edges.length ? new Set(impactResult.edges.map((e) => e.to)) : undefined),
+    () =>
+      impactResult?.edges.length
+        ? new Set(impactResult.edges.map((e) => e.to))
+        : undefined,
     [impactResult],
   );
   // 依模式選 canvas 要吃的高亮資料
-  const canvasEdges    = isImpact ? (impactResult?.edges ?? []) : traceData.edges;
-  const canvasLogIds   = isImpact ? impactLogIdsSet : trackerLogIdsSet;
-  const canvasVarIds   = isImpact ? impactVarIdsSet : trackerVarIdsSet;
-  const canvasPreview  = isImpact ? (impactResult?.edges ?? []) : fullTrace.edges;
+  const canvasEdges = isImpact ? (impactResult?.edges ?? []) : traceData.edges;
+  const canvasLogIds = isImpact ? impactLogIdsSet : trackerLogIdsSet;
+  const canvasVarIds = isImpact ? impactVarIdsSet : trackerVarIdsSet;
+  const canvasPreview = isImpact
+    ? (impactResult?.edges ?? [])
+    : fullTrace.edges;
 
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
 
-
   // ── 右側面板寬度 / 收合 / 分頁 ───────────────────────────
   const COLLAPSE_THRESHOLD = 55; // 自動收合的寬度閾值（px）
-  const MIN_PANEL_WIDTH    = 200; // 面板最小寬度（px），防止被拖得太窄而無法再拖回來
+  const MIN_PANEL_WIDTH = 200; // 面板最小寬度（px），防止被拖得太窄而無法再拖回來
   const DEFAULT_PANEL_WIDTH = 300;
 
   const [rightPanelWidth, setRightPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>("search");
-  const dividerDragRef = useRef({ dragging: false, startX: 0, startW: DEFAULT_PANEL_WIDTH });
+  const dividerDragRef = useRef({
+    dragging: false,
+    startX: 0,
+    startW: DEFAULT_PANEL_WIDTH,
+  });
 
   // 右側面板拖曳調整寬度（拖到 COLLAPSE_THRESHOLD 以下自動縮起）
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dividerDragRef.current.dragging) return;
-      const dx  = dividerDragRef.current.startX - e.clientX;
+      const dx = dividerDragRef.current.startX - e.clientX;
       const newW = dividerDragRef.current.startW + dx;
       if (newW < COLLAPSE_THRESHOLD) {
         dividerDragRef.current.dragging = false;
-        document.body.style.cursor    = "";
+        document.body.style.cursor = "";
         document.body.style.userSelect = "";
         setRightCollapsed(true);
         return;
@@ -180,7 +247,7 @@ export default function RuleViewer() {
     function onMouseUp() {
       if (!dividerDragRef.current.dragging) return;
       dividerDragRef.current.dragging = false;
-      document.body.style.cursor    = "";
+      document.body.style.cursor = "";
       document.body.style.userSelect = "";
     }
     window.addEventListener("mousemove", onMouseMove);
@@ -210,7 +277,11 @@ export default function RuleViewer() {
   // ── URL deep link（spec ②）─────────────────────────────────
   // 還原順序：mount 先吃 phase/rule 觸發載入 → 等 graph ready 再補 log/mode/var（避免 SWR race）。
   const [urlRestored, setUrlRestored] = useState(false);
-  const pendingRestoreRef = useRef<{ log: string | null; mode: string | null; var: string | null } | null>(null);
+  const pendingRestoreRef = useRef<{
+    log: string | null;
+    mode: string | null;
+    var: string | null;
+  } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // mount：讀 URL，phase+rule 先設好；其餘暫存待 graph ready
@@ -218,7 +289,7 @@ export default function RuleViewer() {
     const fab = searchParams.get("fab");
     const phase = searchParams.get("phase");
     const rule = searchParams.get("rule");
-    if (fab) setSelectedFab(fab);                       // fab 在最外層；下游 fetch 全依賴它
+    if (fab) setSelectedFab(fab); // fab 在最外層；下游 fetch 全依賴它
     if (fab && phase && rule) {
       pendingRestoreRef.current = {
         log: searchParams.get("log"),
@@ -226,13 +297,13 @@ export default function RuleViewer() {
         var: searchParams.get("var"),
       };
       /* eslint-disable react-hooks/set-state-in-effect */
-      setSelectedPhase(phase);          // selection 與 loaded 一起還原（連結代表已載入的現場）
+      setSelectedPhase(phase); // selection 與 loaded 一起還原（連結代表已載入的現場）
       setLoadedFab(fab);
       setLoadedPhase(phase);
       setLoadedRule(rule);
       /* eslint-enable react-hooks/set-state-in-effect */
     } else {
-      setUrlRestored(true);   // 無可還原 → 直接開放 URL 寫入
+      setUrlRestored(true); // 無可還原 → 直接開放 URL 寫入
     }
     // 只在掛載時跑一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +313,7 @@ export default function RuleViewer() {
   useEffect(() => {
     const pending = pendingRestoreRef.current;
     if (urlRestored || !pending) return;
-    if (ruleInfoLoading) return;                       // 等 rule 資料載完才判定
+    if (ruleInfoLoading) return; // 等 rule 資料載完才判定
     // mount 首個 commit：effect 1 才剛 setLoadedRule，本 effect 仍讀到 loadedRule=null 的快照
     // → SWR key 為 null → isLoading=false、ruleInfoDTOs=null。此刻不可判定 rule 不存在，
     //   否則會在 fetch 還沒開始前就誤清參數。等 SWR 對此 rule 真的有結果（資料或錯誤）再判。
@@ -250,8 +321,16 @@ export default function RuleViewer() {
 
     pendingRestoreRef.current = null;
 
-    if (rules.length === 0) {                          // rule 不存在 / 已變更（網路錯誤另有 error 通知）
-      if (!ruleInfoError) notifApi.warning({ message: "Rule 不存在或已變更", description: "已清除連結中的 Rule 參數", placement: "topRight", duration: 5, key: "urlBadRule" });
+    if (rules.length === 0) {
+      // rule 不存在 / 已變更（網路錯誤另有 error 通知）
+      if (!ruleInfoError)
+        notifApi.warning({
+          message: "Rule 不存在或已變更",
+          description: "已清除連結中的 Rule 參數",
+          placement: "topRight",
+          duration: 5,
+          key: "urlBadRule",
+        });
       setLoadedRule(null);
       setUrlRestored(true);
       return;
@@ -267,11 +346,25 @@ export default function RuleViewer() {
         const lb = graph.logs.get(pending.log)?.triggers[0]?.block;
         if (lb) ruleViewRef.current?.focusBlockById(lb);
       } else {
-        notifApi.warning({ message: `找不到 [$${pending.log}$]`, description: "已清除連結中的 Log 參數", placement: "topRight", duration: 5, key: "urlBadLog" });
+        notifApi.warning({
+          message: `找不到 [$${pending.log}$]`,
+          description: "已清除連結中的 Log 參數",
+          placement: "topRight",
+          duration: 5,
+          key: "urlBadLog",
+        });
       }
     }
     setUrlRestored(true);
-  }, [ruleInfoLoading, ruleInfoError, ruleInfoDTOs, rules.length, graph, urlRestored, notifApi]);
+  }, [
+    ruleInfoLoading,
+    ruleInfoError,
+    ruleInfoDTOs,
+    rules.length,
+    graph,
+    urlRestored,
+    notifApi,
+  ]);
 
   // 狀態 → URL（replace，不灌 history）；runtimeValues / expandedBlocks 刻意不入 URL
   useEffect(() => {
@@ -286,13 +379,27 @@ export default function RuleViewer() {
       if (impactVar) params.set("var", impactVar);
     }
     setSearchParams(params, { replace: true });
-  }, [urlRestored, loadedFab, loadedPhase, loadedRule, tracedLog, trackerMode, impactVar, setSearchParams]);
+  }, [
+    urlRestored,
+    loadedFab,
+    loadedPhase,
+    loadedRule,
+    tracedLog,
+    trackerMode,
+    impactVar,
+    setSearchParams,
+  ]);
 
   // 複製當前查案現場連結（URL 已即時同步，直接複製 location.href）
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href).then(
-      () => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); },
-      () => { /* clipboard 失敗靜默 */ },
+      () => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 1500);
+      },
+      () => {
+        /* clipboard 失敗靜默 */
+      },
     );
   }, []);
 
@@ -321,12 +428,15 @@ export default function RuleViewer() {
     ruleViewRef.current?.focusBlockById(matchedBlockList[next].id);
   }, [matchedBlockList, matchIndex]);
 
-  const handlePick = useCallback((i: number) => {
-    if (!matchedBlockList) return;
-    setMatchIndex(i);
-    setSelectedBlockId(matchedBlockList[i].id);
-    ruleViewRef.current?.focusBlockById(matchedBlockList[i].id);
-  }, [matchedBlockList]);
+  const handlePick = useCallback(
+    (i: number) => {
+      if (!matchedBlockList) return;
+      setMatchIndex(i);
+      setSelectedBlockId(matchedBlockList[i].id);
+      ruleViewRef.current?.focusBlockById(matchedBlockList[i].id);
+    },
+    [matchedBlockList],
+  );
 
   // ── Prop handlers ─────────────────────────────────────────
   // 換 / 清 FAB 只動 selection；已載入的資料不動（F01/F02/F03 回相同資料，phase/rule 仍適用）
@@ -340,36 +450,51 @@ export default function RuleViewer() {
   }, []);
 
   // 按「載入」才把 dropdown selection 提交成 loaded；與目前已載入完全相同 → 不動資料（不重抓、不重排）
-  const handleRuleSelect = useCallback((ruleName: string) => {
-    if (selectedFab === loadedFab && selectedPhase === loadedPhase && ruleName === loadedRule) return;
-    setLoadedFab(selectedFab);
-    setLoadedPhase(selectedPhase);
-    setLoadedRule(ruleName);
-    setLayoutVersion((v) => v + 1);     // 重建 blocks → 位置回原始 POSX/POSY
-  }, [selectedFab, selectedPhase, loadedFab, loadedPhase, loadedRule]);
+  const handleRuleSelect = useCallback(
+    (ruleName: string) => {
+      if (
+        selectedFab === loadedFab &&
+        selectedPhase === loadedPhase &&
+        ruleName === loadedRule
+      )
+        return;
+      setLoadedFab(selectedFab);
+      setLoadedPhase(selectedPhase);
+      setLoadedRule(ruleName);
+      setLayoutVersion((v) => v + 1); // 重建 blocks → 位置回原始 POSX/POSY
+    },
+    [selectedFab, selectedPhase, loadedFab, loadedPhase, loadedRule],
+  );
 
-  const handleMatchChange = useCallback((list: MatchResult[] | null, kw: string) => {
-    setMatchedBlockList(list);
-    setSearchKeyword(kw);
-    setMatchIndex(0);
-  }, []);
+  const handleMatchChange = useCallback(
+    (list: MatchResult[] | null, kw: string) => {
+      setMatchedBlockList(list);
+      setSearchKeyword(kw);
+      setMatchIndex(0);
+    },
+    [],
+  );
 
   // 選定 / 清除追蹤的 log（側欄搜尋或 canvas 點 log block 都走這）
-  const handleTraceLog = useCallback((logName: string | null) => {
-    setTracedLog(logName);
-    setExpandedBlocks(new Set());
-    setHoverBlock(null);
-    if (logName) {
-      const lb = graph.logs.get(logName)?.triggers[0]?.block;
-      if (lb) ruleViewRef.current?.focusBlockById(lb);
-    }
-  }, [graph]);
+  const handleTraceLog = useCallback(
+    (logName: string | null) => {
+      setTracedLog(logName);
+      setExpandedBlocks(new Set());
+      setHoverBlock(null);
+      if (logName) {
+        const lb = graph.logs.get(logName)?.triggers[0]?.block;
+        if (lb) ruleViewRef.current?.focusBlockById(lb);
+      }
+    },
+    [graph],
+  );
 
   // 展開 / 收合某 block 的上游（canvas 點 block 或側欄點節點都走這）
   const handleToggleBlock = useCallback((block: string) => {
     setExpandedBlocks((prev) => {
       const n = new Set(prev);
-      if (n.has(block)) n.delete(block); else n.add(block);
+      if (n.has(block)) n.delete(block);
+      else n.add(block);
       return n;
     });
   }, []);
@@ -379,10 +504,13 @@ export default function RuleViewer() {
   }, []);
 
   // canvas 右鍵 block → 依當前模式的 context action（左鍵雙擊一律開 inspector）
-  const handleBlockContextMenu = useCallback((id: string) => {
-    if (rightTab === "tracker" && tracedLog) handleToggleBlock(id);  // Tracker：展開 / 收合上游
-    // 其他模式暫無 context action（未來可擴充）
-  }, [rightTab, tracedLog, handleToggleBlock]);
+  const handleBlockContextMenu = useCallback(
+    (id: string) => {
+      if (rightTab === "tracker" && tracedLog) handleToggleBlock(id); // Tracker：展開 / 收合上游
+      // 其他模式暫無 context action（未來可擴充）
+    },
+    [rightTab, tracedLog, handleToggleBlock],
+  );
 
   const handleCanvasBlockHover = useCallback((id: string | null) => {
     setHoverBlock(id);
@@ -399,16 +527,19 @@ export default function RuleViewer() {
     ruleViewRef.current?.openInspectorById(blockName);
   }, []);
 
-  const handleTabChange = useCallback((tab: RightTab) => {
-    if (tab !== "search" && rightTab === "search") {
-      setMatchedBlockList(null);
-      setSearchKeyword("");
-      setMatchIndex(0);
-      setSelectedBlockId(null);
-      setSearchKey((k) => k + 1);
-    }
-    setRightTab(tab);
-  }, [rightTab]);
+  const handleTabChange = useCallback(
+    (tab: RightTab) => {
+      if (tab !== "search" && rightTab === "search") {
+        setMatchedBlockList(null);
+        setSearchKeyword("");
+        setMatchIndex(0);
+        setSelectedBlockId(null);
+        setSearchKey((k) => k + 1);
+      }
+      setRightTab(tab);
+    },
+    [rightTab],
+  );
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-3 p-3">
@@ -435,11 +566,15 @@ export default function RuleViewer() {
             <span className="text-white/30 shrink-0">/</span>
             <span className="text-slate-400 shrink-0">{loadedPhase}</span>
             <span className="text-white/30 shrink-0">/</span>
-            <span className="text-white font-semibold font-mono truncate max-w-50">{loadedRule}</span>
+            <span className="text-white font-semibold font-mono truncate max-w-50">
+              {loadedRule}
+            </span>
             {claimTime && (
               <>
                 <span className="text-white/30 shrink-0">|</span>
-                <span className="text-slate-400 font-mono shrink-0">{claimTime}</span>
+                <span className="text-slate-400 font-mono shrink-0">
+                  {claimTime}
+                </span>
               </>
             )}
           </div>
@@ -449,28 +584,46 @@ export default function RuleViewer() {
           {loadedRule && (
             <button
               onClick={handleCopyLink}
-              title="複製當前查案現場連結（Phase / Rule / Log / 模式 / 變數）"
-              className={cn("px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors", linkCopied
-                ? "text-green-300 border-green-500/40 bg-green-500/15"
-                : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white")}
-            >{linkCopied ? "✓ 已複製" : "複製連結"}</button>
+              title="複製當前連結（Phase / Rule / Log / 模式 / 變數）"
+              className={cn(
+                "px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors",
+                linkCopied
+                  ? "text-green-300 border-green-500/40 bg-green-500/15"
+                  : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white",
+              )}
+            >
+              {linkCopied ? "✓ 已複製" : "複製連結"}
+            </button>
           )}
           <div className="flex items-center text-xs rounded border border-white/15 bg-white/5 p-0.5 gap-0.5">
             <button
               onClick={() => setUseNewIcons(true)}
-              className={cn("px-3 py-1 rounded cursor-pointer transition-colors", useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-            >Modern</button>
+              className={cn(
+                "px-3 py-1 rounded cursor-pointer transition-colors",
+                useNewIcons
+                  ? "bg-white/20 text-white font-semibold"
+                  : "text-slate-500 hover:text-slate-300",
+              )}
+            >
+              Modern
+            </button>
             <button
               onClick={() => setUseNewIcons(false)}
-              className={cn("px-3 py-1 rounded cursor-pointer transition-colors", !useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-            >Classic</button>
+              className={cn(
+                "px-3 py-1 rounded cursor-pointer transition-colors",
+                !useNewIcons
+                  ? "bg-white/20 text-white font-semibold"
+                  : "text-slate-500 hover:text-slate-300",
+              )}
+            >
+              Classic
+            </button>
           </div>
         </div>
       </div>
 
       {/* ── 主體：Canvas + 右側面板 ── */}
       <div className="flex-1 min-h-0 flex">
-
         {/* Canvas */}
         <div className="flex-1 min-w-0 rounded-xl bg-white border border-black/12 relative overflow-hidden">
           <RuleView
@@ -500,9 +653,9 @@ export default function RuleViewer() {
             onMouseDown={(e) => {
               e.preventDefault();
               dividerDragRef.current.dragging = true;
-              dividerDragRef.current.startX  = e.clientX;
-              dividerDragRef.current.startW  = rightPanelWidth;
-              document.body.style.cursor    = "col-resize";
+              dividerDragRef.current.startX = e.clientX;
+              dividerDragRef.current.startW = rightPanelWidth;
+              document.body.style.cursor = "col-resize";
               document.body.style.userSelect = "none";
             }}
           >
@@ -511,7 +664,10 @@ export default function RuleViewer() {
             {/* 置中 grip pill：只在 hover 出現 */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-0.75 px-0.5 py-1.5 rounded bg-slate-600 border border-blue-400/30 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="w-0.75 h-0.75 rounded-full bg-white/70" />
+                <div
+                  key={i}
+                  className="w-0.75 h-0.75 rounded-full bg-white/70"
+                />
               ))}
             </div>
           </div>
@@ -519,7 +675,10 @@ export default function RuleViewer() {
 
         {/* 右側面板（始終掛載，收合時僅顯示展開按鈕） */}
         <div
-          className={cn("shrink-0 rounded-xl bg-slate-800 border border-black/12 text-white flex flex-col min-h-0 overflow-hidden", !rightCollapsed && "p-3")}
+          className={cn(
+            "shrink-0 rounded-xl bg-slate-800 border border-black/12 text-white flex flex-col min-h-0 overflow-hidden",
+            !rightCollapsed && "p-3",
+          )}
           style={{ width: rightCollapsed ? 32 : rightPanelWidth }}
         >
           {/* 收合狀態：整個面板都可點擊展開 */}
@@ -537,8 +696,11 @@ export default function RuleViewer() {
           )}
 
           {/* 展開狀態：完整面板內容 */}
-          <div className={rightCollapsed ? "hidden" : "flex-1 min-h-0 flex flex-col"}>
-
+          <div
+            className={
+              rightCollapsed ? "hidden" : "flex-1 min-h-0 flex flex-col"
+            }
+          >
             {/* 分頁標頭 */}
             <div className="flex items-center justify-between gap-2 shrink-0">
               <div className="flex gap-0.5">
@@ -546,9 +708,11 @@ export default function RuleViewer() {
                   <button
                     key={tab}
                     onClick={() => handleTabChange(tab)}
-                    className={cn("px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors", rightTab === tab
-                      ? "bg-white/15 text-white"
-                      : "text-slate-400 hover:text-white hover:bg-white/7"
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+                      rightTab === tab
+                        ? "bg-white/15 text-white"
+                        : "text-slate-400 hover:text-white hover:bg-white/7",
                     )}
                   >
                     {tab === "search" ? "Viewer" : "Tracker"}
@@ -564,11 +728,18 @@ export default function RuleViewer() {
               </button>
             </div>
 
-            <Divider style={{ borderColor: "rgba(255,255,255,0.1)", margin: "8px 0" }} />
+            <Divider
+              style={{ borderColor: "rgba(255,255,255,0.1)", margin: "8px 0" }}
+            />
 
             {/* ── 搜尋分頁 ── */}
-            <div className={rightTab === "search" ? "flex-1 min-h-0 flex flex-col gap-2" : "hidden"}>
-
+            <div
+              className={
+                rightTab === "search"
+                  ? "flex-1 min-h-0 flex flex-col gap-2"
+                  : "hidden"
+              }
+            >
               {/* 搜尋列 */}
               <div className="shrink-0">
                 <RuleContentSearch
@@ -588,7 +759,8 @@ export default function RuleViewer() {
                     onNext={handleNext}
                   />
                   <span className="ml-auto text-xs text-slate-400 shrink-0">
-                    {matchedBlockList.length} match{matchedBlockList.length !== 1 ? "es" : ""}
+                    {matchedBlockList.length} match
+                    {matchedBlockList.length !== 1 ? "es" : ""}
                   </span>
                 </div>
               )}
@@ -599,7 +771,9 @@ export default function RuleViewer() {
                   <p className="text-slate-400 text-xs">請先選擇 Rule。</p>
                 )}
                 {loadedRule && !matchedBlockList && (
-                  <p className="text-slate-400 text-xs">在上方輸入關鍵字，搜尋相關 Block。</p>
+                  <p className="text-slate-400 text-xs">
+                    在上方輸入關鍵字，搜尋相關 Block。
+                  </p>
                 )}
                 {matchedBlockList?.length === 0 && (
                   <p className="text-slate-400 text-xs">No matches found.</p>
@@ -608,10 +782,14 @@ export default function RuleViewer() {
                   <button
                     key={m.id}
                     onClick={() => handlePick(i)}
-                    onDoubleClick={() => ruleViewRef.current?.openInspectorById(m.id)}
-                    className={cn("text-left px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors", i === matchIndex
-                      ? "border-green-500/50 bg-green-500/10 text-white"
-                      : "border-white/10 bg-white/4 text-slate-300 hover:bg-white/8"
+                    onDoubleClick={() =>
+                      ruleViewRef.current?.openInspectorById(m.id)
+                    }
+                    className={cn(
+                      "text-left px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors",
+                      i === matchIndex
+                        ? "border-green-500/50 bg-green-500/10 text-white"
+                        : "border-white/10 bg-white/4 text-slate-300 hover:bg-white/8",
                     )}
                   >
                     <div className="font-semibold truncate">
@@ -629,7 +807,13 @@ export default function RuleViewer() {
             </div>
 
             {/* ── Tracker 分頁 ── */}
-            <div className={rightTab === "tracker" ? "flex-1 min-h-0 flex flex-col" : "hidden"}>
+            <div
+              className={
+                rightTab === "tracker"
+                  ? "flex-1 min-h-0 flex flex-col"
+                  : "hidden"
+              }
+            >
               <CaseQuery
                 key={loadedRule}
                 graph={graph}

@@ -15,41 +15,61 @@ import {
 } from "react";
 import { cn } from "../../utils/clsx";
 
-import type { Block, RuleData, RuleViewHandle, TrackerEdge, FireState, AlignOp, DistributeAxis } from "./types";
-import { buildBlocks, drawBlocks, hitTestBlock, blocksInRect } from "./blockUtils";
-import { buildArrows, drawArrows, decideConnectionSides, getSideCenter } from "./arrowUtils";
+import type {
+  Block,
+  RuleData,
+  RuleViewHandle,
+  TrackerEdge,
+  FireState,
+  AlignOp,
+  DistributeAxis,
+} from "./types";
+import { findIslandBlocks } from "./depGraph";
+import {
+  buildBlocks,
+  drawBlocks,
+  hitTestBlock,
+  blocksInRect,
+} from "./blockUtils";
+import { buildArrows, drawArrows } from "./arrowUtils";
 import { alignBlocks, distributeBlocks } from "./alignUtils";
-import { drawGrid, drawMinimap, getWorldBounds, snap, GRID_SIZE } from "./canvasUtils";
+import {
+  drawGrid,
+  drawMinimap,
+  getWorldBounds,
+  snap,
+  GRID_SIZE,
+} from "./canvasUtils";
 import { BlockTooltip } from "./BlockTooltip";
 import { BlockInspector } from "./BlockInspector";
 import { TableInspector } from "./tableinfo";
 import { useImportTableResponse } from "./api";
 
 type RuleViewProps = {
-  fab?: string | null;                            // route /api/{fab}/... — import table fetch 需要
+  fab?: string | null; // route /api/{fab}/... — import table fetch 需要
   rules: RuleData[];
   matchedBlockIds: Set<string> | null;
   selectedBlockId?: string | null;
   trackerLogIds?: Set<string>;
   trackerVarIds?: Set<string>;
   trackerEdges?: TrackerEdge[];
-  previewEdges?: TrackerEdge[];                   // 全展邊集，hover 預覽用
-  hoverBlockId?: string | null;                   // 外部（側欄）hover 的 block → canvas 連動高亮
+  previewEdges?: TrackerEdge[]; // 全展邊集，hover 預覽用
+  hoverBlockId?: string | null; // 外部（側欄）hover 的 block → canvas 連動高亮
   useNewIcons?: boolean;
-  layoutVersion?: number;                         // +1 → 重建 blocks（block 位置回原始 POSX/POSY）
+  layoutVersion?: number; // +1 → 重建 blocks（block 位置回原始 POSX/POSY）
   searchKeyword?: string;
   trackedLogName?: string;
-  onBlockContextMenu?: (id: string) => void;      // 右鍵 block → 依模式的 context action（Tracker: 展開上游）
-  onBlockHover?: (id: string | null) => void;     // hover block → 連動側欄
+  onBlockContextMenu?: (id: string) => void; // 右鍵 block → 依模式的 context action（Tracker: 展開上游）
+  onBlockHover?: (id: string | null) => void; // hover block → 連動側欄
 };
 
 // Tracker 連線依層次的顏色（對照右側 tree 的 LAYER_STYLES：blue→emerald→purple→orange→pink）
 const TRACKER_EDGE_COLORS = [
-  "rgba(59,130,246,0.85)",   // 0 blue-500
-  "rgba(16,185,129,0.85)",   // 1 emerald-500
-  "rgba(168,85,247,0.85)",   // 2 purple-500
-  "rgba(249,115,22,0.85)",   // 3 orange-500
-  "rgba(236,72,153,0.85)",   // 4 pink-500
+  "rgba(59,130,246,0.85)", // 0 blue-500
+  "rgba(16,185,129,0.85)", // 1 emerald-500
+  "rgba(168,85,247,0.85)", // 2 purple-500
+  "rgba(249,115,22,0.85)", // 3 orange-500
+  "rgba(236,72,153,0.85)", // 4 pink-500
 ];
 
 type InspectorState = {
@@ -60,7 +80,11 @@ type InspectorState = {
 
 // 沿結構箭頭（PREBLOCK）找 from→to 的最短 block 路徑，讓 tracker 線串著既有連線走、不抄斜線捷徑。
 // parentsOf：block → 它的上游（PREBLOCK）block 們。回 [from, …中繼…, to]，找不到則 null。
-function structPath(from: string, to: string, parentsOf: Map<string, string[]>): string[] | null {
+function structPath(
+  from: string,
+  to: string,
+  parentsOf: Map<string, string[]>,
+): string[] | null {
   if (from === to) return [from];
   const prev = new Map<string, string | null>([[from, null]]);
   const queue = [from];
@@ -71,8 +95,9 @@ function structPath(from: string, to: string, parentsOf: Map<string, string[]>):
       prev.set(p, cur);
       if (p === to) {
         const path: string[] = [];
-        for (let n: string | null = to; n != null; n = prev.get(n) ?? null) path.push(n);
-        return path.reverse();                    // [from, …, to]
+        for (let n: string | null = to; n != null; n = prev.get(n) ?? null)
+          path.push(n);
+        return path.reverse(); // [from, …, to]
       }
       queue.push(p);
     }
@@ -81,8 +106,26 @@ function structPath(from: string, to: string, parentsOf: Map<string, string[]>):
 }
 
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ fab = null, rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, layoutVersion = 0, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
-
+  function RuleView(
+    {
+      fab = null,
+      rules,
+      matchedBlockIds,
+      selectedBlockId,
+      trackerLogIds,
+      trackerVarIds,
+      trackerEdges = [],
+      previewEdges = [],
+      hoverBlockId = null,
+      useNewIcons = true,
+      layoutVersion = 0,
+      searchKeyword = "",
+      trackedLogName = "",
+      onBlockContextMenu,
+      onBlockHover,
+    },
+    ref,
+  ) {
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -100,62 +143,112 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     // 結構反向鄰接：block → 上游 PREBLOCK block 們（給 tracker 串接路由用）
     const parentsOf = useMemo(() => {
       const m = new Map<string, string[]>();
-      for (const a of arrows) (m.get(a.to) ?? m.set(a.to, []).get(a.to)!).push(a.from);
+      for (const a of arrows)
+        (m.get(a.to) ?? m.set(a.to, []).get(a.to)!).push(a.from);
       return m;
     }, [arrows]);
+
+    // ── 孤島 block：無人以它為 PREBLOCK（無下游、運算無效）→ 畫面警示 + console.warn。
+    //    與 Tracker 排除孤島共用同一定義（depGraph.findIslandBlocks）。DispatchScreen 豁免。
+    const islandBlockIds = useMemo(() => findIslandBlocks(rules), [rules]);
+
+    useEffect(() => {
+      if (islandBlockIds.size > 0)
+        console.warn(
+          `[RuleViewer] 偵測到 ${islandBlockIds.size} 個孤島 block（無下游、運算無效）：${[...islandBlockIds].join(", ")}`,
+        );
+    }, [islandBlockIds]);
 
     // ── UI 狀態 ───────────────────────────────────────────
     const [inspectors, setInspectors] = useState<InspectorState[]>([]);
     const [focusStack, setFocusStack] = useState<string[]>([]);
     const [importTableName, setImportTableName] = useState<string | null>(null);
-    const { data: importTableData, isLoading: importTableLoading } = useImportTableResponse(fab, importTableName);
+    const { data: importTableData, isLoading: importTableLoading } =
+      useImportTableResponse(fab, importTableName);
     const importTableRows = useMemo(() => {
       if (!importTableData) return null;
       return importTableData.Rows.map((row: string[]) =>
-        Object.fromEntries(importTableData.Columns.map((col: string, i: number) => [col, row[i]]))
+        Object.fromEntries(
+          importTableData.Columns.map((col: string, i: number) => [
+            col,
+            row[i],
+          ]),
+        ),
       );
     }, [importTableData]);
     const [hoveredBlock, setHoveredBlock] = useState<Block | null>(null);
-    const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+    const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+      null,
+    );
 
     const inspectorDraggingRef = useRef(false);
     const activeBlockRef = useRef<Block | null>(null);
 
     // ── Group 框選 / 範圍拖曳（spec 2026-06-14）──────────────
-    const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(new Set());
+    const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(
+      new Set(),
+    );
     const selectedBlocksRef = useRef(selectedBlocks);
-    useEffect(() => { selectedBlocksRef.current = selectedBlocks; });
-    const marqueeRef = useRef<{ active: boolean; sx: number; sy: number; ex: number; ey: number } | null>(null);
+    useEffect(() => {
+      selectedBlocksRef.current = selectedBlocks;
+    });
+    const marqueeRef = useRef<{
+      active: boolean;
+      sx: number;
+      sy: number;
+      ex: number;
+      ey: number;
+    } | null>(null);
     const groupDragRef = useRef(false);
-    const pointerMovedRef = useRef(false);     // 區分「點擊」與「拖曳」（空白點擊才清選取）
-    const [repaintTick, setRepaintTick] = useState(0);   // 就地改 block 座標後觸發重繪
+    const pointerMovedRef = useRef(false); // 區分「點擊」與「拖曳」（空白點擊才清選取）
+    const [repaintTick, setRepaintTick] = useState(0); // 就地改 block 座標後觸發重繪
 
-    const handleAlign = useCallback((op: AlignOp) => {
-      const sel = blocks.filter((b) => selectedBlocks.has(b.id));
-      alignBlocks(sel, op);
-      for (const b of sel) { b.x = snap(b.x, GRID_SIZE); b.y = snap(b.y, GRID_SIZE); }
-      setRepaintTick((t) => t + 1);
-    }, [blocks, selectedBlocks]);
-    const handleDistribute = useCallback((axis: DistributeAxis) => {
-      const sel = blocks.filter((b) => selectedBlocks.has(b.id));
-      distributeBlocks(sel, axis);
-      for (const b of sel) { b.x = snap(b.x, GRID_SIZE); b.y = snap(b.y, GRID_SIZE); }
-      setRepaintTick((t) => t + 1);
-    }, [blocks, selectedBlocks]);
+    const handleAlign = useCallback(
+      (op: AlignOp) => {
+        const sel = blocks.filter((b) => selectedBlocks.has(b.id));
+        alignBlocks(sel, op);
+        for (const b of sel) {
+          b.x = snap(b.x, GRID_SIZE);
+          b.y = snap(b.y, GRID_SIZE);
+        }
+        setRepaintTick((t) => t + 1);
+      },
+      [blocks, selectedBlocks],
+    );
+    const handleDistribute = useCallback(
+      (axis: DistributeAxis) => {
+        const sel = blocks.filter((b) => selectedBlocks.has(b.id));
+        distributeBlocks(sel, axis);
+        for (const b of sel) {
+          b.x = snap(b.x, GRID_SIZE);
+          b.y = snap(b.y, GRID_SIZE);
+        }
+        setRepaintTick((t) => t + 1);
+      },
+      [blocks, selectedBlocks],
+    );
 
-    // ESC 清除選取 / 方向鍵微調（spec 2026-06-14）。無選取時不攔截（ESC 交給 inspector 關閉）
+    // ESC 清除選取 / 方向鍵微調。無選取時不攔截（ESC 交給 inspector 關閉）
     useEffect(() => {
       function onKey(e: KeyboardEvent) {
         if (selectedBlocksRef.current.size === 0) return;
-        if (e.key === "Escape") { setSelectedBlocks(new Set()); return; }
-        let dx = 0, dy = 0;
+        if (e.key === "Escape") {
+          setSelectedBlocks(new Set());
+          return;
+        }
+        let dx = 0,
+          dy = 0;
         if (e.key === "ArrowLeft") dx = -GRID_SIZE;
         else if (e.key === "ArrowRight") dx = GRID_SIZE;
         else if (e.key === "ArrowUp") dy = -GRID_SIZE;
         else if (e.key === "ArrowDown") dy = GRID_SIZE;
         else return;
         e.preventDefault();
-        for (const b of blocks) if (selectedBlocksRef.current.has(b.id)) { b.x += dx; b.y += dy; }
+        for (const b of blocks)
+          if (selectedBlocksRef.current.has(b.id)) {
+            b.x += dx;
+            b.y += dy;
+          }
         setRepaintTick((t) => t + 1);
       }
       window.addEventListener("keydown", onKey);
@@ -166,11 +259,14 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     // callback 用 ref 持有，避免進 mouse effect 依賴而重掛 listener
     const onBlockContextMenuRef = useRef(onBlockContextMenu);
     const onBlockHoverRef = useRef(onBlockHover);
-    useEffect(() => { onBlockContextMenuRef.current = onBlockContextMenu; onBlockHoverRef.current = onBlockHover; });
+    useEffect(() => {
+      onBlockContextMenuRef.current = onBlockContextMenu;
+      onBlockHoverRef.current = onBlockHover;
+    });
 
     const inspectedBlockIds = useMemo(
       () => new Set(inspectors.map((i) => i.block.id)),
-      [inspectors]
+      [inspectors],
     );
 
     // hover 預覽：被 hover 的 block + 它的直接上游 block（畫 sky 環）；僅追蹤中啟用
@@ -182,7 +278,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     }, [hoverBlockId, previewEdges]);
 
     // ── Inspector 面板的當前位置（用於畫虛線連線） ────────
-    const inspectorPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+    const inspectorPositionsRef = useRef<Map<string, { x: number; y: number }>>(
+      new Map(),
+    );
 
     useEffect(() => {
       // 初始化新開的 inspector 位置
@@ -203,7 +301,11 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     // NATURAL_SCALE：block 看起來「正常大小」的縮放比例，作為 1:1 的基準
     const NATURAL_SCALE = 0.7;
     const DEFAULT_SCALE = NATURAL_SCALE; // 載入預設 1:1
-    const viewRef = useRef({ translateX: 0, translateY: 0, scale: DEFAULT_SCALE });
+    const viewRef = useRef({
+      translateX: 0,
+      translateY: 0,
+      scale: DEFAULT_SCALE,
+    });
     const [displayScale, setDisplayScale] = useState(DEFAULT_SCALE);
 
     const dragRef = useRef({ dragging: false, lastX: 0, lastY: 0 });
@@ -217,16 +319,23 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
     // ── 小地圖尺寸（與 viewport 同比例） ─────────────────
     const MM_MAX = 250; // 最長邊 px
-    const [minimapSize, setMinimapSize] = useState({ w: MM_MAX, h: Math.round(MM_MAX * 9 / 16) });
+    const [minimapSize, setMinimapSize] = useState({
+      w: MM_MAX,
+      h: Math.round((MM_MAX * 9) / 16),
+    });
 
     function syncMinimapSize(vw: number, vh: number) {
       const aspect = vw / vh;
-      const size = aspect >= 1
-        ? { w: MM_MAX, h: Math.round(MM_MAX / aspect) }
-        : { w: Math.round(MM_MAX * aspect), h: MM_MAX };
+      const size =
+        aspect >= 1
+          ? { w: MM_MAX, h: Math.round(MM_MAX / aspect) }
+          : { w: Math.round(MM_MAX * aspect), h: MM_MAX };
       // 同時命令式更新 canvas buffer（確保 redraw 讀到新尺寸）
       const mm = minimapRef.current;
-      if (mm) { mm.width = size.w; mm.height = size.h; }
+      if (mm) {
+        mm.width = size.w;
+        mm.height = size.h;
+      }
       setMinimapSize(size);
     }
 
@@ -246,28 +355,80 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         ctx.translate(view.translateX, view.translateY);
         ctx.scale(view.scale, view.scale);
 
-        // ── Tracker 運作中：算出「依賴路徑上的基礎主/副線」，淡化無關者、點亮關聯者 ──
-        //    每條依賴邊沿 PREBLOCK 結構路徑展開成基礎箭頭；上色 fired 優先、其次較淺 depth。
-        let related: Map<string, { depth: number; fired?: FireState }> | null = null;
+        // ── Tracker 運作中：把依賴路徑上的「既有主/副線」直接換成 layer 色（不另疊線）；無關者淡化 ──
+        //    每條依賴邊沿 PREBLOCK 結構路徑展開成基礎箭頭；fired 優先、其次較淺 depth 決定顏色。
+        let relatedColors: Map<string, string> | null = null;
         if (trackerEdges.length > 0) {
-          related = new Map();
+          const acc = new Map<string, { depth: number; fired?: FireState }>();
           for (const edge of trackerEdges) {
             const path = structPath(edge.from, edge.to, parentsOf);
             if (!path) continue;
             for (let i = 0; i < path.length - 1; i++) {
-              const key = `${path[i + 1]}|${path[i]}`;      // 基礎箭頭 = from(上游 parent)|to(下游 child)
-              const ex = related.get(key);
-              const take = !ex
-                || (edge.fired === "yes" && ex.fired !== "yes")
-                || (ex.fired !== "yes" && edge.depth < ex.depth);
-              if (take) related.set(key, { depth: edge.depth, fired: edge.fired });
+              const key = `${path[i + 1]}|${path[i]}`; // 基礎箭頭 = from(上游 parent)|to(下游 child)
+              const ex = acc.get(key);
+              const take =
+                !ex ||
+                (edge.fired === "yes" && ex.fired !== "yes") ||
+                (ex.fired !== "yes" && edge.depth < ex.depth);
+              if (take) acc.set(key, { depth: edge.depth, fired: edge.fired });
             }
+          }
+          relatedColors = new Map();
+          for (const [key, info] of acc) {
+            relatedColors.set(
+              key,
+              info.fired === "yes"
+                ? "rgba(34,197,94,0.95)" // 命中
+                : info.fired === "no"
+                  ? "rgba(148,163,184,0.7)" // 未成立
+                  : TRACKER_EDGE_COLORS[info.depth % TRACKER_EDGE_COLORS.length],
+            );
           }
         }
 
         if (showGridRef.current) drawGrid(ctx, view, sizeRef.current);
-        drawArrows(ctx, blocks, arrows, view.scale, !!related, related ? new Set(related.keys()) : undefined);
-        drawBlocks(ctx, blocks, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons);
+        drawArrows(
+          ctx,
+          blocks,
+          arrows,
+          view.scale,
+          !!relatedColors,
+          relatedColors ?? undefined,
+        );
+        drawBlocks(
+          ctx,
+          blocks,
+          inspectedBlockIds,
+          matchedBlockIds,
+          selectedBlockId,
+          trackerLogIds,
+          trackerVarIds,
+          useNewIcons,
+        );
+
+        // ── 孤島 block 警示（恆顯，不受 trace/search 影響）：紅色虛線框 + 「⚠ 孤島」標籤，告知無下游、無作用 ──
+        if (islandBlockIds.size > 0) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(244,63,94,0.95)"; // rose-500
+          ctx.fillStyle = "rgba(244,63,94,0.95)";
+          ctx.shadowColor = "rgba(244,63,94,0.5)";
+          ctx.lineWidth = 2 / view.scale;
+          ctx.font = `600 ${11 / view.scale}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          for (const b of blocks) {
+            if (!islandBlockIds.has(b.id)) continue;
+            ctx.setLineDash([5 / view.scale, 3 / view.scale]);
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 7);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+            ctx.fillText("⚠ 孤島", b.x + b.w / 2, b.y - 7 / view.scale);
+          }
+          ctx.restore();
+        }
 
         // ── 框選選取高亮（world 空間）─ spec 2026-06-14 ──
         if (selectedBlocksRef.current.size > 0) {
@@ -282,36 +443,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           ctx.restore();
         }
 
-        // ── 點亮依賴路徑上的既有主/副線（bool 標記關聯）。命中(yes)綠、未成立(no)淡灰；否則依 depth 上色 ──
-        if (related) {
-          ctx.save();
-          ctx.lineCap = "round";
-          ctx.setLineDash([]);
-          for (const a of arrows) {
-            const info = related.get(`${a.from}|${a.to}`);
-            if (!info) continue;                            // 沒關聯到 tracker → 維持原樣（不畫高亮）
-            const fb = blocks.find((b) => b.id === a.from);
-            const tb = blocks.find((b) => b.id === a.to);
-            if (!fb || !tb) continue;
-            const hit = info.fired === "yes";
-            const color = hit ? "rgba(34,197,94,0.95)"
-              : info.fired === "no" ? "rgba(148,163,184,0.55)"
-              : TRACKER_EDGE_COLORS[info.depth % TRACKER_EDGE_COLORS.length];
-            const { fromSide, toSide } = decideConnectionSides(fb, tb);
-            const s = getSideCenter(fb, fromSide);
-            const e = getSideCenter(tb, toSide);
-
-            ctx.strokeStyle = color;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = hit ? 6 : 4;
-            ctx.lineWidth = hit ? 3 : 2.4;
-            ctx.beginPath();
-            ctx.moveTo(s.x, s.y);
-            ctx.lineTo(e.x, e.y);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
+        // tracker 依賴路徑高亮已併入 drawArrows（直接把原本主/副線換成 layer 色，不另疊線）
 
         // ── hover 預覽：被 hover 的 block + 其直接上游 block，畫 sky 虛線環 ──
         if (hoverPreviewIds) {
@@ -363,7 +495,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             ];
             const anchor = candidates.reduce((best, a) =>
               Math.hypot(a.x - bCx, a.y - bCy) <
-                Math.hypot(best.x - bCx, best.y - bCy) ? a : best
+              Math.hypot(best.x - bCx, best.y - bCy)
+                ? a
+                : best,
             );
 
             ctx.save();
@@ -392,8 +526,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const mq = marqueeRef.current;
         if (mq?.active) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          const x = Math.min(mq.sx, mq.ex), y = Math.min(mq.sy, mq.ey);
-          const w = Math.abs(mq.ex - mq.sx), h = Math.abs(mq.ey - mq.sy);
+          const x = Math.min(mq.sx, mq.ex),
+            y = Math.min(mq.sy, mq.ey);
+          const w = Math.abs(mq.ex - mq.sx),
+            h = Math.abs(mq.ey - mq.sy);
           ctx.save();
           ctx.fillStyle = "rgba(56,189,248,0.12)";
           ctx.strokeStyle = "rgba(56,189,248,0.85)";
@@ -407,10 +543,23 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const mm = minimapRef.current;
         if (mm) {
           const mmCtx = mm.getContext("2d");
-          if (mmCtx) drawMinimap(mmCtx, blocks, viewRef.current, mm, sizeRef.current);
+          if (mmCtx)
+            drawMinimap(mmCtx, blocks, viewRef.current, mm, sizeRef.current);
         }
       },
-      [arrows, parentsOf, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, hoverPreviewIds, useNewIcons]
+      [
+        arrows,
+        parentsOf,
+        islandBlockIds,
+        inspectedBlockIds,
+        matchedBlockIds,
+        selectedBlockId,
+        trackerLogIds,
+        trackerVarIds,
+        trackerEdges,
+        hoverPreviewIds,
+        useNewIcons,
+      ],
     );
 
     // ── 初始化 Canvas（只在 blocks 變更時重設畫布尺寸） ──
@@ -445,7 +594,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const worldH = bounds.maxY - bounds.minY;
         const fitScale = Math.min(
           (rect.width * 0.85) / worldW,
-          (rect.height * 0.85) / worldH
+          (rect.height * 0.85) / worldH,
         );
         const scale = Math.max(DEFAULT_SCALE, fitScale);
         const cx = (bounds.minX + bounds.maxX) / 2;
@@ -538,7 +687,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           }
           activeBlockRef.current = hitBlock; // 拖 Block
         } else {
-          dragRef.current.dragging = true;   // 拖 Canvas
+          dragRef.current.dragging = true; // 拖 Canvas
           canvas!.style.cursor = "grabbing";
         }
       }
@@ -559,9 +708,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
         // 雙擊「已選取且多選」的 block → 打開整組 inspector（位置略錯開）；否則單一（現有）
         const sel = selectedBlocksRef.current;
-        const targets = (sel.has(hitBlock.id) && sel.size > 1)
-          ? blocks.filter((b) => sel.has(b.id))
-          : [hitBlock];
+        const targets =
+          sel.has(hitBlock.id) && sel.size > 1
+            ? blocks.filter((b) => sel.has(b.id))
+            : [hitBlock];
 
         setInspectors((prev) => {
           const next = [...prev];
@@ -573,7 +723,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         });
         setFocusStack((prev) => {
           const next = [...prev];
-          for (const blk of targets) if (!next.includes(blk.id)) next.push(blk.id);
+          for (const blk of targets)
+            if (!next.includes(blk.id)) next.push(blk.id);
           return next;
         });
       }
@@ -613,7 +764,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           // 整組拖曳：所有 selectedBlocks 一起位移
           const scale = viewRef.current.scale;
           for (const b of blocks) {
-            if (selectedBlocksRef.current.has(b.id)) { b.x += dx / scale; b.y += dy / scale; }
+            if (selectedBlocksRef.current.has(b.id)) {
+              b.x += dx / scale;
+              b.y += dy / scale;
+            }
           }
           setHoveredBlock(null);
           setMousePos(null);
@@ -638,7 +792,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           setHoveredBlock(hit);
           setMousePos({ x: mx, y: my });
           const hid = hit?.id ?? null;
-          if (hid !== lastHoverIdRef.current) { lastHoverIdRef.current = hid; onBlockHoverRef.current?.(hid); }
+          if (hid !== lastHoverIdRef.current) {
+            lastHoverIdRef.current = hid;
+            onBlockHoverRef.current?.(hid);
+          }
         }
 
         dragRef.current.lastX = e.clientX;
@@ -653,21 +810,28 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           const p1 = screenToWorld(mq.sx, mq.sy);
           const p2 = screenToWorld(mq.ex, mq.ey);
           const rectWorld = {
-            x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
-            w: Math.abs(p2.x - p1.x), h: Math.abs(p2.y - p1.y),
+            x: Math.min(p1.x, p2.x),
+            y: Math.min(p1.y, p2.y),
+            w: Math.abs(p2.x - p1.x),
+            h: Math.abs(p2.y - p1.y),
           };
           setSelectedBlocks(new Set(blocksInRect(rectWorld, blocks)));
         } else if (groupDragRef.current) {
           // 整組拖曳放開 → 全部 snap
-          for (const b of blocks) if (selectedBlocksRef.current.has(b.id)) {
-            b.x = snap(b.x, GRID_SIZE);
-            b.y = snap(b.y, GRID_SIZE);
-          }
+          for (const b of blocks)
+            if (selectedBlocksRef.current.has(b.id)) {
+              b.x = snap(b.x, GRID_SIZE);
+              b.y = snap(b.y, GRID_SIZE);
+            }
         } else if (activeBlockRef.current) {
           const b = activeBlockRef.current;
           b.x = snap(b.x, GRID_SIZE);
           b.y = snap(b.y, GRID_SIZE);
-        } else if (dragRef.current.dragging && !pointerMovedRef.current && selectedBlocksRef.current.size > 0) {
+        } else if (
+          dragRef.current.dragging &&
+          !pointerMovedRef.current &&
+          selectedBlocksRef.current.size > 0
+        ) {
           // 空白「點擊」（非拖曳）→ 清除選取
           setSelectedBlocks(new Set());
         }
@@ -705,9 +869,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         // Math.exp(-deltaY * 0.0015)：平滑指數縮放
         // 向上滾動 deltaY < 0 → factor > 1 → 放大；向下反之
         // 限制在 0.05 ~ 5 倍之間
-        const newScale = Math.max(0.05, Math.min(5,
-          view.scale * Math.exp(-e.deltaY * 0.0015)
-        ));
+        const newScale = Math.max(
+          0.05,
+          Math.min(5, view.scale * Math.exp(-e.deltaY * 0.0015)),
+        );
 
         view.scale = newScale;
         view.translateX = mx - wx * newScale;
@@ -729,7 +894,10 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       function onMouseLeave() {
         setHoveredBlock(null);
         setMousePos(null);
-        if (lastHoverIdRef.current !== null) { lastHoverIdRef.current = null; onBlockHoverRef.current?.(null); }
+        if (lastHoverIdRef.current !== null) {
+          lastHoverIdRef.current = null;
+          onBlockHoverRef.current?.(null);
+        }
       }
 
       canvas.addEventListener("dblclick", onDoubleClick);
@@ -770,9 +938,12 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const FIT_RATIO = 0.85;
         const worldW = bounds.maxX - bounds.minX;
         const worldH = bounds.maxY - bounds.minY;
-        const mmScale = Math.min(canvas!.width / worldW, canvas!.height / worldH) * FIT_RATIO;
-        const ox = (canvas!.width - worldW * mmScale) / 2 - bounds.minX * mmScale;
-        const oy = (canvas!.height - worldH * mmScale) / 2 - bounds.minY * mmScale;
+        const mmScale =
+          Math.min(canvas!.width / worldW, canvas!.height / worldH) * FIT_RATIO;
+        const ox =
+          (canvas!.width - worldW * mmScale) / 2 - bounds.minX * mmScale;
+        const oy =
+          (canvas!.height - worldH * mmScale) / 2 - bounds.minY * mmScale;
 
         const wx = (mx - ox) / mmScale;
         const wy = (my - oy) / mmScale;
@@ -835,7 +1006,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
         redraw(ctx, blocks);
       },
-      [blocks, redraw]
+      [blocks, redraw],
     );
 
     const focusBlockById = useCallback(
@@ -843,7 +1014,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const b = blocks.find((x) => x.id === id);
         if (b) focusBlock(b);
       },
-      [blocks, focusBlock]
+      [blocks, focusBlock],
     );
 
     const openInspectorById = useCallback(
@@ -863,30 +1034,36 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           return [...prev, b.id];
         });
       },
-      [blocks, focusBlock]
+      [blocks, focusBlock],
     );
 
-    useImperativeHandle(ref, () => ({ focusBlockById, openInspectorById }), [focusBlockById, openInspectorById]);
+    useImperativeHandle(ref, () => ({ focusBlockById, openInspectorById }), [
+      focusBlockById,
+      openInspectorById,
+    ]);
 
     // ── 縮放按鈕 ──────────────────────────────────────────
     // zoomBy：以 viewport 正中央為縮放中心（按鈕縮放，不跟滑鼠走）
     // 邏輯同 onWheel，但固定以畫面中心點 (cx, cy) 為錨點
-    const zoomBy = useCallback((factor: number) => {
-      const ctx = ctxRef.current;
-      if (!ctx) return;
-      const view = viewRef.current;
-      const { w, h } = sizeRef.current;
-      const cx = w / 2;
-      const cy = h / 2;
-      const wx = (cx - view.translateX) / view.scale;
-      const wy = (cy - view.translateY) / view.scale;
-      const newScale = Math.max(0.05, Math.min(5, view.scale * factor));
-      view.scale = newScale;
-      view.translateX = cx - wx * newScale;
-      view.translateY = cy - wy * newScale;
-      setDisplayScale(newScale);
-      redraw(ctx, blocks);
-    }, [blocks, redraw]);
+    const zoomBy = useCallback(
+      (factor: number) => {
+        const ctx = ctxRef.current;
+        if (!ctx) return;
+        const view = viewRef.current;
+        const { w, h } = sizeRef.current;
+        const cx = w / 2;
+        const cy = h / 2;
+        const wx = (cx - view.translateX) / view.scale;
+        const wy = (cy - view.translateY) / view.scale;
+        const newScale = Math.max(0.05, Math.min(5, view.scale * factor));
+        view.scale = newScale;
+        view.translateX = cx - wx * newScale;
+        view.translateY = cy - wy * newScale;
+        setDisplayScale(newScale);
+        redraw(ctx, blocks);
+      },
+      [blocks, redraw],
+    );
 
     const zoomReset = useCallback(() => {
       const ctx = ctxRef.current;
@@ -903,7 +1080,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const ctx = ctxRef.current;
         if (ctx) redraw(ctx, blocks);
       },
-      [blocks, redraw]
+      [blocks, redraw],
     );
 
     // ── Render ────────────────────────────────────────────
@@ -915,19 +1092,44 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           {/* 對齊 / 分佈 toolbar（選取 ≥2 顯示）— spec 2026-06-14 */}
           {selectedBlocks.size >= 2 && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 rounded-lg bg-slate-800/95 border border-white/15 px-2 py-1 shadow-lg text-xs text-white">
-              <span className="text-slate-400 pr-1">{selectedBlocks.size} 選取</span>
-              {([
-                ["left", "靠左"], ["centerX", "水平置中"], ["right", "靠右"],
-                ["top", "靠上"], ["centerY", "垂直置中"], ["bottom", "靠下"],
-              ] as [AlignOp, string][]).map(([op, label]) => (
-                <button key={op} onClick={() => handleAlign(op)} title={label}
-                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer">{label}</button>
+              <span className="text-slate-400 pr-1">
+                {selectedBlocks.size} 選取
+              </span>
+              {(
+                [
+                  ["left", "靠左"],
+                  ["centerX", "水平置中"],
+                  ["right", "靠右"],
+                  ["top", "靠上"],
+                  ["centerY", "垂直置中"],
+                  ["bottom", "靠下"],
+                ] as [AlignOp, string][]
+              ).map(([op, label]) => (
+                <button
+                  key={op}
+                  onClick={() => handleAlign(op)}
+                  title={label}
+                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer"
+                >
+                  {label}
+                </button>
               ))}
               <span className="w-px h-4 bg-white/15 mx-0.5" />
-              {([["horizontal", "水平分佈"], ["vertical", "垂直分佈"]] as [DistributeAxis, string][]).map(([axis, label]) => (
-                <button key={axis} onClick={() => handleDistribute(axis)} title={label}
+              {(
+                [
+                  ["horizontal", "水平分佈"],
+                  ["vertical", "垂直分佈"],
+                ] as [DistributeAxis, string][]
+              ).map(([axis, label]) => (
+                <button
+                  key={axis}
+                  onClick={() => handleDistribute(axis)}
+                  title={label}
                   disabled={selectedBlocks.size < 3}
-                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer disabled:opacity-30 disabled:cursor-default">{label}</button>
+                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer disabled:opacity-30 disabled:cursor-default"
+                >
+                  {label}
+                </button>
               ))}
             </div>
           )}
@@ -955,9 +1157,13 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                 wrapperRef={canvasStageRef}
                 inspectorDraggingRef={inspectorDraggingRef}
                 zIndex={zIndex}
-                onPositionChange={(nx, ny) => updateInspectorPosition(block.id, nx, ny)}
+                onPositionChange={(nx, ny) =>
+                  updateInspectorPosition(block.id, nx, ny)
+                }
                 onClose={() => {
-                  setInspectors((prev) => prev.filter((i) => i.block.id !== block.id));
+                  setInspectors((prev) =>
+                    prev.filter((i) => i.block.id !== block.id),
+                  );
                   setFocusStack((prev) => prev.filter((id) => id !== block.id));
                 }}
                 onFocus={() =>
@@ -987,8 +1193,18 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         {/* Minimap + Controls */}
         <div className="absolute left-5 bottom-5 flex flex-col gap-1.5 items-start">
           {/* Minimap — 用 hidden 隱藏而非 unmount，保持 ref 與事件監聽器有效 */}
-          <div className={cn("border border-gray-400 bg-white self-start", !showMinimap && "hidden")}>
-            <canvas ref={minimapRef} width={minimapSize.w} height={minimapSize.h} style={{ display: "block" }} />
+          <div
+            className={cn(
+              "border border-gray-400 bg-white self-start",
+              !showMinimap && "hidden",
+            )}
+          >
+            <canvas
+              ref={minimapRef}
+              width={minimapSize.w}
+              height={minimapSize.h}
+              style={{ display: "block" }}
+            />
           </div>
 
           {/* Controls */}
@@ -1003,12 +1219,20 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                   return !v;
                 });
               }}
-              title="開關連線顯示"
-              className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showConnectors
+              title={
+                showConnectors
+                  ? "點擊關閉資訊窗連線顯示"
+                  : "點擊開啟資訊窗連線顯示"
+              }
+              className={cn(
+                "w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors",
+                showConnectors
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
-                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
-                )}
-            >╌</button>
+                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100",
+              )}
+            >
+              ╌
+            </button>
             {/* Grid toggle  # = grid */}
             <button
               onClick={() => {
@@ -1019,21 +1243,29 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                   return !v;
                 });
               }}
-              title="開關網格"
-              className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showGrid
+              title={showGrid ? "點擊關閉網格" : "點擊開啟網格"}
+              className={cn(
+                "w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors",
+                showGrid
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
-                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
-                )}
-            >#</button>
+                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100",
+              )}
+            >
+              #
+            </button>
             {/* Minimap toggle  ⊡ = overview box */}
             <button
               onClick={() => setShowMinimap((v) => !v)}
-              title="開關小地圖"
-              className={cn("w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors", showMinimap
+              title={showMinimap ? "點擊關閉小地圖" : "點擊開啟小地圖"}
+              className={cn(
+                "w-9 h-9 flex items-center justify-center rounded border text-base cursor-pointer shadow-sm transition-colors",
+                showMinimap
                   ? "bg-indigo-500 border-indigo-600 text-white hover:bg-indigo-600"
-                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100"
-                )}
-            >⊡</button>
+                  : "bg-white border-gray-400 text-gray-400 hover:bg-gray-100",
+              )}
+            >
+              ⊡
+            </button>
             {/* Divider */}
             <div className="w-px self-stretch bg-gray-300 mx-0.5" />
             {/* Zoom buttons */}
@@ -1041,20 +1273,26 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
               onClick={() => zoomBy(1.25)}
               title="放大顯示(Ctrl+滑鼠滾輪向上)"
               className="w-9 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-base hover:bg-gray-100 cursor-pointer shadow-sm"
-            >+</button>
+            >
+              +
+            </button>
             <button
               onClick={() => zoomBy(0.8)}
               title="縮小顯示(Ctrl+滑鼠滾輪向下)"
               className="w-9 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-base hover:bg-gray-100 cursor-pointer shadow-sm"
-            >−</button>
+            >
+              −
+            </button>
             <button
               onClick={zoomReset}
-              title="重置縮放"
+              title="重置縮放(100%)"
               className="px-2 h-9 flex items-center justify-center rounded bg-white border border-gray-400 text-gray-700 text-xs hover:bg-gray-100 cursor-pointer shadow-sm tabular-nums"
-            >{Math.round((displayScale / NATURAL_SCALE) * 100)}%</button>
+            >
+              {Math.round((displayScale / NATURAL_SCALE) * 100)}%
+            </button>
           </div>
         </div>
       </div>
     );
-  }
+  },
 );

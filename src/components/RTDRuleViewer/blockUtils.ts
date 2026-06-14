@@ -118,9 +118,9 @@ export function drawBlock(
   // 兩層分開是因為 clip 狀態與透明度需要獨立管理
   ctx.save();
 
-  // 未命中（沒被 tracker / 搜尋掃到）→ 整體半透明，淡到幾乎隱形（只留淡影當背景脈絡）
+  // 未命中（沒被 tracker / 搜尋掃到）→ 半透明淡化，但仍清楚可見（保留主/副線拓樸脈絡，不淡到隱形）
   // tracker 光環在外層 restore 之後才畫，不受此 alpha 影響，命中的框 / 線仍清晰
-  if (!isMatched) ctx.globalAlpha = 0.22;
+  if (!isMatched) ctx.globalAlpha = 0.4;
 
   // 白底 + 圖片（clip 至圓角矩形）
   ctx.save();

@@ -84,9 +84,9 @@ graph TD
 | `dataTransform.ts` | 52 | DTO 多列 → 以 baseName 合併為 RuleData（PREBLOCK split、去 `[n]` 後綴、取前 2）| |
 | `apfParse.ts` | 205 | APF DSL：tokenize（上色共用）/ parseAPF（IF-THEN-ELSE clause）/ extractVars（跳字串註解 $log$ 函式名）| Tracker 解析正確性的根基 |
 | `apfEval.ts` | 233 | APF 條件三值評估：lex（括號/AND/OR/NOT，跳字串註解、函式整段標 unknown）+ 遞迴下降 parseCond + evalCond（三值邏輯）| 自帶 lexer，不依賴 apfParse；evalSnippet 委派它 |
-| `depGraph.ts` | 452 | 整條 rule 建一次 DAG；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS → 受影響 log + 最短路徑 + 邊）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
+| `depGraph.ts` | 467 | 整條 rule 建一次 DAG（**buildDepGraph 跳過孤島** → Tracker 全演算法不含孤島）；**findIslandBlocks（孤島定義單一來源）**；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
 | `CaseQuery.tsx` | 608 | Tracker 側欄：**Trace/Impact 模式切換**；log 搜尋下拉、LayerNode 受控樹、Runtime Log + **trigger 命中 badge**、一鍵複製；**Impact 面板（變數 autocomplete → 受影響 log 清單 → 點擊跳 Trace）** | 「查案」主介面 |
-| `RuleView.tsx` | 1060 | Canvas：blocks/arrows/grid/minimap 繪製、pan/zoom、hover/雙擊/右鍵、inspector 管理、tracker 邊上色；**group 框選（Shift marquee）+ 整組拖曳 + 對齊/分佈 toolbar + ESC/方向鍵/雙擊整組 inspector** | 模組內最大檔；收 `fab` prop 供 import table fetch |
+| `RuleView.tsx` | 1101 | Canvas：blocks/arrows/grid/minimap 繪製、pan/zoom、hover/雙擊/右鍵、inspector 管理、tracker 邊上色（沿 PREBLOCK 結構 recolor，非直接拉線；dim 不到隱形）；**group 框選 + 整組拖曳 + 對齊/分佈 toolbar**；**孤島 block 警示** | 模組內最大檔；收 `fab` prop 供 import table fetch |
 | `BlockInspector.tsx` | 774 | 浮動詳情面板：Shell（拖曳/縮放/z-index）+ 依類型 Body + 搜尋/Tracker 高亮 | |
 | `tableinfo.tsx` | 420 | Import table 浮動面板：搜尋 / 排序 / 欄位拖曳與寬度 | |
 | `RuleDropdownSearch.tsx` | 387 | **FAB（受控，props）**→ Phase → EQP/Rule 三段選擇；選 FAB 才開放下游 | FAB 清單寫死 `FAB_OPTIONS`，狀態提升至 RuleViewer |
@@ -104,7 +104,7 @@ graph TD
 
 | Module | Public symbols | 被誰用 |
 |--------|----------------|--------|
-| `depGraph.ts` | `buildDepGraph` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、Dev；dump 僅 console |
+| `depGraph.ts` | `buildDepGraph` `findIslandBlocks` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、RuleView（findIslandBlocks 畫警示）、Dev |
 | `apfParse.ts` | `tokenize` `HIGHLIGHT_RE` `parseAPF` `extractVars` `Token` `Clause` | depGraph、BlockInspector |
 | `apfEval.ts` | `parseCond` `evalCond` `CondNode` `CmpOp` | depGraph（evalSnippet 委派）、apfEval.test |
 | `api.ts` | `usePhaseResponse` `useEQPRuleResponse` `useRuleResponse` `useRuleInfoResponse` `useResourceDataResponse` `useImportTableResponse`（全部首參 `fab`）| RuleViewer、RuleView |
@@ -136,6 +136,8 @@ graph TD
 | mock 改 dev-only | `devMock.ts`/`stressRule.ts` + 7 個 `/dev/*` 頁以 `import.meta.env.DEV` gate（App.tsx 路由、HomeLayout 選單）；barrel 不再 re-export mock → production bundle 零 mock（build 已驗證） |
 | evalCond 函式呼叫保守 | `COUNT(...)` 等函式子條件一律 unknown（不模擬值）；AND/OR/NOT/括號複合條件已支援三值邏輯 |
 | 跨 rule impact 未做 | computeImpact 限當前載入 rule；跨 rule 影響需後端 endpoint（backlog）|
+| 孤島偵測 | `depGraph.findIslandBlocks`（單一來源）：無人以它為 PREBLOCK（DispatchScreen 豁免）。**Tracker 全演算法排除孤島**（buildDepGraph 跳過）；**Search（RuleContentSearch）仍可搜到**；canvas 紅虛線「⚠ 孤島」恆顯 + console.warn。mock 留 `FUNC_ISLAND_DEMO` 供驗證；純前端定義，後端不擋 |
+| tracker 高亮畫法 | 不另疊線：`drawArrows(highlightColors)` 直接把追蹤鏈上的原箭頭換成 layer 色（fired: 綠/灰，否則 depth 色）；無關箭頭 dim 0.35 |
 | ~~正向 impact 分析~~ | ✅ 已做（computeImpact + Impact 模式 UI，spec 2026-06-13）|
 | ~~狀態不可分享~~ | ✅ 已做（URL deep link：phase/rule/log/mode/var，spec 2026-06-13）；runtime/expanded 仍不入 URL（刻意）|
 

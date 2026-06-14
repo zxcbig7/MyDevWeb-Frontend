@@ -11,6 +11,7 @@
 import type {
   RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState, ImpactResult,
 } from "./types";
+import { BlockTypes } from "./types";
 import { parseAPF, extractVars } from "./apfParse";
 import { parseCond, evalCond } from "./apfEval";
 
@@ -21,19 +22,23 @@ export type LogClosure = {
   shared: Set<string>;               // refCount ≥ 2 的變數（樹上會多處出現）
 };
 
+// 從某 [$LOG$] 取第一層：各 trigger 的觸發條件變數（refBlock = trigger block）
 const LOG_RE = /\[\$([A-Z][A-Z0-9_]*)\$\]/g;
+
+// 即時展開某變數的下一層：依定義 block 分組的子節點（refBlock = 引用此變數的 block）
 const isSingleIdent = (s: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
 
 // 每個 block 沿 PREBLOCK 反向 BFS 可達的上游 block 集合（含跨 INDEX join 進來的副線）。
 // 用來把「變數來源」限制在「真的會流進引用 block」的上游，排除同名但不在資料流上的孤兒。
 function buildAncestors(rules: RuleData[]): Map<string, Set<string>> {
   const pre = new Map<string, string[]>();
-  for (const r of rules) pre.set(r.BLOCK_NAME, r.PREBLOCK ?? []);
+  for (const r of rules) pre.set(r.BLOCK_NAME, r.PREBLOCK ?? []); // 注意：PREBLOCK 為 null 時表示沒有前置，與空陣列同義
 
   const result = new Map<string, Set<string>>();
+  
   for (const r of rules) {
     const acc = new Set<string>();
-    const queue = [...(pre.get(r.BLOCK_NAME) ?? [])];
+    const queue = [...(pre.get(r.BLOCK_NAME) ?? [])]; // 從直接前置開始，逐層往上走
     while (queue.length) {
       const b = queue.shift()!;
       if (!pre.has(b) || acc.has(b)) continue;   // 不存在的 block 或已走訪 → 跳過（兼防環）
@@ -54,10 +59,27 @@ export function resolveDefs(graph: DepGraph, varName: string, refBlock: string):
   return node.defs.filter((d) => anc.has(d.block));
 }
 
+// ─── 孤島偵測（topology 單一來源）───────────────────────────
+/**
+ * 孤島 block：沒有任何 block 以它為 PREBLOCK（＝無下游、運算結果無人取用，等於無效）。
+ * DispatchScreen 為終端 sink，本就無下游 → 豁免。
+ * Tracker 所有演算法一律不分析孤島（見 buildDepGraph）；Search（RuleContentSearch）仍可搜到。
+ */
+export function findIslandBlocks(rules: RuleData[]): Set<string> {
+  const referenced = new Set<string>();
+  for (const r of rules) for (const p of r.PREBLOCK ?? []) referenced.add(p);
+  const islands = new Set<string>();
+  for (const r of rules)
+    if (r.BLOCK_TYPE !== BlockTypes.DispatchScreen && !referenced.has(r.BLOCK_NAME))
+      islands.add(r.BLOCK_NAME);
+  return islands;
+}
+
 // ─── 建圖 ───────────────────────────────────────────────────
 export function buildDepGraph(rules: RuleData[]): DepGraph {
   const vars = new Map<string, VarNode>();
   const logs: DepGraph["logs"] = new Map();
+  const islands = findIslandBlocks(rules);   // Tracker 不分析孤島（無下游、無效）
 
   const ensureVar = (name: string): VarNode => {
     let node = vars.get(name);
@@ -66,6 +88,7 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
   };
 
   for (const r of rules) {
+    if (islands.has(r.BLOCK_NAME)) continue;   // 孤島不進依賴圖（log / var def 皆略過）
     for (const v of r.VALUES ?? []) {
       const expr = v.VALUE;
       if (!expr) continue;

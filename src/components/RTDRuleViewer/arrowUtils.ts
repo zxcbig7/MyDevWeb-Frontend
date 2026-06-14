@@ -118,14 +118,15 @@ export function drawArrow(
 }
 
 // ── 繪製所有箭頭 ─────────────────────────────────────────────
-// dimUnrelated：tracker 運作時，把「不在 relatedKeys（依賴路徑）上」的主/副線淡化，凸顯追蹤鏈
+// dimUnrelated：tracker 運作時，把「不在追蹤鏈上」的主/副線淡化。
+// highlightColors：追蹤鏈上的箭頭 key(`from|to`) → 顏色；有值＝直接把「原本那條線」換成此色（NEVER 另疊一條線）。
 export function drawArrows(
   ctx: CanvasRenderingContext2D,
   blocks: Block[],
   arrows: Arrow[],
   scale: number,
   dimUnrelated = false,
-  relatedKeys?: Set<string>
+  highlightColors?: Map<string, string>
 ) {
   const MAIN_COLOR      = "#1F2937"; // 兩端都是 MAIN：最深灰（粗、最醒目，但不用藍）
   const PRIMARY_COLOR   = "#374151"; // 一般主線：深灰
@@ -140,17 +141,17 @@ export function drawArrows(
     const start = getSideCenter(from, fromSide);
     const end   = getSideCenter(to,   toSide);
 
-    const color = a.isMainLine ? MAIN_COLOR : (a.isPrimary ? PRIMARY_COLOR : SECONDARY_COLOR);
+    // 在追蹤鏈上 → 直接換成 layer 色（只改原本那條線的顏色，不另畫線）；否則用原本灰階
+    const hl = highlightColors?.get(`${a.from}|${a.to}`);
+    const baseColor = a.isMainLine ? MAIN_COLOR : (a.isPrimary ? PRIMARY_COLOR : SECONDARY_COLOR);
 
     ctx.save();
 
-    // tracker 運作中：沒關聯到追蹤鏈的主/副線淡化
-    if (dimUnrelated && !relatedKeys?.has(`${a.from}|${a.to}`)) {
-      ctx.globalAlpha = 0.12;
-    }
+    // tracker 運作中：沒在追蹤鏈上的主/副線淡化但仍清楚可見（保留拓樸脈絡，不淡到隱形）
+    if (dimUnrelated && !hl) ctx.globalAlpha = 0.35;
 
-    ctx.strokeStyle = color;
-    ctx.fillStyle   = color;
+    ctx.strokeStyle = hl ?? baseColor;
+    ctx.fillStyle   = hl ?? baseColor;
     ctx.lineWidth   = (a.isMainLine ? 2.2 : a.isPrimary ? 1.5 : 1.2) / scale;
 
     // 副線：虛線；主線 / MAIN 線：實線
