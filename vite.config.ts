@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     host: 'localhost',
     port: 5173,
+    strictPort: true, // 5173 被占用時直接報錯，不靜默跳到 5174（避免撞後端 CORS 白名單）
     proxy: {
       '/api': {
         target: 'http://localhost:8082',

@@ -3,7 +3,7 @@
 // Block 的建構、圖片快取、命中測試、繪製邏輯
 // ============================================================
 
-import type { Block, BlockType, RuleData } from "./types";
+import type { Block, BlockType, RuleData, Rect } from "./types";
 
 export const BLOCK_SIZE = 80;
 
@@ -86,6 +86,20 @@ export function hitTestBlock(wx: number, wy: number, blocks: Block[]): Block | n
   }
 
   return best;
+}
+
+// ── 矩形框選命中（marquee）──────────────────────────────────
+// 回傳與 rectWorld（world 座標、w/h 已正規化為正值）範圍相交的 block id（AABB 重疊即算）。
+// spec: 2026-06-14-canvas-group-block-select-drag.md
+export function blocksInRect(rectWorld: Rect, blocks: Block[]): string[] {
+  const rx2 = rectWorld.x + rectWorld.w;
+  const ry2 = rectWorld.y + rectWorld.h;
+  const out: string[] = [];
+  for (const b of blocks) {
+    const overlap = b.x < rx2 && b.x + b.w > rectWorld.x && b.y < ry2 && b.y + b.h > rectWorld.y;
+    if (overlap) out.push(b.id);
+  }
+  return out;
 }
 
 // ── 繪製單一 Block ───────────────────────────────────────────

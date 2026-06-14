@@ -13,7 +13,8 @@ import type { DepRef } from "./types";
 export type TokenType = "comment" | "string" | "keyword" | "function" | "variable" | "text";
 export type Token = { type: TokenType; text: string };
 
-// group1: string  group2/3: comment  group4: keyword  group5: function call  group6: $marker  group7: text
+// group1: string
+// group2/3: comment  group4: keyword  group5: function call  group6: $marker  group7: text
 export const HIGHLIGHT_RE =
   /("(?:[^"\\]|\\.)*")|(\/\*[\s\S]*?\*\/)|(\/\/[^\n]*)|(\b(?:IF|ELSE|THEN|OR|AND)\b)|(\b[A-Za-z_]\w*(?=\s*\())|(\$[^\s"]+)|([^\s"]+)/g;
 

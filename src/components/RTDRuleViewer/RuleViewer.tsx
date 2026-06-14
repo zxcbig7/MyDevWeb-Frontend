@@ -5,11 +5,12 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Divider, notification } from "antd";
-import type { RuleViewHandle } from "./types";
+import { useSearchParams } from "react-router-dom";
+import type { RuleViewHandle, TrackerMode } from "./types";
 import { cn } from "../../utils/clsx";
 import * as RTDAPI from "./api";
 import { convertDtosToData } from "./dataTransform";
-import { buildDepGraph, computeTrace } from "./depGraph";
+import { buildDepGraph, computeTrace, computeImpact } from "./depGraph";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
 import { type MatchResult, RuleContentSearch, SearchNavigator } from "./RuleContentSearch";
@@ -35,6 +36,9 @@ export default function RuleViewer() {
   // ── 錯誤通知 ─────────────────────────────────────────────
   const [notifApi, notifCtx] = notification.useNotification();
 
+  // ── URL deep link（spec ②）─────────────────────────────────
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // ── 選擇狀態 ──────────────────────────────────────────────
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [selectedRule, setSelectedRule] = useState<string | null>(null);
@@ -45,7 +49,10 @@ export default function RuleViewer() {
   // ── SWR 資料讀取 ──────────────────────────────────────────
   const { data: phaseDTOs, error: phaseError }   = RTDAPI.usePhaseResponse();
   const { data: eqpRules,  error: eqpError }     = RTDAPI.useEQPRuleResponse(selectedPhase);
-  const { data: ruleInfoDTOs, error: ruleInfoError } = RTDAPI.useRuleInfoResponse(selectedPhase, selectedRule);
+  const { data: ruleInfoDTOs, error: ruleInfoError, isLoading: ruleInfoLoading, mutate: reloadRuleInfo } = RTDAPI.useRuleInfoResponse(selectedPhase, selectedRule);
+
+  // 按「載入」時 +1 → 強制 RuleView 重建 blocks（block 位置回原始 POSX/POSY）
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
   const phases = useMemo(() => phaseDTOs?.map((p) => p.PHASE) ?? [], [phaseDTOs]);
   const rules  = useMemo(() => convertDtosToData(ruleInfoDTOs ?? []), [ruleInfoDTOs]);
@@ -79,6 +86,8 @@ export default function RuleViewer() {
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [runtimeValues, setRuntimeValues] = useState<Record<string, string>>({});
   const [hoverBlock, setHoverBlock] = useState<string | null>(null);
+  const [trackerMode, setTrackerMode] = useState<TrackerMode>("trace");
+  const [impactVar, setImpactVar] = useState<string>("");
 
   const ruleViewRef = useRef<RuleViewHandle | null>(null);
 
@@ -111,8 +120,33 @@ export default function RuleViewer() {
     [traceData],
   );
 
+  // ── Impact（反向：變數 → 受影響 log）─ spec ① ───────────────
+  const isImpact = trackerMode === "impact";
+  const impactResult = useMemo(
+    () => (isImpact && impactVar ? computeImpact(graph, impactVar) : null),
+    [isImpact, impactVar, graph],
+  );
+  // canvas 高亮：受影響 log 的 trigger block（橘框）+ impact 鏈定義 block（紫框）
+  const impactLogIdsSet = useMemo(() => {
+    if (!impactResult?.logs.length) return undefined;
+    const s = new Set<string>();
+    for (const l of impactResult.logs)
+      graph.logs.get(l.logName)?.triggers.forEach((t) => s.add(t.block));
+    return s.size ? s : undefined;
+  }, [impactResult, graph]);
+  const impactVarIdsSet = useMemo(
+    () => (impactResult?.edges.length ? new Set(impactResult.edges.map((e) => e.to)) : undefined),
+    [impactResult],
+  );
+  // 依模式選 canvas 要吃的高亮資料
+  const canvasEdges    = isImpact ? (impactResult?.edges ?? []) : traceData.edges;
+  const canvasLogIds   = isImpact ? impactLogIdsSet : trackerLogIdsSet;
+  const canvasVarIds   = isImpact ? impactVarIdsSet : trackerVarIdsSet;
+  const canvasPreview  = isImpact ? (impactResult?.edges ?? []) : fullTrace.edges;
+
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
+
 
   // ── 右側面板寬度 / 收合 / 分頁 ───────────────────────────
   const COLLAPSE_THRESHOLD = 55; // 自動收合的寬度閾值（px）
@@ -165,7 +199,91 @@ export default function RuleViewer() {
     setExpandedBlocks(new Set());
     setRuntimeValues({});
     setHoverBlock(null);
+    setTrackerMode("trace");
+    setImpactVar("");
   }, [selectedRule]);
+
+  // ── URL deep link（spec ②）─────────────────────────────────
+  // 還原順序：mount 先吃 phase/rule 觸發載入 → 等 graph ready 再補 log/mode/var（避免 SWR race）。
+  const [urlRestored, setUrlRestored] = useState(false);
+  const pendingRestoreRef = useRef<{ log: string | null; mode: string | null; var: string | null } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // mount：讀 URL，phase+rule 先設好；其餘暫存待 graph ready
+  useEffect(() => {
+    const phase = searchParams.get("phase");
+    const rule = searchParams.get("rule");
+    if (phase && rule) {
+      pendingRestoreRef.current = {
+        log: searchParams.get("log"),
+        mode: searchParams.get("mode"),
+        var: searchParams.get("var"),
+      };
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setSelectedPhase(phase);
+      setSelectedRule(rule);
+      setLoadedPhase(phase);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    } else {
+      setUrlRestored(true);   // 無可還原 → 直接開放 URL 寫入
+    }
+    // 只在掛載時跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // graph ready → 補還原 log/mode/var；rule 失效則提示並清掉參數
+  useEffect(() => {
+    const pending = pendingRestoreRef.current;
+    if (urlRestored || !pending) return;
+    if (ruleInfoLoading) return;                       // 等 rule 資料載完才判定
+
+    pendingRestoreRef.current = null;
+
+    if (rules.length === 0) {                          // rule 不存在 / 已變更（網路錯誤另有 error 通知）
+      if (!ruleInfoError) notifApi.warning({ message: "Rule 不存在或已變更", description: "已清除連結中的 Rule 參數", placement: "topRight", duration: 5, key: "urlBadRule" });
+      setSelectedRule(null);
+      setUrlRestored(true);
+      return;
+    }
+
+    if (pending.mode === "impact") {
+      setTrackerMode("impact");
+      if (pending.var) setImpactVar(pending.var);
+    }
+    if (pending.log) {
+      if (graph.logs.has(pending.log)) {
+        setTracedLog(pending.log);
+        const lb = graph.logs.get(pending.log)?.triggers[0]?.block;
+        if (lb) ruleViewRef.current?.focusBlockById(lb);
+      } else {
+        notifApi.warning({ message: `找不到 [$${pending.log}$]`, description: "已清除連結中的 Log 參數", placement: "topRight", duration: 5, key: "urlBadLog" });
+      }
+    }
+    setUrlRestored(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruleInfoLoading, ruleInfoError, rules.length, graph, urlRestored, notifApi]);
+
+  // 狀態 → URL（replace，不灌 history）；runtimeValues / expandedBlocks 刻意不入 URL
+  useEffect(() => {
+    if (!urlRestored) return;
+    const params = new URLSearchParams();
+    if (loadedPhase) params.set("phase", loadedPhase);
+    if (selectedRule) params.set("rule", selectedRule);
+    if (tracedLog) params.set("log", tracedLog);
+    if (trackerMode === "impact") {
+      params.set("mode", "impact");
+      if (impactVar) params.set("var", impactVar);
+    }
+    setSearchParams(params, { replace: true });
+  }, [urlRestored, loadedPhase, selectedRule, tracedLog, trackerMode, impactVar, setSearchParams]);
+
+  // 複製當前查案現場連結（URL 已即時同步，直接複製 location.href）
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href).then(
+      () => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); },
+      () => { /* clipboard 失敗靜默 */ },
+    );
+  }, []);
 
   // 貼 runtime 值 → 自動展開「命中路徑」（沿 fired=yes 的邊往上鋪）
   useEffect(() => {
@@ -210,8 +328,11 @@ export default function RuleViewer() {
     if (ruleName !== selectedRule) {
       setSelectedRule(ruleName);
       setLoadedPhase(selectedPhase);
+    } else {
+      reloadRuleInfo();                 // 同一條 rule 也強制重 fetch 最新內容
     }
-  }, [selectedRule, selectedPhase]);
+    setLayoutVersion((v) => v + 1);     // 強制 RuleView 重建 blocks → 位置回原始 POSX/POSY
+  }, [selectedRule, selectedPhase, reloadRuleInfo]);
 
   const handleMatchChange = useCallback((list: MatchResult[] | null, kw: string) => {
     setMatchedBlockList(list);
@@ -259,6 +380,11 @@ export default function RuleViewer() {
     ruleViewRef.current?.focusBlockById(blockName);
   }, []);
 
+  // Tracker 雙擊「來自 / 觸發於 <block>」→ 開該 block 的 inspector
+  const handleOpenInspector = useCallback((blockName: string) => {
+    ruleViewRef.current?.openInspectorById(blockName);
+  }, []);
+
   const handleTabChange = useCallback((tab: RightTab) => {
     if (tab !== "search" && rightTab === "search") {
       setMatchedBlockList(null);
@@ -299,15 +425,26 @@ export default function RuleViewer() {
           </div>
         )}
 
-        <div className="ml-auto shrink-0 flex items-center text-xs rounded border border-white/15 bg-white/5 p-0.5 gap-0.5">
-          <button
-            onClick={() => setUseNewIcons(true)}
-            className={cn("px-3 py-1 rounded cursor-pointer transition-colors", useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-          >Modern</button>
-          <button
-            onClick={() => setUseNewIcons(false)}
-            className={cn("px-3 py-1 rounded cursor-pointer transition-colors", !useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
-          >Classic</button>
+        <div className="ml-auto shrink-0 flex items-center gap-2">
+          {selectedRule && (
+            <button
+              onClick={handleCopyLink}
+              title="複製當前查案現場連結（Phase / Rule / Log / 模式 / 變數）"
+              className={cn("px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors", linkCopied
+                ? "text-green-300 border-green-500/40 bg-green-500/15"
+                : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white")}
+            >{linkCopied ? "✓ 已複製" : "複製連結"}</button>
+          )}
+          <div className="flex items-center text-xs rounded border border-white/15 bg-white/5 p-0.5 gap-0.5">
+            <button
+              onClick={() => setUseNewIcons(true)}
+              className={cn("px-3 py-1 rounded cursor-pointer transition-colors", useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
+            >Modern</button>
+            <button
+              onClick={() => setUseNewIcons(false)}
+              className={cn("px-3 py-1 rounded cursor-pointer transition-colors", !useNewIcons ? "bg-white/20 text-white font-semibold" : "text-slate-500 hover:text-slate-300")}
+            >Classic</button>
+          </div>
         </div>
       </div>
 
@@ -321,14 +458,15 @@ export default function RuleViewer() {
             rules={rules}
             matchedBlockIds={matchedBlockIds}
             selectedBlockId={selectedBlockId}
-            trackerLogIds={trackerLogIdsSet}
-            trackerVarIds={trackerVarIdsSet}
-            trackerEdges={traceData.edges}
-            previewEdges={fullTrace.edges}
+            trackerLogIds={canvasLogIds}
+            trackerVarIds={canvasVarIds}
+            trackerEdges={canvasEdges}
+            previewEdges={canvasPreview}
             hoverBlockId={hoverBlock}
             useNewIcons={useNewIcons}
+            layoutVersion={layoutVersion}
             searchKeyword={searchKeyword}
-            trackedLogName={tracedLog ?? ""}
+            trackedLogName={isImpact ? "" : (tracedLog ?? "")}
             onBlockContextMenu={handleBlockContextMenu}
             onBlockHover={handleCanvasBlockHover}
           />
@@ -480,11 +618,17 @@ export default function RuleViewer() {
                 expandedBlocks={expandedBlocks}
                 runtimeValues={runtimeValues}
                 hoverBlock={hoverBlock}
+                mode={trackerMode}
+                onModeChange={setTrackerMode}
+                impactVar={impactVar}
+                onImpactVarChange={setImpactVar}
+                impactResult={impactResult}
                 onTraceLog={handleTraceLog}
                 onToggleBlock={handleToggleBlock}
                 onRuntimeChange={handleRuntimeChange}
                 onHoverBlock={handleCanvasBlockHover}
                 onFocusBlock={handleFocusBlock}
+                onOpenInspector={handleOpenInspector}
               />
             </div>
           </div>

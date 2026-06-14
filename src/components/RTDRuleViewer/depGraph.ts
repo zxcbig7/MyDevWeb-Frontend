@@ -9,9 +9,10 @@
 // ============================================================
 
 import type {
-  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState,
+  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState, ImpactResult,
 } from "./types";
 import { parseAPF, extractVars } from "./apfParse";
+import { parseCond, evalCond } from "./apfEval";
 
 export type LogClosure = {
   vars: Set<string>;                 // 自此 log 可達的所有變數
@@ -151,28 +152,13 @@ export function expandVar(
 }
 
 // ─── runtime 評估 + block-level 追蹤（canvas 主導用）────────
-/** 用 runtime 值評估一條子條件 snippet（如 `HOLD_RISK == "RISK"` / `WAIT_TIME > 120`）。 */
+/**
+ * 用 runtime 值評估一條子條件 snippet（如 `HOLD_RISK == "RISK"` / `WAIT_TIME > 120`）。
+ * 委派 apfEval：單一比較行為與升級前一致，複合條件（AND/OR/NOT/括號）走三值邏輯。
+ */
 export function evalSnippet(snippet: string | undefined, rv: Record<string, string>): FireState {
   if (!snippet) return "unknown";
-  const m = snippet.match(/^([A-Z][A-Z0-9_]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
-  if (!m) return "unknown";
-  const [, varName, op, rhsRaw] = m;
-  const actual = rv[varName];
-  if (actual === undefined) return "unknown";
-  const rhs = rhsRaw.trim().replace(/^"(.*)"$/, "$1");
-  const a = Number(actual), b = Number(rhs);
-  const numeric = !Number.isNaN(a) && !Number.isNaN(b);
-  let r: boolean;
-  switch (op) {
-    case "==": r = actual === rhs; break;
-    case "!=": r = actual !== rhs; break;
-    case ">":  r = numeric ? a > b  : actual > rhs;  break;
-    case "<":  r = numeric ? a < b  : actual < rhs;  break;
-    case ">=": r = numeric ? a >= b : actual >= rhs; break;
-    case "<=": r = numeric ? a <= b : actual <= rhs; break;
-    default:   return "unknown";
-  }
-  return r ? "yes" : "no";
+  return evalCond(parseCond(snippet), rv);
 }
 
 /**
@@ -218,6 +204,83 @@ export function computeTrace(
     for (const d of t.deps) walk(d, t.block, 0, new Set([t.block]));
 
   return { edges: [...edges.values()], logBlocks };
+}
+
+// ─── 反向 impact（變數 → 受影響 log，限當前 rule）─ spec 2026-06-13 ──
+/** 某 log 依賴鏈到 target 的最短路徑節點（target 在 [0]，trigger 端在尾）。找不到 → null。 */
+type ImpactPathNode = { varName: string; refBlock: string; defBlock: string | null; snippet?: string };
+
+function shortestImpactPath(graph: DepGraph, logName: string, target: string): ImpactPathNode[] | null {
+  const entry = graph.logs.get(logName);
+  if (!entry) return null;
+
+  const keyOf = (v: string, rb: string): string => `${v}|${rb}`;
+  const prev = new Map<string, string | null>();          // node key → parent key（null = trigger 端 root）
+  const info = new Map<string, { varName: string; refBlock: string; snippet?: string }>();
+  const queue: string[] = [];
+
+  const enqueue = (varName: string, refBlock: string, parent: string | null, snippet?: string): void => {
+    const k = keyOf(varName, refBlock);
+    if (prev.has(k)) return;
+    prev.set(k, parent);
+    info.set(k, { varName, refBlock, snippet });
+    queue.push(k);
+  };
+
+  for (const t of entry.triggers)
+    for (const d of t.deps) enqueue(d.varName, t.block, null, d.snippet);
+
+  // BFS：第一次 dequeue 到 target 即最短（沿 PREBLOCK-scoped 依賴鏈往 root 走）
+  let hit: string | null = null;
+  for (let head = 0; head < queue.length; head++) {
+    const k = queue[head];
+    const nd = info.get(k)!;
+    if (nd.varName === target) { hit = k; break; }
+    for (const def of resolveDefs(graph, nd.varName, nd.refBlock))
+      for (const d of def.deps) enqueue(d.varName, def.block, k, d.snippet);
+  }
+  if (!hit) return null;
+
+  const nodes: ImpactPathNode[] = [];
+  for (let cur: string | null = hit; cur; cur = prev.get(cur) ?? null) {
+    const nd = info.get(cur)!;
+    const defBlock = resolveDefs(graph, nd.varName, nd.refBlock)[0]?.block ?? null;
+    nodes.push({ varName: nd.varName, refBlock: nd.refBlock, defBlock, snippet: nd.snippet });
+  }
+  return nodes;                                            // [0] = target，尾 = trigger 端
+}
+
+/**
+ * 反向走訪：給一個變數，找出當前 rule 內所有「依賴鏈會回溯到它」的 [$LOG$]。
+ * 與 computeTrace 同一張圖、反方向：sink = log trigger，source = 此變數。
+ * 沿用 resolveDefs 的 PREBLOCK scoping（同名孤兒不誤入）；BFS 本身即環防護（visited = prev key）。
+ * 每個受影響 log 取一條最短 var 路徑；canvas 邊重用 TrackerEdge（from=消費 block, to=定義 block）。
+ */
+export function computeImpact(graph: DepGraph, varName: string): ImpactResult {
+  if (!graph.vars.has(varName)) return { varName, logs: [], edges: [], found: false };
+
+  const logs: ImpactResult["logs"] = [];
+  const edgeMap = new Map<string, TrackerEdge>();
+  const addEdge = (from: string, to: string, depth: number, snippet?: string): void => {
+    if (from === to) return;
+    const key = `${from}|${to}`;
+    const ex = edgeMap.get(key);
+    if (ex && ex.depth <= depth) return;
+    edgeMap.set(key, { from, to, depth, snippet });
+  };
+
+  for (const logName of graph.logs.keys()) {
+    const path = shortestImpactPath(graph, logName, varName);
+    if (!path) continue;
+    logs.push({ logName, path: { vars: path.map((n) => n.varName), blocks: path.map((n) => n.refBlock) } });
+    // depth：trigger 端為 0（對齊 trace 配色），往 target 遞增
+    path.forEach((n, i) => {
+      if (n.defBlock) addEdge(n.refBlock, n.defBlock, path.length - 1 - i, n.snippet);
+    });
+  }
+
+  logs.sort((a, b) => a.logName.localeCompare(b.logName));
+  return { varName, logs, edges: [...edgeMap.values()], found: true };
 }
 
 // ─── 驗證用 dump ────────────────────────────────────────────

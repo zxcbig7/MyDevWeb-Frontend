@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import ForceGraph2D from "react-force-graph-2d";
+import ForceGraph2D, { type NodeObject } from "react-force-graph-2d";
 import { useNavigate } from "react-router-dom";
 import { buildGraphData } from "./noteUtils";
 
 type Node = { id: string; name: string; val: number; x?: number; y?: number };
-type Link = { source: string; target: string };
 
 const GRAPH_DATA = buildGraphData();
 

@@ -2,7 +2,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { CaseQuery } from "../../components/RTDRuleViewer/CaseQuery";
 import { MOCK_RULE_DATA } from "../../components/RTDRuleViewer/devMock";
-import { buildDepGraph, computeTrace } from "../../components/RTDRuleViewer/depGraph";
+import { buildDepGraph, computeTrace, computeImpact } from "../../components/RTDRuleViewer/depGraph";
+import type { TrackerMode } from "../../components/RTDRuleViewer/types";
 import { R } from "../../lib/radius";
 
 const RULE_KEYS = Object.keys(MOCK_RULE_DATA);
@@ -16,6 +17,9 @@ export default function DevCaseQuery() {
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [runtimeValues, setRuntimeValues] = useState<Record<string, string>>({});
   const [hoverBlock, setHoverBlock] = useState<string | null>(null);
+  const [mode, setMode] = useState<TrackerMode>("trace");
+  const [impactVar, setImpactVar] = useState("");
+  const impactResult = mode === "impact" && impactVar ? computeImpact(graph, impactVar) : null;
 
   useEffect(() => { setTracedLog(null); setExpandedBlocks(new Set()); setRuntimeValues({}); setHoverBlock(null); }, [ruleKey]);
 
@@ -48,6 +52,11 @@ export default function DevCaseQuery() {
             expandedBlocks={expandedBlocks}
             runtimeValues={runtimeValues}
             hoverBlock={hoverBlock}
+            mode={mode}
+            onModeChange={setMode}
+            impactVar={impactVar}
+            onImpactVarChange={setImpactVar}
+            impactResult={impactResult}
             onTraceLog={handleTraceLog}
             onToggleBlock={handleToggle}
             onRuntimeChange={setRuntimeValues}

@@ -15,9 +15,10 @@ import {
 } from "react";
 import { cn } from "../../utils/clsx";
 
-import type { Block, RuleData, RuleViewHandle, TrackerEdge } from "./types";
-import { buildBlocks, drawBlocks, hitTestBlock } from "./blockUtils";
-import { buildArrows, drawArrows } from "./arrowUtils";
+import type { Block, RuleData, RuleViewHandle, TrackerEdge, FireState, AlignOp, DistributeAxis } from "./types";
+import { buildBlocks, drawBlocks, hitTestBlock, blocksInRect } from "./blockUtils";
+import { buildArrows, drawArrows, decideConnectionSides, getSideCenter } from "./arrowUtils";
+import { alignBlocks, distributeBlocks } from "./alignUtils";
 import { drawGrid, drawMinimap, getWorldBounds, snap, GRID_SIZE } from "./canvasUtils";
 import { BlockTooltip } from "./BlockTooltip";
 import { BlockInspector } from "./BlockInspector";
@@ -34,6 +35,7 @@ type RuleViewProps = {
   previewEdges?: TrackerEdge[];                   // 全展邊集，hover 預覽用
   hoverBlockId?: string | null;                   // 外部（側欄）hover 的 block → canvas 連動高亮
   useNewIcons?: boolean;
+  layoutVersion?: number;                         // +1 → 重建 blocks（block 位置回原始 POSX/POSY）
   searchKeyword?: string;
   trackedLogName?: string;
   onBlockContextMenu?: (id: string) => void;      // 右鍵 block → 依模式的 context action（Tracker: 展開上游）
@@ -55,8 +57,30 @@ type InspectorState = {
   y: number;
 };
 
+// 沿結構箭頭（PREBLOCK）找 from→to 的最短 block 路徑，讓 tracker 線串著既有連線走、不抄斜線捷徑。
+// parentsOf：block → 它的上游（PREBLOCK）block 們。回 [from, …中繼…, to]，找不到則 null。
+function structPath(from: string, to: string, parentsOf: Map<string, string[]>): string[] | null {
+  if (from === to) return [from];
+  const prev = new Map<string, string | null>([[from, null]]);
+  const queue = [from];
+  for (let h = 0; h < queue.length; h++) {
+    const cur = queue[h];
+    for (const p of parentsOf.get(cur) ?? []) {
+      if (prev.has(p)) continue;
+      prev.set(p, cur);
+      if (p === to) {
+        const path: string[] = [];
+        for (let n: string | null = to; n != null; n = prev.get(n) ?? null) path.push(n);
+        return path.reverse();                    // [from, …, to]
+      }
+      queue.push(p);
+    }
+  }
+  return null;
+}
+
 export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
-  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
+  function RuleView({ rules, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges = [], previewEdges = [], hoverBlockId = null, useNewIcons = true, layoutVersion = 0, searchKeyword = "", trackedLogName = "", onBlockContextMenu, onBlockHover }, ref) {
 
     // ── Canvas refs ────────────────────────────────────────
     const canvasStageRef = useRef<HTMLDivElement | null>(null);
@@ -68,8 +92,16 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     const sizeRef = useRef({ w: 0, h: 0 });
 
     // ── 資料 ─────────────────────────────────────────────
-    const blocks = useMemo(() => buildBlocks(rules), [rules]);
+    // layoutVersion 變動（按「載入」）→ 重建 blocks，丟棄手動拖曳、回到原始 POSX/POSY
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const blocks = useMemo(() => buildBlocks(rules), [rules, layoutVersion]);
     const arrows = useMemo(() => buildArrows(rules), [rules]);
+    // 結構反向鄰接：block → 上游 PREBLOCK block 們（給 tracker 串接路由用）
+    const parentsOf = useMemo(() => {
+      const m = new Map<string, string[]>();
+      for (const a of arrows) (m.get(a.to) ?? m.set(a.to, []).get(a.to)!).push(a.from);
+      return m;
+    }, [arrows]);
 
     // ── UI 狀態 ───────────────────────────────────────────
     const [inspectors, setInspectors] = useState<InspectorState[]>([]);
@@ -87,6 +119,47 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
     const inspectorDraggingRef = useRef(false);
     const activeBlockRef = useRef<Block | null>(null);
+
+    // ── Group 框選 / 範圍拖曳（spec 2026-06-14）──────────────
+    const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(new Set());
+    const selectedBlocksRef = useRef(selectedBlocks);
+    useEffect(() => { selectedBlocksRef.current = selectedBlocks; });
+    const marqueeRef = useRef<{ active: boolean; sx: number; sy: number; ex: number; ey: number } | null>(null);
+    const groupDragRef = useRef(false);
+    const pointerMovedRef = useRef(false);     // 區分「點擊」與「拖曳」（空白點擊才清選取）
+    const [repaintTick, setRepaintTick] = useState(0);   // 就地改 block 座標後觸發重繪
+
+    const handleAlign = useCallback((op: AlignOp) => {
+      const sel = blocks.filter((b) => selectedBlocks.has(b.id));
+      alignBlocks(sel, op);
+      for (const b of sel) { b.x = snap(b.x, GRID_SIZE); b.y = snap(b.y, GRID_SIZE); }
+      setRepaintTick((t) => t + 1);
+    }, [blocks, selectedBlocks]);
+    const handleDistribute = useCallback((axis: DistributeAxis) => {
+      const sel = blocks.filter((b) => selectedBlocks.has(b.id));
+      distributeBlocks(sel, axis);
+      for (const b of sel) { b.x = snap(b.x, GRID_SIZE); b.y = snap(b.y, GRID_SIZE); }
+      setRepaintTick((t) => t + 1);
+    }, [blocks, selectedBlocks]);
+
+    // ESC 清除選取 / 方向鍵微調（spec 2026-06-14）。無選取時不攔截（ESC 交給 inspector 關閉）
+    useEffect(() => {
+      function onKey(e: KeyboardEvent) {
+        if (selectedBlocksRef.current.size === 0) return;
+        if (e.key === "Escape") { setSelectedBlocks(new Set()); return; }
+        let dx = 0, dy = 0;
+        if (e.key === "ArrowLeft") dx = -GRID_SIZE;
+        else if (e.key === "ArrowRight") dx = GRID_SIZE;
+        else if (e.key === "ArrowUp") dy = -GRID_SIZE;
+        else if (e.key === "ArrowDown") dy = GRID_SIZE;
+        else return;
+        e.preventDefault();
+        for (const b of blocks) if (selectedBlocksRef.current.has(b.id)) { b.x += dx; b.y += dy; }
+        setRepaintTick((t) => t + 1);
+      }
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }, [blocks]);
 
     const lastHoverIdRef = useRef<string | null>(null);
     // callback 用 ref 持有，避免進 mouse effect 依賴而重掛 listener
@@ -172,45 +245,69 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         ctx.translate(view.translateX, view.translateY);
         ctx.scale(view.scale, view.scale);
 
+        // ── Tracker 運作中：算出「依賴路徑上的基礎主/副線」，淡化無關者、點亮關聯者 ──
+        //    每條依賴邊沿 PREBLOCK 結構路徑展開成基礎箭頭；上色 fired 優先、其次較淺 depth。
+        let related: Map<string, { depth: number; fired?: FireState }> | null = null;
+        if (trackerEdges.length > 0) {
+          related = new Map();
+          for (const edge of trackerEdges) {
+            const path = structPath(edge.from, edge.to, parentsOf);
+            if (!path) continue;
+            for (let i = 0; i < path.length - 1; i++) {
+              const key = `${path[i + 1]}|${path[i]}`;      // 基礎箭頭 = from(上游 parent)|to(下游 child)
+              const ex = related.get(key);
+              const take = !ex
+                || (edge.fired === "yes" && ex.fired !== "yes")
+                || (ex.fired !== "yes" && edge.depth < ex.depth);
+              if (take) related.set(key, { depth: edge.depth, fired: edge.fired });
+            }
+          }
+        }
+
         if (showGridRef.current) drawGrid(ctx, view, sizeRef.current);
-        drawArrows(ctx, blocks, arrows, view.scale);
+        drawArrows(ctx, blocks, arrows, view.scale, !!related, related ? new Set(related.keys()) : undefined);
         drawBlocks(ctx, blocks, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, useNewIcons);
 
-        // ── Tracker 連線：沿真實依賴鏈 block→block。
-        //    有 runtime 值 → 命中(yes)綠、未成立(no)淡灰；否則依 depth 上色（對照右側 tree）──
-        if (trackerEdges.length > 0) {
+        // ── 框選選取高亮（world 空間）─ spec 2026-06-14 ──
+        if (selectedBlocksRef.current.size > 0) {
           ctx.save();
-          ctx.setLineDash([5, 5]);
-          // 深的先畫、淺的後畫；命中(yes)最後畫疊最上層
-          const order = (e: TrackerEdge) => (e.fired === "yes" ? -1 : e.depth);
-          for (const edge of [...trackerEdges].sort((a, b) => order(b) - order(a))) {
-            const fb = blocks.find((b) => b.id === edge.from);
-            const tb = blocks.find((b) => b.id === edge.to);
-            if (!fb || !tb) continue;
-            const hit = edge.fired === "yes";
-            const color = hit ? "rgba(34,197,94,0.95)"
-              : edge.fired === "no" ? "rgba(148,163,184,0.35)"
-              : TRACKER_EDGE_COLORS[edge.depth % TRACKER_EDGE_COLORS.length];
-            const fx = fb.x + fb.w / 2, fy = fb.y + fb.h / 2;
-            const tx = tb.x + tb.w / 2, ty = tb.y + tb.h / 2;
+          ctx.strokeStyle = "rgba(56,189,248,0.95)";
+          ctx.lineWidth = 2 / view.scale;
+          ctx.setLineDash([]);
+          for (const b of blocks) {
+            if (!selectedBlocksRef.current.has(b.id)) continue;
+            ctx.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+          }
+          ctx.restore();
+        }
 
-            ctx.lineWidth = hit ? 2.5 : 1.5;
+        // ── 點亮依賴路徑上的既有主/副線（bool 標記關聯）。命中(yes)綠、未成立(no)淡灰；否則依 depth 上色 ──
+        if (related) {
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.setLineDash([]);
+          for (const a of arrows) {
+            const info = related.get(`${a.from}|${a.to}`);
+            if (!info) continue;                            // 沒關聯到 tracker → 維持原樣（不畫高亮）
+            const fb = blocks.find((b) => b.id === a.from);
+            const tb = blocks.find((b) => b.id === a.to);
+            if (!fb || !tb) continue;
+            const hit = info.fired === "yes";
+            const color = hit ? "rgba(34,197,94,0.95)"
+              : info.fired === "no" ? "rgba(148,163,184,0.55)"
+              : TRACKER_EDGE_COLORS[info.depth % TRACKER_EDGE_COLORS.length];
+            const { fromSide, toSide } = decideConnectionSides(fb, tb);
+            const s = getSideCenter(fb, fromSide);
+            const e = getSideCenter(tb, toSide);
+
             ctx.strokeStyle = color;
             ctx.shadowColor = color;
-            ctx.shadowBlur = hit ? 7 : 4;
+            ctx.shadowBlur = hit ? 6 : 4;
+            ctx.lineWidth = hit ? 3 : 2.4;
             ctx.beginPath();
-            ctx.moveTo(fx, fy);
-            ctx.lineTo(tx, ty);
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(e.x, e.y);
             ctx.stroke();
-
-            // 子端（被依賴的 block）放方向圓點
-            ctx.setLineDash([]);
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(tx, ty, hit ? 4 : 3.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.setLineDash([5, 5]);
           }
           ctx.restore();
         }
@@ -290,13 +387,29 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           }
         }
 
+        // ── marquee 框選矩形（螢幕空間，自帶 dpr 變換）─ spec 2026-06-14 ──
+        const mq = marqueeRef.current;
+        if (mq?.active) {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          const x = Math.min(mq.sx, mq.ex), y = Math.min(mq.sy, mq.ey);
+          const w = Math.abs(mq.ex - mq.sx), h = Math.abs(mq.ey - mq.sy);
+          ctx.save();
+          ctx.fillStyle = "rgba(56,189,248,0.12)";
+          ctx.strokeStyle = "rgba(56,189,248,0.85)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeRect(x, y, w, h);
+          ctx.restore();
+        }
+
         const mm = minimapRef.current;
         if (mm) {
           const mmCtx = mm.getContext("2d");
           if (mmCtx) drawMinimap(mmCtx, blocks, viewRef.current, mm, sizeRef.current);
         }
       },
-      [arrows, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, hoverPreviewIds, useNewIcons]
+      [arrows, parentsOf, inspectedBlockIds, matchedBlockIds, selectedBlockId, trackerLogIds, trackerVarIds, trackerEdges, hoverPreviewIds, useNewIcons]
     );
 
     // ── 初始化 Canvas（只在 blocks 變更時重設畫布尺寸） ──
@@ -407,8 +520,21 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
 
         dragRef.current.lastX = e.clientX;
         dragRef.current.lastY = e.clientY;
+        pointerMovedRef.current = false;
+
+        // Shift → 一律走 marquee 框選（即使在 block 上）
+        if (e.shiftKey) {
+          marqueeRef.current = { active: true, sx: mx, sy: my, ex: mx, ey: my };
+          return;
+        }
 
         if (hitBlock) {
+          // 打到「已選取」的 block → 整組拖曳；打到未選 block → 清除多選、退回單拖
+          if (selectedBlocksRef.current.has(hitBlock.id)) {
+            groupDragRef.current = true;
+          } else if (selectedBlocksRef.current.size > 0) {
+            setSelectedBlocks(new Set());
+          }
           activeBlockRef.current = hitBlock; // 拖 Block
         } else {
           dragRef.current.dragging = true;   // 拖 Canvas
@@ -429,8 +555,26 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const { w, h } = sizeRef.current;
         const ix = Math.max(0, w / 2 - 170);
         const iy = Math.max(0, h / 4);
-        setInspectors((prev) => prev.some((i) => i.block.id === hitBlock.id) ? prev : [...prev, { block: hitBlock, x: ix, y: iy }]);
-        setFocusStack((prev) => prev.includes(hitBlock.id) ? prev : [...prev, hitBlock.id]);
+
+        // 雙擊「已選取且多選」的 block → 打開整組 inspector（位置略錯開）；否則單一（現有）
+        const sel = selectedBlocksRef.current;
+        const targets = (sel.has(hitBlock.id) && sel.size > 1)
+          ? blocks.filter((b) => sel.has(b.id))
+          : [hitBlock];
+
+        setInspectors((prev) => {
+          const next = [...prev];
+          targets.forEach((blk, i) => {
+            if (next.some((it) => it.block.id === blk.id)) return;
+            next.push({ block: blk, x: ix + i * 24, y: iy + i * 24 });
+          });
+          return next;
+        });
+        setFocusStack((prev) => {
+          const next = [...prev];
+          for (const blk of targets) if (!next.includes(blk.id)) next.push(blk.id);
+          return next;
+        });
       }
 
       // 右鍵 → 依模式的 context action（交由父層處理；擋掉瀏覽器原生選單）
@@ -456,9 +600,24 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
         const my = e.clientY - rect.top;
         const dx = e.clientX - dragRef.current.lastX;
         const dy = e.clientY - dragRef.current.lastY;
+        if (dx !== 0 || dy !== 0) pointerMovedRef.current = true;
 
-        if (activeBlockRef.current) {
-          // 拖曳 Block
+        if (marqueeRef.current?.active) {
+          // 更新框選矩形（螢幕座標），redraw 會畫
+          marqueeRef.current.ex = mx;
+          marqueeRef.current.ey = my;
+          setHoveredBlock(null);
+          setMousePos(null);
+        } else if (groupDragRef.current) {
+          // 整組拖曳：所有 selectedBlocks 一起位移
+          const scale = viewRef.current.scale;
+          for (const b of blocks) {
+            if (selectedBlocksRef.current.has(b.id)) { b.x += dx / scale; b.y += dy / scale; }
+          }
+          setHoveredBlock(null);
+          setMousePos(null);
+        } else if (activeBlockRef.current) {
+          // 拖曳 Block（單一）
           const b = activeBlockRef.current;
           const scale = viewRef.current.scale;
           b.x += dx / scale;
@@ -487,14 +646,38 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       }
 
       function onMouseUp() {
-        if (activeBlockRef.current) {
+        // marquee 放開 → 換算 world 矩形 → 框內 block 成 selectedBlocks（取代式）
+        const mq = marqueeRef.current;
+        if (mq) {
+          const p1 = screenToWorld(mq.sx, mq.sy);
+          const p2 = screenToWorld(mq.ex, mq.ey);
+          const rectWorld = {
+            x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y),
+            w: Math.abs(p2.x - p1.x), h: Math.abs(p2.y - p1.y),
+          };
+          setSelectedBlocks(new Set(blocksInRect(rectWorld, blocks)));
+        } else if (groupDragRef.current) {
+          // 整組拖曳放開 → 全部 snap
+          for (const b of blocks) if (selectedBlocksRef.current.has(b.id)) {
+            b.x = snap(b.x, GRID_SIZE);
+            b.y = snap(b.y, GRID_SIZE);
+          }
+        } else if (activeBlockRef.current) {
           const b = activeBlockRef.current;
           b.x = snap(b.x, GRID_SIZE);
           b.y = snap(b.y, GRID_SIZE);
+        } else if (dragRef.current.dragging && !pointerMovedRef.current && selectedBlocksRef.current.size > 0) {
+          // 空白「點擊」（非拖曳）→ 清除選取
+          setSelectedBlocks(new Set());
         }
+
         activeBlockRef.current = null;
+        marqueeRef.current = null;
+        groupDragRef.current = false;
         dragRef.current.dragging = false;
         canvas!.style.cursor = "default";
+        const ctx = ctxRef.current;
+        if (ctx) redraw(ctx, blocks);
       }
 
       function onWheel(e: WheelEvent) {
@@ -604,11 +787,13 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       return () => canvas.removeEventListener("mousedown", onMouseDown);
     }, [blocks, redraw]);
 
-    // ── Rules 換了 → 清空 Inspectors ─────────────────────
+    // ── Rules 換了 / 按載入 → 清空 Inspectors + 選取 ───────────
     useEffect(() => {
       setInspectors([]);
       setFocusStack([]);
-    }, [rules]);
+      setSelectedBlocks(new Set());
+      marqueeRef.current = null;
+    }, [rules, layoutVersion]);
 
     // ── Esc → 關閉 focusStack 最頂端的 Inspector ─────────
     useEffect(() => {
@@ -625,12 +810,12 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
 
-    // ── 重新 Render（matchedIds / inspectedIds 改變時） ──
+    // ── 重新 Render（matchedIds / inspectedIds / 選取 / 對齊分佈 改變時） ──
     useEffect(() => {
       const ctx = ctxRef.current;
       if (!ctx) return;
       redraw(ctx, blocks);
-    }, [blocks, redraw]);
+    }, [blocks, redraw, selectedBlocks, repaintTick]);
 
     // ── 聚焦 Block ────────────────────────────────────────
     const focusBlock = useCallback(
@@ -725,6 +910,26 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       <div ref={wrapperRef} className="relative w-full h-full">
         <div ref={canvasStageRef} className="relative w-full h-full">
           <canvas ref={canvasRef} className="block w-full h-full" />
+
+          {/* 對齊 / 分佈 toolbar（選取 ≥2 顯示）— spec 2026-06-14 */}
+          {selectedBlocks.size >= 2 && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 rounded-lg bg-slate-800/95 border border-white/15 px-2 py-1 shadow-lg text-xs text-white">
+              <span className="text-slate-400 pr-1">{selectedBlocks.size} 選取</span>
+              {([
+                ["left", "靠左"], ["centerX", "水平置中"], ["right", "靠右"],
+                ["top", "靠上"], ["centerY", "垂直置中"], ["bottom", "靠下"],
+              ] as [AlignOp, string][]).map(([op, label]) => (
+                <button key={op} onClick={() => handleAlign(op)} title={label}
+                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer">{label}</button>
+              ))}
+              <span className="w-px h-4 bg-white/15 mx-0.5" />
+              {([["horizontal", "水平分佈"], ["vertical", "垂直分佈"]] as [DistributeAxis, string][]).map(([axis, label]) => (
+                <button key={axis} onClick={() => handleDistribute(axis)} title={label}
+                  disabled={selectedBlocks.size < 3}
+                  className="px-1.5 py-0.5 rounded hover:bg-white/10 cursor-pointer disabled:opacity-30 disabled:cursor-default">{label}</button>
+              ))}
+            </div>
+          )}
 
           {/* Tooltip（穿透滑鼠事件） */}
           <div className="absolute inset-0 pointer-events-none">

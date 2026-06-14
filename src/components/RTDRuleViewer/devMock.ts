@@ -13,6 +13,7 @@
 // ============================================================
 
 import { BlockTypes, type RuleData, type EqpRuleListDTO } from "./types";
+import { STRESS_RULES } from "./stressRule";   // 後端 DEV/STRESS mock 的前端快照
 
 // ── DEV Phase（主副線視覺測試） ───────────────────────────────
 export const DEV_MOCK_PHASE = "DEV";
@@ -26,11 +27,11 @@ function iconBlock(name: string, type: string, col: number, row: number): RuleDa
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME_ICON,
     BLOCK_NAME: name, BLOCK_TYPE: type,
     BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "Key Test", POSX: col * 100, POSY: row * 100,
+    POSX: col * 100, POSY: row * 100,
     PREBLOCK: null, VALUES: [
-      { COLUMN1: null, COLUMN2: null, VALUE: '"Key Test"' },
-      { COLUMN1: "Col1", COLUMN2: null, VALUE: '"Key Test"' },
-      { COLUMN1: "Col2", COLUMN2: "Col3", VALUE: '"Key Test"' },
+      { KEY: "Key Test", COLUMN1: null, COLUMN2: null, VALUE: '"Key Test"' },
+      { KEY: "Key Test", COLUMN1: "Col1", COLUMN2: null, VALUE: '"Key Test"' },
+      { KEY: "Key Test", COLUMN1: "Col2", COLUMN2: "Col3", VALUE: '"Key Test"' },
     ],
   };
 }
@@ -122,31 +123,31 @@ export const DEV_MOCK_RULES: RuleData[] = [
   {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "Repository1", BLOCK_TYPE: BlockTypes.Repository, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.apf", POSX: 300, POSY: 100, PREBLOCK: null, VALUES: [
-      { COLUMN1: "col1,col2,col3", COLUMN2: null, VALUE: null },
+    POSX: 300, POSY: 100, PREBLOCK: null, VALUES: [
+      { KEY: "test.apf", COLUMN1: "col1,col2,col3", COLUMN2: null, VALUE: null },
     ],
   },
   {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "MacroImport01", BLOCK_TYPE: BlockTypes.MacroImport, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.txt", POSX: 400, POSY: 100, PREBLOCK: null, VALUES: [],
+    POSX: 400, POSY: 100, PREBLOCK: null, VALUES: [],
   },
   {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "Index01", BLOCK_TYPE: BlockTypes.Index, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.txt", POSX: 400, POSY: 300, PREBLOCK: ["MacroImport01", "Repository1"],
+    POSX: 400, POSY: 300, PREBLOCK: ["MacroImport01", "Repository1"],
     VALUES: [
-      { COLUMN1: "col1,col2,col3", COLUMN2: "col1,col2,col3", VALUE: null },
+      { KEY: "test.txt", COLUMN1: "col1,col2,col3", COLUMN2: "col1,col2,col3", VALUE: null },
     ],
   },
   {
     PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
     BLOCK_NAME: "Function1", BLOCK_TYPE: BlockTypes.Function, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    KEY: "test.txt", POSX: 600, POSY: 300, PREBLOCK: ["Index01"],
+    POSX: 600, POSY: 300, PREBLOCK: ["Index01"],
     VALUES: [
-      { COLUMN1: "col1", COLUMN2: null, VALUE: "null" },
-      { COLUMN1: "col2", COLUMN2: null, VALUE: "null" },
-      { COLUMN1: "col3", COLUMN2: null, VALUE: "null" },
+      { KEY: "test.txt", COLUMN1: "col1", COLUMN2: null, VALUE: "null" },
+      { KEY: "test.txt", COLUMN1: "col2", COLUMN2: null, VALUE: "null" },
+      { KEY: "test.txt", COLUMN1: "col3", COLUMN2: null, VALUE: "null" },
     ],
   },
 ];
@@ -333,4 +334,5 @@ export const MOCK_VAR_SOURCES: Record<string, VariableSource> = {
 export const MOCK_RULE_DATA: Record<string, RuleData[]> = {
   "DEV": DEV_MOCK_RULES,
   "HOLD_DECISION": HOLD_DECISION_RULES,
+  "STRESS": STRESS_RULES,   // 後端 DEV/STRESS（34 blocks，副線/副副線深鏈，6 logs）
 };

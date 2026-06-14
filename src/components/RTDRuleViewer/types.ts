@@ -233,3 +233,32 @@ export type TrackerEdge = {
   snippet?: string;    // 此引用的子條件，如 "HOLD_RISK == \"RISK\""（tooltip / 評估用）
   fired?: FireState;   // 有 runtime 值時：此條件是否成立（命中路徑上色）
 };
+
+// ── Tracker 模式 + 反向 Impact ──────────────────────────────
+// spec: specs/2026-06-13-tracker-impact-deeplink-clause-eval.md
+// 唯一真相仍是 DepGraph；impact = 反轉邊走訪的即時投影，不另存。
+
+/** Tracker 兩種查案方向：trace = log→上游變數（反藍為何觸發）；impact = 變數→下游 log（影響面）*/
+export type TrackerMode = "trace" | "impact";
+
+// ── Canvas group 操作（框選 / 對齊 / 分佈）─ spec: 2026-06-14-canvas-group-block-select-drag.md ──
+/** world 座標矩形（marquee 框選 / 命中相交用）*/
+export type Rect = { x: number; y: number; w: number; h: number };
+/** 對齊方式：左/右/上/下/水平置中/垂直置中 */
+export type AlignOp = "left" | "right" | "top" | "bottom" | "centerX" | "centerY";
+/** 等距分佈軸向 */
+export type DistributeAxis = "horizontal" | "vertical";
+
+/** Impact 反向查詢的一條路徑：從目標變數到觸發 log 的 var 鏈 + 對應 block 鏈 */
+export type ImpactPath = {
+  vars: string[];      // 變數鏈，[0] = 查詢起點變數
+  blocks: string[];    // 對應經過的 block 鏈
+};
+
+/** 某變數反向影響到的所有 log（限當前 rule）*/
+export type ImpactResult = {
+  varName: string;
+  logs: { logName: string; path: ImpactPath }[];   // 每個受影響 log 取一條最短路徑
+  edges: TrackerEdge[];                             // canvas 高亮（重用 tracker 邊）
+  found: boolean;                                   // 變數是否存在於圖中
+};
