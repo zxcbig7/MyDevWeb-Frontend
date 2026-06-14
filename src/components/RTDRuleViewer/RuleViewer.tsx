@@ -47,8 +47,8 @@ export default function RuleViewer() {
   const [loadedPhase, setLoadedPhase] = useState<string | null>(null);
 
   // ── SWR 資料讀取 ──────────────────────────────────────────
-  const { data: phaseDTOs, error: phaseError }   = RTDAPI.usePhaseResponse();
-  const { data: eqpRules,  error: eqpError }     = RTDAPI.useEQPRuleResponse(selectedPhase);
+  const { data: phaseDTOs, error: phaseError, isLoading: phasesLoading } = RTDAPI.usePhaseResponse();
+  const { data: eqpRules,  error: eqpError,  isLoading: eqpLoading }     = RTDAPI.useEQPRuleResponse(selectedPhase);
   const { data: ruleInfoDTOs, error: ruleInfoError, isLoading: ruleInfoLoading, mutate: reloadRuleInfo } = RTDAPI.useRuleInfoResponse(selectedPhase, selectedRule);
 
   // 按「載入」時 +1 → 強制 RuleView 重建 blocks（block 位置回原始 POSX/POSY）
@@ -236,6 +236,10 @@ export default function RuleViewer() {
     const pending = pendingRestoreRef.current;
     if (urlRestored || !pending) return;
     if (ruleInfoLoading) return;                       // 等 rule 資料載完才判定
+    // mount 首個 commit：effect 1 才剛 setSelectedRule，本 effect 仍讀到 selectedRule=null 的快照
+    // → SWR key 為 null → isLoading=false、ruleInfoDTOs=null。此刻不可判定 rule 不存在，
+    //   否則會在 fetch 還沒開始前就誤清參數。等 SWR 對此 rule 真的有結果（資料或錯誤）再判。
+    if (ruleInfoDTOs == null && !ruleInfoError) return;
 
     pendingRestoreRef.current = null;
 
@@ -260,8 +264,7 @@ export default function RuleViewer() {
       }
     }
     setUrlRestored(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ruleInfoLoading, ruleInfoError, rules.length, graph, urlRestored, notifApi]);
+  }, [ruleInfoLoading, ruleInfoError, ruleInfoDTOs, rules.length, graph, urlRestored, notifApi]);
 
   // 狀態 → URL（replace，不灌 history）；runtimeValues / expandedBlocks 刻意不入 URL
   useEffect(() => {
@@ -406,6 +409,8 @@ export default function RuleViewer() {
           phases={phases}
           eqpRules={eqpRules ?? []}
           selectedPhase={selectedPhase}
+          phasesLoading={phasesLoading}
+          eqpLoading={eqpLoading}
           onPhaseChange={handlePhaseChange}
           onRuleSelect={handleRuleSelect}
         />

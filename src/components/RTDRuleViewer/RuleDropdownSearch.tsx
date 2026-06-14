@@ -17,6 +17,8 @@ type Props = {
   phases: string[];
   eqpRules: EqpRuleListDTO[];
   selectedPhase: string | null;
+  phasesLoading?: boolean;   // Phase 清單載入中 → Select 顯示「讀取中…」且停用
+  eqpLoading?: boolean;      // 該 Phase 的 EQP/Rule 載入中 → 兩欄顯示「讀取中…」且停用
   onPhaseChange: (phase: string | null) => void;
   onRuleSelect: (ruleName: string) => void;
 };
@@ -25,6 +27,8 @@ export function RuleDropdownSearch({
   phases,
   eqpRules,
   selectedPhase,
+  phasesLoading = false,
+  eqpLoading = false,
   onPhaseChange,
   onRuleSelect,
 }: Props) {
@@ -213,16 +217,26 @@ export function RuleDropdownSearch({
       {/* ── Phase ── */}
       <div className="flex items-center gap-1.5">
         <ApartmentOutlined style={{ color: "white", fontSize: 14 }} />
-        <Select
-          placeholder="Phase"
-          options={phaseOptions}
-          value={selectedPhase ?? undefined}
-          onChange={(v) => onPhaseChange(v ?? null)}
-          allowClear
-          style={{ width: 130 }}
-          popupMatchSelectWidth={false}
-          styles={{ popup: { root: { zIndex: 2000 } } }}
-        />
+        {phasesLoading ? (
+          // 載入中：用與 EQP/Rule 一致的淺色框顯示「讀取中…」，資料到了才 render 真正的 Select
+          <div
+            style={{ width: 130 }}
+            className="h-8 flex items-center px-3 text-sm rounded-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed select-none"
+          >
+            讀取中…
+          </div>
+        ) : (
+          <Select
+            placeholder="Phase"
+            options={phaseOptions}
+            value={selectedPhase ?? undefined}
+            onChange={(v) => onPhaseChange(v ?? null)}
+            allowClear
+            style={{ width: 130 }}
+            popupMatchSelectWidth={false}
+            styles={{ popup: { root: { zIndex: 2000 } } }}
+          />
+        )}
       </div>
 
       {selectedPhase && (<>
@@ -233,18 +247,18 @@ export function RuleDropdownSearch({
           <div ref={eqpWrapperRef} className="relative w-44">
             <input
               ref={eqpInputRef}
-              disabled={ruleDirectActive}
+              disabled={ruleDirectActive || eqpLoading}
               className={cn(
                 "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
-                ruleDirectActive
+                ruleDirectActive || eqpLoading
                   ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed placeholder:text-gray-300"
                   : selectedEqpId
                   ? "bg-blue-50 border-blue-300 text-blue-700 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
                   : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
               )}
-              placeholder="EQP ID（選填）"
+              placeholder={eqpLoading ? "讀取中…" : "EQP ID（選填）"}
               value={eqpInput}
-              onFocus={() => { if (!selectedEqpId) setEqpOpen(true); }}
+              onFocus={() => { if (!selectedEqpId && !eqpLoading) setEqpOpen(true); }}
               onChange={(e) => { setEqpInput(e.target.value); setSelectedEqpId(null); setEqpOpen(true); setPendingRule(null); setRuleInput(""); }}
               onKeyDown={handleEqpKeyDown}
             />
@@ -283,15 +297,18 @@ export function RuleDropdownSearch({
           <div ref={ruleWrapperRef} className="relative w-56">
             <input
               ref={ruleInputRef}
+              disabled={eqpLoading}
               className={cn(
                 "w-full h-8 px-3 pr-7 text-sm rounded border outline-none transition-colors",
-                pendingRule
+                eqpLoading
+                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed placeholder:text-gray-300"
+                  : pendingRule
                   ? "bg-blue-50 border-blue-200 text-blue-700"
                   : "bg-white border-gray-300 placeholder:text-gray-400 cursor-text focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
               )}
-              placeholder={selectedEqpId ? "選取 Rule…" : "Rule Name"}
+              placeholder={eqpLoading ? "讀取中…" : selectedEqpId ? "選取 Rule…" : "Rule Name"}
               value={ruleInput}
-              onFocus={() => { if (!pendingRule) setRuleOpen(true); }}
+              onFocus={() => { if (!pendingRule && !eqpLoading) setRuleOpen(true); }}
               onChange={(e) => { setRuleInput(e.target.value); setPendingRule(null); setRuleOpen(true); }}
               onKeyDown={handleRuleKeyDown}
             />
