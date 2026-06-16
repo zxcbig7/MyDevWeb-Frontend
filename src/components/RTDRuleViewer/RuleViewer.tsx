@@ -3,8 +3,16 @@
 // 主入口元件：Canvas + 右側面板（搜尋 / Tracker 分頁）
 // ============================================================
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { Divider, notification } from "antd";
+import type { InputRef } from "antd";
 import { useSearchParams } from "react-router-dom";
 import type { RuleViewHandle, TrackerMode } from "./types";
 import { cn } from "../../utils/clsx";
@@ -13,29 +21,63 @@ import { convertDtosToData } from "./dataTransform";
 import { buildDepGraph, computeTrace, computeImpact } from "./depGraph";
 import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
-import {
-  type MatchResult,
-  RuleContentSearch,
-  SearchNavigator,
-} from "./RuleContentSearch";
+import { type MatchResult, RuleContentSearch } from "./RuleContentSearch";
 import { CaseQuery } from "./CaseQuery";
 
 type RightTab = "search" | "tracker" | "helper";
 
+// 命中欄位標籤（顏色對應 RuleContentSearch.MatchField）
+const FIELD_TAG: Record<MatchResult["field"], { label: string; cls: string }> = {
+  name: { label: "NAME", cls: "text-sky-300 bg-sky-400/10 border-sky-400/25" },
+  value: { label: "VALUE", cls: "text-emerald-300 bg-emerald-400/10 border-emerald-400/25" },
+  col: { label: "COL", cls: "text-amber-300 bg-amber-400/10 border-amber-400/25" },
+  ref: { label: "REF", cls: "text-violet-300 bg-violet-400/10 border-violet-400/25" },
+  key: { label: "KEY", cls: "text-rose-300 bg-rose-400/10 border-rose-400/25" },
+};
+
 // Defined outside component — pure function, no closure over state
+// 標出 snippet 內「所有」keyword 出現處（非只第一處）
 function highlightSnippet(snippet: string, kw: string) {
   if (!kw) return <span>{snippet}</span>;
-  const idx = snippet.toLowerCase().indexOf(kw.toLowerCase());
+  const low = snippet.toLowerCase();
+  const k = kw.toLowerCase();
+  let idx = low.indexOf(k);
   if (idx === -1) return <span>{snippet}</span>;
-  return (
-    <>
-      {snippet.slice(0, idx)}
-      <span className="text-yellow-300 font-semibold">
-        {snippet.slice(idx, idx + kw.length)}
-      </span>
-      {snippet.slice(idx + kw.length)}
-    </>
-  );
+
+  const parts: ReactNode[] = [];
+  let i = 0;
+  let n = 0;
+  while (idx !== -1) {
+    if (idx > i) parts.push(snippet.slice(i, idx));
+    parts.push(
+      <span
+        key={n++}
+        className="text-yellow-300 font-semibold bg-yellow-300/15 rounded-sm"
+      >
+        {snippet.slice(idx, idx + k.length)}
+      </span>,
+    );
+    i = idx + k.length;
+    idx = low.indexOf(k, i);
+  }
+  if (i < snippet.length) parts.push(snippet.slice(i));
+  return <>{parts}</>;
+}
+
+// (VAR: value) → { VAR: value }（runtime log 解析；runtimeValues 的單一來源）
+function parseRuntimeLog(log: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  const re = /\((\w+):\s*([^)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(log)) !== null) result[m[1].trim()] = m[2].trim();
+  return result;
+}
+
+// runtimeValues → (VAR: value) 文字（樹上/chips 改值後回寫貼上框，保持兩邊同步）
+function serializeRuntimeValues(map: Record<string, string>): string {
+  return Object.entries(map)
+    .map(([k, v]) => `(${k}: ${v})`)
+    .join(" ");
 }
 
 export default function RuleViewer() {
@@ -141,8 +183,11 @@ export default function RuleViewer() {
   const [hoverBlock, setHoverBlock] = useState<string | null>(null);
   const [trackerMode, setTrackerMode] = useState<TrackerMode>("trace");
   const [impactVar, setImpactVar] = useState<string>("");
+  // 右側分頁（= 當前作用功能：Viewer / Tracker）。提前宣告，供 canvas HL gate 用
+  const [rightTab, setRightTab] = useState<RightTab>("search");
 
   const ruleViewRef = useRef<RuleViewHandle | null>(null);
+  const searchInputRef = useRef<InputRef>(null);
 
   const matchedBlockIds = useMemo(() => {
     if (!matchedBlockList) return null;
@@ -204,16 +249,42 @@ export default function RuleViewer() {
         : undefined,
     [impactResult],
   );
-  // 依模式選 canvas 要吃的高亮資料
-  const canvasEdges = isImpact ? (impactResult?.edges ?? []) : traceData.edges;
-  const canvasLogIds = isImpact ? impactLogIdsSet : trackerLogIdsSet;
-  const canvasVarIds = isImpact ? impactVarIdsSet : trackerVarIdsSet;
-  const canvasPreview = isImpact
+  // 當前作用功能（互斥）：決定 canvas 餵哪一種 HL。資料都保留，只切顯示來源，
+  // 切走的功能（Log Trace / Var Impact / Viewer）HL 一律還原、不殘留。
+  const showSearch = rightTab === "search";
+  const showImpact = rightTab === "tracker" && isImpact;
+  const showTrace = rightTab === "tracker" && !isImpact;
+
+  const canvasEdges = showImpact
     ? (impactResult?.edges ?? [])
-    : fullTrace.edges;
+    : showTrace
+      ? traceData.edges
+      : [];
+  const canvasLogIds = showImpact
+    ? impactLogIdsSet
+    : showTrace
+      ? trackerLogIdsSet
+      : undefined;
+  const canvasVarIds = showImpact
+    ? impactVarIdsSet
+    : showTrace
+      ? trackerVarIdsSet
+      : undefined;
+  const canvasPreview = showImpact
+    ? (impactResult?.edges ?? [])
+    : showTrace
+      ? fullTrace.edges
+      : [];
 
   // ── Icon 版本切換 ─────────────────────────────────────────
   const [useNewIcons, setUseNewIcons] = useState(true);
+  // 斷尾 block 警示顯示開關（預設關；平時不顯示，需要時在 TopBar 開）
+  const [showDeadBranches, setShowDeadBranches] = useState(false);
+  // Runtime Log（常駐折疊區）：文字 → parseRuntimeLog → runtimeValues（canvas 高亮 / tracker tree / inspector Log Value 共用）
+  const [runtimeLog, setRuntimeLog] = useState("");
+  const [runtimeOpen, setRuntimeOpen] = useState(false);
+  const [runtimePanelHeight, setRuntimePanelHeight] = useState(44);
+  const runtimePanelResizeRef = useRef({ dragging: false, startY: 0, startH: 0 });
 
   // ── 右側面板寬度 / 收合 / 分頁 ───────────────────────────
   const COLLAPSE_THRESHOLD = 55; // 自動收合的寬度閾值（px）
@@ -222,7 +293,6 @@ export default function RuleViewer() {
 
   const [rightPanelWidth, setRightPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [rightTab, setRightTab] = useState<RightTab>("search");
   const dividerDragRef = useRef({
     dragging: false,
     startX: 0,
@@ -258,6 +328,43 @@ export default function RuleViewer() {
     };
   }, []);
 
+  // 已知變數面板垂直 resize
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!runtimePanelResizeRef.current.dragging) return;
+      const dy = e.clientY - runtimePanelResizeRef.current.startY;
+      setRuntimePanelHeight(
+        Math.max(44, Math.min(300, runtimePanelResizeRef.current.startH + dy)),
+      );
+    }
+    function onMouseUp() {
+      if (!runtimePanelResizeRef.current.dragging) return;
+      runtimePanelResizeRef.current.dragging = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
+  // Ctrl/Cmd+F：展開右側面板 → 切搜尋分頁 → 聚焦搜尋框（攔截瀏覽器內建 find）
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        setRightCollapsed(false);
+        setRightTab("search");
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Rule 變更：重置搜尋 / Tracker 狀態
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -269,6 +376,7 @@ export default function RuleViewer() {
     setTracedLog(null);
     setExpandedBlocks(new Set());
     setRuntimeValues({});
+    setRuntimeLog("");
     setHoverBlock(null);
     setTrackerMode("trace");
     setImpactVar("");
@@ -410,32 +518,41 @@ export default function RuleViewer() {
     for (const e of computeTrace(graph, tracedLog, "all", runtimeValues).edges)
       if (e.fired === "yes") fired.add(e.to);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setExpandedBlocks(fired);
+    setExpandedBlocks((prev) => new Set([...prev, ...fired]));
   }, [tracedLog, runtimeValues, graph]);
 
   // ── 搜尋導覽 handlers ─────────────────────────────────────
-  const handlePrev = useCallback(() => {
-    if (!matchedBlockList?.length) return;
-    const next = Math.max(0, matchIndex - 1);
-    setMatchIndex(next);
-    ruleViewRef.current?.focusBlockById(matchedBlockList[next].id);
-  }, [matchedBlockList, matchIndex]);
-
-  const handleNext = useCallback(() => {
-    if (!matchedBlockList?.length) return;
-    const next = Math.min(matchedBlockList.length - 1, matchIndex + 1);
-    setMatchIndex(next);
-    ruleViewRef.current?.focusBlockById(matchedBlockList[next].id);
-  }, [matchedBlockList, matchIndex]);
-
-  const handlePick = useCallback(
+  // 聚焦第 i 筆（夾邊界）：更新游標 + canvas 選中高亮 + 平移定位
+  const focusMatch = useCallback(
     (i: number) => {
-      if (!matchedBlockList) return;
-      setMatchIndex(i);
-      setSelectedBlockId(matchedBlockList[i].id);
-      ruleViewRef.current?.focusBlockById(matchedBlockList[i].id);
+      if (!matchedBlockList?.length) return;
+      const c = Math.max(0, Math.min(matchedBlockList.length - 1, i));
+      setMatchIndex(c);
+      setSelectedBlockId(matchedBlockList[c].id);
+      ruleViewRef.current?.focusBlockById(matchedBlockList[c].id);
     },
     [matchedBlockList],
+  );
+
+  // Enter / ›：第一次先聚焦「當前筆」，已聚焦才前進（仿瀏覽器 Ctrl+F）
+  const handleNext = useCallback(() => {
+    if (!matchedBlockList?.length) return;
+    const cur = matchedBlockList[matchIndex];
+    if (selectedBlockId !== cur.id) return focusMatch(matchIndex);
+    focusMatch(matchIndex + 1);
+  }, [matchedBlockList, matchIndex, selectedBlockId, focusMatch]);
+
+  // Shift+Enter / ‹：同上，方向相反
+  const handlePrev = useCallback(() => {
+    if (!matchedBlockList?.length) return;
+    const cur = matchedBlockList[matchIndex];
+    if (selectedBlockId !== cur.id) return focusMatch(matchIndex);
+    focusMatch(matchIndex - 1);
+  }, [matchedBlockList, matchIndex, selectedBlockId, focusMatch]);
+
+  const handlePick = useCallback(
+    (i: number) => focusMatch(i),
+    [focusMatch],
   );
 
   // ── Prop handlers ─────────────────────────────────────────
@@ -471,6 +588,7 @@ export default function RuleViewer() {
       setMatchedBlockList(list);
       setSearchKeyword(kw);
       setMatchIndex(0);
+      setSelectedBlockId(null); // 新搜尋重置游標：第一次 Enter 先聚焦當前筆
     },
     [],
   );
@@ -499,9 +617,14 @@ export default function RuleViewer() {
     });
   }, []);
 
-  const handleRuntimeChange = useCallback((vals: Record<string, string>) => {
-    setRuntimeValues(vals);
-  }, []);
+  // 樹上 inline / chips 設已知值 → 回寫 runtimeValues + 同步貼上框文字（單一來源）
+  const handleRuntimeValuesChange = useCallback(
+    (next: Record<string, string>) => {
+      setRuntimeValues(next);
+      setRuntimeLog(serializeRuntimeValues(next));
+    },
+    [],
+  );
 
   // canvas 右鍵 block → 依當前模式的 context action（左鍵雙擊一律開 inspector）
   const handleBlockContextMenu = useCallback(
@@ -559,9 +682,16 @@ export default function RuleViewer() {
           onRuleSelect={handleRuleSelect}
         />
 
-        {/* ── 當前載入的 Rule 麵包屑 ── */}
+        {/* ── 當前載入的 Rule 麵包屑（點擊＝複製連結）── */}
         {loadedRule && (
-          <div className="flex items-center gap-1.5 text-xs pl-3 border-l border-white/15 min-w-0">
+          <button
+            onClick={handleCopyLink}
+            title="點擊複製當前連結（FAB / Phase / Rule / Log / 模式 / 變數）"
+            className={cn(
+              "group flex items-center gap-1.5 text-xs pl-3 border-l min-w-0 cursor-pointer transition-colors",
+              linkCopied ? "border-green-500/40" : "border-white/15",
+            )}
+          >
             <span className="text-slate-400 shrink-0">{loadedFab}</span>
             <span className="text-white/30 shrink-0">/</span>
             <span className="text-slate-400 shrink-0">{loadedPhase}</span>
@@ -577,22 +707,51 @@ export default function RuleViewer() {
                 </span>
               </>
             )}
-          </div>
+            <span
+              className={cn(
+                "ml-1 shrink-0 text-[10px] transition-colors",
+                linkCopied
+                  ? "text-green-300"
+                  : "text-slate-500 group-hover:text-slate-200",
+              )}
+            >
+              {linkCopied ? "✓ 已複製" : "⧉ 複製連結"}
+            </span>
+          </button>
         )}
 
         <div className="ml-auto shrink-0 flex items-center gap-2">
           {loadedRule && (
             <button
-              onClick={handleCopyLink}
-              title="複製當前連結（Phase / Rule / Log / 模式 / 變數）"
+              onClick={() => setRuntimeOpen((o) => !o)}
+              title="設定已知變數值（Runtime Log），用於 Tracker 條件模擬"
               className={cn(
-                "px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors",
-                linkCopied
+                "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors",
+                runtimeOpen || Object.keys(runtimeValues).length > 0
                   ? "text-green-300 border-green-500/40 bg-green-500/15"
                   : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white",
               )}
             >
-              {linkCopied ? "✓ 已複製" : "複製連結"}
+              已知變數
+              {Object.keys(runtimeValues).length > 0 && (
+                <span className="font-mono text-[10px]">
+                  {Object.keys(runtimeValues).length}v
+                </span>
+              )}
+            </button>
+          )}
+          {loadedRule && (
+            <button
+              onClick={() => setShowDeadBranches((s) => !s)}
+              title="顯示 / 隱藏斷尾 block 警示（無下游、運算無效的 block）"
+              className={cn(
+                "px-2.5 py-1 rounded text-xs border cursor-pointer transition-colors",
+                showDeadBranches
+                  ? "text-rose-300 border-rose-500/40 bg-rose-500/15"
+                  : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white",
+              )}
+            >
+              斷尾
             </button>
           )}
           <div className="flex items-center text-xs rounded border border-white/15 bg-white/5 p-0.5 gap-0.5">
@@ -624,13 +783,54 @@ export default function RuleViewer() {
 
       {/* ── 主體：Canvas + 右側面板 ── */}
       <div className="flex-1 min-h-0 flex">
-        {/* Canvas */}
-        <div className="flex-1 min-w-0 rounded-xl bg-white border border-black/12 relative overflow-hidden">
+        {/* Canvas 欄（flex-col：已知變數面板 + canvas，右側面板高度不受影響）*/}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
+          {loadedRule && runtimeOpen && (
+            <div
+              className="rounded-xl bg-slate-800 border border-white/10 flex flex-col overflow-hidden shrink-0 mb-3 relative"
+              style={{ height: runtimePanelHeight }}
+            >
+              <textarea
+                className="flex-1 w-full min-h-0 resize-none overflow-y-auto px-3 py-2 bg-transparent text-white placeholder:text-white/20 text-xs outline-none font-mono"
+                placeholder="已知變數：(VariableA: 10) (VariableB: Y) ..."
+                value={runtimeLog}
+                onChange={(e) => {
+                  setRuntimeLog(e.target.value);
+                  setRuntimeValues(parseRuntimeLog(e.target.value));
+                }}
+              />
+              <button
+                onClick={() => setRuntimeOpen(false)}
+                className="absolute top-1.5 right-2 text-white/25 hover:text-white/60 text-xs cursor-pointer bg-transparent leading-none"
+              >
+                ✕
+              </button>
+              {/* 垂直 resize 把手 */}
+              <div
+                className="h-2 shrink-0 cursor-s-resize flex items-center justify-center hover:bg-white/10 transition-colors group"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  runtimePanelResizeRef.current = {
+                    dragging: true,
+                    startY: e.clientY,
+                    startH: runtimePanelHeight,
+                  };
+                  document.body.style.cursor = "s-resize";
+                  document.body.style.userSelect = "none";
+                }}
+              >
+                <div className="w-8 h-0.5 rounded-full bg-white/20 group-hover:bg-white/50 transition-colors" />
+              </div>
+            </div>
+          )}
+
+          {/* Canvas */}
+          <div className="flex-1 min-h-0 rounded-xl bg-white border border-black/12 relative overflow-hidden">
           <RuleView
             ref={ruleViewRef}
             fab={loadedFab}
             rules={rules}
-            matchedBlockIds={matchedBlockIds}
+            matchedBlockIds={showSearch ? matchedBlockIds : null}
             selectedBlockId={selectedBlockId}
             trackerLogIds={canvasLogIds}
             trackerVarIds={canvasVarIds}
@@ -638,12 +838,15 @@ export default function RuleViewer() {
             previewEdges={canvasPreview}
             hoverBlockId={hoverBlock}
             useNewIcons={useNewIcons}
+            showDeadBranches={showDeadBranches}
+            runtimeValues={runtimeValues}
             layoutVersion={layoutVersion}
             searchKeyword={searchKeyword}
-            trackedLogName={isImpact ? "" : (tracedLog ?? "")}
+            trackedLogName={showTrace ? (tracedLog ?? "") : ""}
             onBlockContextMenu={handleBlockContextMenu}
             onBlockHover={handleCanvasBlockHover}
           />
+          </div>
         </div>
 
         {/* 拖曳分隔線（收合後隱藏） */}
@@ -746,21 +949,19 @@ export default function RuleViewer() {
                   key={searchKey}
                   rules={rules}
                   onMatchChange={handleMatchChange}
+                  onNavigate={(dir) => (dir === 1 ? handleNext() : handlePrev())}
+                  inputRef={searchInputRef}
                 />
               </div>
 
-              {/* 導覽列 + 結果數 */}
-              {matchedBlockList && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <SearchNavigator
-                    total={matchedBlockList.length}
-                    index={matchIndex}
-                    onPrev={handlePrev}
-                    onNext={handleNext}
-                  />
-                  <span className="ml-auto text-xs text-slate-400 shrink-0">
-                    {matchedBlockList.length} match
-                    {matchedBlockList.length !== 1 ? "es" : ""}
+              {/* 位置 / 總數 + 鍵盤提示（導覽改由 Enter / Shift+Enter）*/}
+              {matchedBlockList && matchedBlockList.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0 text-xs text-slate-400">
+                  <span className="tabular-nums shrink-0">
+                    {matchIndex + 1} / {matchedBlockList.length}
+                  </span>
+                  <span className="ml-auto truncate text-[10px] text-slate-500">
+                    Enter 下一筆 · Shift+Enter 上一筆 · Esc 清除
                   </span>
                 </div>
               )}
@@ -792,9 +993,19 @@ export default function RuleViewer() {
                         : "border-white/10 bg-white/4 text-slate-300 hover:bg-white/8",
                     )}
                   >
-                    <div className="font-semibold truncate">
-                      <span className="text-white/40 mr-1.5">{i + 1}.</span>
-                      {m.id}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-white/40 shrink-0">{i + 1}.</span>
+                      <span className="font-semibold truncate flex-1 min-w-0">
+                        {m.id}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 text-[9px] font-mono px-1 py-px rounded border leading-none",
+                          FIELD_TAG[m.field].cls,
+                        )}
+                      >
+                        {FIELD_TAG[m.field].label}
+                      </span>
                     </div>
                     {m.snippet && (
                       <div className="mt-0.5 text-[10px] text-white/50 truncate">
@@ -830,7 +1041,7 @@ export default function RuleViewer() {
                 impactResult={impactResult}
                 onTraceLog={handleTraceLog}
                 onToggleBlock={handleToggleBlock}
-                onRuntimeChange={handleRuntimeChange}
+                onRuntimeValuesChange={handleRuntimeValuesChange}
                 onHoverBlock={handleCanvasBlockHover}
                 onFocusBlock={handleFocusBlock}
                 onOpenInspector={handleOpenInspector}

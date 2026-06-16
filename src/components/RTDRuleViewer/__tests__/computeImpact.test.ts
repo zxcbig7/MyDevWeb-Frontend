@@ -15,7 +15,7 @@ function base(BLOCK_NAME: string, BLOCK_TYPE: string, PREBLOCK: string[] | null,
 const db = (name: string, col: string) => base(name, "Database", null, null, col);
 const fn = (name: string, pre: string[], out: string, value: string) => base(name, "Function", pre, value, out);
 const action = (name: string, pre: string[], value: string) => base(name, "Action", pre, value, null);
-// 終端 sink：真實 RTD 每條 rule 都以 DispatchScreen 收尾 → 讓上游 log/function block 不被當孤島（Tracker 不分析孤島）
+// 終端 sink：真實 RTD 每條 rule 都以 DispatchScreen 收尾 → 讓上游 log/function block 不被當斷尾（Tracker 不分析斷尾）
 const ds = (name: string, pre: string[]) => base(name, "DispatchScreen", pre, null, null);
 
 // 鏈 1：COL_A →(F1) VAR_C →(LOG1) [$ALARM$]
@@ -27,7 +27,7 @@ const RULES: RuleData[] = [
   db("DB2", "COL_G"),
   fn("F3", ["DB2"], "VAR_E", 'IF COL_G == "1" THEN "y" ELSE "n"'),
   action("LOG2", ["F3"], 'IF VAR_E == "y" THEN [$WARN$]'),
-  ds("DS", ["LOG1", "LOG2"]),   // 終端 sink → LOG1/LOG2 非孤島
+  ds("DS", ["LOG1", "LOG2"]),   // 終端 sink → LOG1/LOG2 非斷尾
 ];
 
 describe("computeImpact", () => {
@@ -64,7 +64,7 @@ describe("computeImpact", () => {
     const orphanRules: RuleData[] = [
       db("DBX", "COL_X"),
       fn("FX", ["DBX"], "VAR_X", 'IF COL_X == "1" THEN "a" ELSE "b"'),
-      ds("DSX", ["FX"]),   // 終端 sink → FX 非孤島；VAR_X 仍無 log 觸及
+      ds("DSX", ["FX"]),   // 終端 sink → FX 非斷尾；VAR_X 仍無 log 觸及
       // VAR_X 沒有任何 log 觸發引用
     ];
     const gx = buildDepGraph(orphanRules);
@@ -83,7 +83,7 @@ describe("computeImpact", () => {
       db("DB2", "COL_G"),
       fn("F2S", ["DB2"], "SHARED", 'IF COL_G == "1" THEN "p" ELSE "q"'),
       action("LOG2", ["F2S"], 'IF SHARED == "p" THEN [$WARN$]'),
-      ds("DS", ["LOG1", "LOG2"]),   // 終端 sink → log block 非孤島
+      ds("DS", ["LOG1", "LOG2"]),   // 終端 sink → log block 非斷尾
     ];
     const gs = buildDepGraph(rules);
     // COL_A 只在鏈 1 → 只影響 ALARM

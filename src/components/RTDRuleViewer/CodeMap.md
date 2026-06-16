@@ -1,8 +1,8 @@
 ---
-updated: 2026-06-14
+updated: 2026-06-15
 type: module-map
 module: RTDRuleViewer
-loc: ~6700
+loc: ~6900
 spec: specs/2026-06-07-tracker-dep-graph.md
 specs_applied:
   - specs/2026-06-07-tracker-dep-graph.md
@@ -78,16 +78,17 @@ graph TD
 
 | 檔案 | 行數 | 職責 | 備註 |
 |------|------|------|------|
-| `RuleViewer.tsx` | 658 | 主入口；持有全部跨元件狀態；**selection（selectedFab/Phase）與 loaded（loadedFab/Phase/Rule）分離**：dropdown 只改 selection，按「載入」才提交成 loaded；**URL deep link 還原+同步**；canvas 與側欄完全受控同步 | rule 資料只依 loaded 三元組抓 → dropdown 操作不清畫面；按載入時 tuple 相同則 no-op（不重抓/重排）。loaded 三元組入 URL（+log/mode/var）；runtime/expanded 不入 |
+| `RuleViewer.tsx` | 907 | 主入口；持有全部跨元件狀態；**selection vs loaded 分離**；**URL deep link 還原+同步**；canvas 與側欄受控同步；**Runtime Log 常駐折疊區（持有 runtimeLog→runtimeValues，跨 Viewer/Tracker）**；TopBar **breadcrumb＝複製連結鈕 + 斷尾顯示開關（showDeadBranches，預設關）** | rule 只依 loaded 三元組抓；runtimeValues 傳 CaseQuery(著色/inline 編輯)＋RuleView(Log Value)；樹/chips 改值經 `handleRuntimeValuesChange` 寫 runtimeValues + `serializeRuntimeValues` 同步貼上框；showDeadBranches 傳 RuleView gate 警示 |
 | `types.ts` | 256 | DTO / RuleData / Block / Arrow / DepGraph / ViewNode / **TrackerMode / ImpactResult / ImpactPath** 全型別 | `Repository: "Database"` 為 icon 對應，刻意不一致 |
 | `api.ts` | 162 | axios client + `useAPI<T>` 信封拆解 + 6 個 SWR hooks（全部首參吃 `fab`，路徑 `/api/{fab}/RuleViewer/...`，fab 為 null 不打 API）| 後端 route `[Route("api/{fab}/[controller]")]`；fab 目前後端不驗證（隨便輸入）|
 | `dataTransform.ts` | 52 | DTO 多列 → 以 baseName 合併為 RuleData（PREBLOCK split、去 `[n]` 後綴、取前 2）| |
 | `apfParse.ts` | 205 | APF DSL：tokenize（上色共用）/ parseAPF（IF-THEN-ELSE clause）/ extractVars（跳字串註解 $log$ 函式名）| Tracker 解析正確性的根基 |
 | `apfEval.ts` | 233 | APF 條件三值評估：lex（括號/AND/OR/NOT，跳字串註解、函式整段標 unknown）+ 遞迴下降 parseCond + evalCond（三值邏輯）| 自帶 lexer，不依賴 apfParse；evalSnippet 委派它 |
-| `depGraph.ts` | 467 | 整條 rule 建一次 DAG（**buildDepGraph 跳過孤島** → Tracker 全演算法不含孤島）；**findIslandBlocks（孤島定義單一來源）**；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
-| `CaseQuery.tsx` | 608 | Tracker 側欄：**Trace/Impact 模式切換**；log 搜尋下拉、LayerNode 受控樹、Runtime Log + **trigger 命中 badge**、一鍵複製；**Impact 面板（變數 autocomplete → 受影響 log 清單 → 點擊跳 Trace）** | 「查案」主介面 |
-| `RuleView.tsx` | 1101 | Canvas：blocks/arrows/grid/minimap 繪製、pan/zoom、hover/雙擊/右鍵、inspector 管理、tracker 邊上色（沿 PREBLOCK 結構 recolor，非直接拉線；dim 不到隱形）；**group 框選 + 整組拖曳 + 對齊/分佈 toolbar**；**孤島 block 警示** | 模組內最大檔；收 `fab` prop 供 import table fetch |
-| `BlockInspector.tsx` | 774 | 浮動詳情面板：Shell（拖曳/縮放/z-index）+ 依類型 Body + 搜尋/Tracker 高亮 | |
+| `depGraph.ts` | 467 | 整條 rule 建一次 DAG（**buildDepGraph 跳過斷尾** → Tracker 全演算法不含斷尾）；**findDeadBranchBlocks（斷尾定義單一來源）**；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
+| `CaseQuery.tsx` | 750 | Tracker 側欄：**Log Trace / Var Impact**；搜尋用 antd `AutoComplete`+`Input.Search`；LayerNode 受控樹 + trigger badge + 一鍵複製；**Var Impact 就地內嵌展開**；**樹節點 inline 填已知值（任何變數）→ 即時 fired 著色 + 頂部「已知變數」chips（清除/清空）** | runtimeValues 純讀 prop；改值經 `onRuntimeValuesChange` 回拋 RuleViewer（再 serialize 回貼上框） |
+| `RuleView.tsx` | 1321 | Canvas：繪製/pan/zoom/hover/雙擊/右鍵、inspector 管理、tracker 邊沿 PREBLOCK recolor（非疊線；dim 不到隱形）、group 框選/拖曳/對齊；**斷尾警示受 `showDeadBranches` gate**；**Log Value：BlockInspector 觸發 → 單一 `LogValueInspector` 浮動面板** | 收 `fab`/`showDeadBranches`/`runtimeValues` prop |
+| `BlockInspector.tsx` | 788 | 浮動詳情面板：Shell + 依類型 Body + 搜尋/Tracker 高亮；**有 runtime 時 header 多「Log Value」鈕（onViewLogValue）** | |
+| `LogValueInspector.tsx` | 138 | 浮動小面板：對照某 block 的變數（COLUMN1/2 + VALUE 引用）在 Runtime Log 的數值（有值綠 / 缺「—」）| 自帶輕量拖曳 shell；單一實例（仿 import TableInspector）|
 | `tableinfo.tsx` | 420 | Import table 浮動面板：搜尋 / 排序 / 欄位拖曳與寬度 | |
 | `RuleDropdownSearch.tsx` | 387 | **FAB（受控，props）**→ Phase → EQP/Rule 三段選擇；選 FAB 才開放下游 | FAB 清單寫死 `FAB_OPTIONS`，狀態提升至 RuleViewer |
 | `RuleContentSearch.tsx` | 205 | Rule 內容關鍵字搜尋 → MatchResult[] | |
@@ -104,7 +105,7 @@ graph TD
 
 | Module | Public symbols | 被誰用 |
 |--------|----------------|--------|
-| `depGraph.ts` | `buildDepGraph` `findIslandBlocks` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、RuleView（findIslandBlocks 畫警示）、Dev |
+| `depGraph.ts` | `buildDepGraph` `findDeadBranchBlocks` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、RuleView（findDeadBranchBlocks 畫警示）、Dev |
 | `apfParse.ts` | `tokenize` `HIGHLIGHT_RE` `parseAPF` `extractVars` `Token` `Clause` | depGraph、BlockInspector |
 | `apfEval.ts` | `parseCond` `evalCond` `CondNode` `CmpOp` | depGraph（evalSnippet 委派）、apfEval.test |
 | `api.ts` | `usePhaseResponse` `useEQPRuleResponse` `useRuleResponse` `useRuleInfoResponse` `useResourceDataResponse` `useImportTableResponse`（全部首參 `fab`）| RuleViewer、RuleView |
@@ -136,7 +137,7 @@ graph TD
 | mock 改 dev-only | `devMock.ts`/`stressRule.ts` + 7 個 `/dev/*` 頁以 `import.meta.env.DEV` gate（App.tsx 路由、HomeLayout 選單）；barrel 不再 re-export mock → production bundle 零 mock（build 已驗證） |
 | evalCond 函式呼叫保守 | `COUNT(...)` 等函式子條件一律 unknown（不模擬值）；AND/OR/NOT/括號複合條件已支援三值邏輯 |
 | 跨 rule impact 未做 | computeImpact 限當前載入 rule；跨 rule 影響需後端 endpoint（backlog）|
-| 孤島偵測 | `depGraph.findIslandBlocks`（單一來源）：無人以它為 PREBLOCK（DispatchScreen 豁免）。**Tracker 全演算法排除孤島**（buildDepGraph 跳過）；**Search（RuleContentSearch）仍可搜到**；canvas 紅虛線「⚠ 孤島」恆顯 + console.warn。mock 留 `FUNC_ISLAND_DEMO` 供驗證；純前端定義，後端不擋 |
+| 斷尾偵測 | `depGraph.findDeadBranchBlocks`（單一來源）：無人以它為 PREBLOCK（DispatchScreen 豁免）。**Tracker 全演算法排除斷尾**（buildDepGraph 跳過）；**Search（RuleContentSearch）仍可搜到**；canvas 紅虛線「⚠ 斷尾」恆顯 + console.warn。mock 留 `FUNC_DEADBRANCH_DEMO` 供驗證；純前端定義，後端不擋 |
 | tracker 高亮畫法 | 不另疊線：`drawArrows(highlightColors)` 直接把追蹤鏈上的原箭頭換成 layer 色（fired: 綠/灰，否則 depth 色）；無關箭頭 dim 0.35 |
 | ~~正向 impact 分析~~ | ✅ 已做（computeImpact + Impact 模式 UI，spec 2026-06-13）|
 | ~~狀態不可分享~~ | ✅ 已做（URL deep link：phase/rule/log/mode/var，spec 2026-06-13）；runtime/expanded 仍不入 URL（刻意）|

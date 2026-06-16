@@ -3,20 +3,29 @@
 // 右側面板搜尋分頁：在當前 Rule 內搜尋關鍵字
 // ============================================================
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Input } from "antd";
+import type { InputRef } from "antd";
 import type { RuleData } from "./types";
 
 // ── 型別 ──────────────────────────────────────────────────────
 
+// 命中欄位：BLOCK_NAME / VALUE / COLUMN1 / COLUMN2 / KEY
+export type MatchField = "name" | "value" | "col" | "ref" | "key";
+
 export type MatchResult = {
-  id: string;      // BLOCK_NAME
-  snippet: string; // 命中的上下文摘要
+  id: string;        // BLOCK_NAME
+  snippet: string;   // 命中的上下文摘要
+  field: MatchField; // 命中在哪個欄位
 };
 
 type RuleContentSearchProps = {
   rules: RuleData[];
   onMatchChange: (matched: MatchResult[] | null, keyword: string) => void;
+  // Enter → 下一筆（1）/ Shift+Enter → 上一筆（-1）。由父層導覽 canvas。
+  onNavigate?: (dir: 1 | -1) => void;
+  // 供 Ctrl+F 從外部聚焦
+  inputRef?: React.RefObject<InputRef | null>;
 };
 
 // ── 工具函式 ──────────────────────────────────────────────────
@@ -38,10 +47,8 @@ function matchRule(rule: RuleData, kw: string): boolean {
   );
 }
 
-/** 取最具代表性的命中摘要（優先 VALUE > COLUMN > KEY > BLOCK_NAME） */
-function getSnippet(rule: RuleData, keyword: string): string {
-  const kw = normWs(keyword).toLowerCase();
-
+/** 取最具代表性的命中（欄位 + 摘要；優先 VALUE > COLUMN1 > COLUMN2 > KEY > BLOCK_NAME） */
+function getMatch(rule: RuleData, kw: string): { field: MatchField; snippet: string } {
   // 先找 VALUE 命中（最有資訊量）
   for (const v of rule.VALUES ?? []) {
     const val = v.VALUE;
@@ -49,19 +56,20 @@ function getSnippet(rule: RuleData, keyword: string): string {
       const flat = normWs(val); // 與比對一致：換行 / 多空白 → 單空格
       const idx = flat.toLowerCase().indexOf(kw);
       if (idx >= 0) {
-        // 擷取關鍵字前後各 18 個字元作為摘要視窗
-        // Math.max/min 確保不超出字串邊界
+        // 擷取關鍵字前後各 18 個字元作為摘要視窗（Math.max/min 確保不超出字串邊界）
         const s = Math.max(0, idx - 18);
         const e = Math.min(flat.length, idx + kw.length + 18);
         // 若被截斷（s > 0 或 e < length）則加上「…」提示使用者
-        return (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
+        const snippet = (s > 0 ? "…" : "") + flat.slice(s, e) + (e < flat.length ? "…" : "");
+        return { field: "value", snippet };
       }
     }
-    if (v.COLUMN1 && normWs(v.COLUMN1).toLowerCase().includes(kw)) return `col: ${v.COLUMN1}`;
-    if (v.COLUMN2 && normWs(v.COLUMN2).toLowerCase().includes(kw)) return `ref: ${v.COLUMN2}`;
-    if (v.KEY && normWs(v.KEY).toLowerCase().includes(kw)) return `key: ${v.KEY}`;
+    if (v.COLUMN1 && normWs(v.COLUMN1).toLowerCase().includes(kw)) return { field: "col", snippet: v.COLUMN1 };
+    if (v.COLUMN2 && normWs(v.COLUMN2).toLowerCase().includes(kw)) return { field: "ref", snippet: v.COLUMN2 };
+    if (v.KEY && normWs(v.KEY).toLowerCase().includes(kw)) return { field: "key", snippet: v.KEY };
   }
-  return "";
+  // VALUES 全無命中 → 只可能是 BLOCK_NAME 命中（卡片標題已顯示，snippet 留空）
+  return { field: "name", snippet: "" };
 }
 
 /** 拓撲排序（Kahn BFS），同層以 BLOCK_SEQ 次排序 */
@@ -124,28 +132,42 @@ function topoSort(rules: RuleData[]): string[] {
 }
 
 // ── Components ────────────────────────────────────────────────
-export function RuleContentSearch({ rules, onMatchChange }: RuleContentSearchProps) {
+export function RuleContentSearch({
+  rules,
+  onMatchChange,
+  onNavigate,
+  inputRef,
+}: RuleContentSearchProps) {
   const [keyword, setKeyword] = useState("");
 
-  const handleSearch = useCallback(() => {
-    const kw = keyword.trim();
-    if (!kw) { onMatchChange(null, ""); return; }
-    const kwNorm = normWs(kw).toLowerCase(); // 比對用：正規化空白 + 小寫
+  const runSearch = useCallback(
+    (raw: string) => {
+      const kw = raw.trim();
+      if (!kw) { onMatchChange(null, ""); return; }
+      const kwNorm = normWs(kw).toLowerCase(); // 比對用：正規化空白 + 小寫
 
-    const matchedSet = new Set(
-      rules.filter((r) => matchRule(r, kwNorm)).map((r) => r.BLOCK_NAME)
-    );
-    const sorted = topoSort(rules).filter((name) => matchedSet.has(name));
-    const ruleMap = new Map(rules.map((r) => [r.BLOCK_NAME, r]));
+      const matchedSet = new Set(
+        rules.filter((r) => matchRule(r, kwNorm)).map((r) => r.BLOCK_NAME)
+      );
+      const sorted = topoSort(rules).filter((name) => matchedSet.has(name));
+      const ruleMap = new Map(rules.map((r) => [r.BLOCK_NAME, r]));
 
-    const results: MatchResult[] = sorted.map((id) => ({
-      id,
-      snippet: getSnippet(ruleMap.get(id)!, kwNorm),
-    }));
+      const results: MatchResult[] = sorted.map((id) => {
+        const { field, snippet } = getMatch(ruleMap.get(id)!, kwNorm);
+        return { id, snippet, field };
+      });
 
-    // 傳出正規化（保留大小寫）的關鍵字，讓 snippet 高亮與正規化後的摘要一致
-    onMatchChange(results, normWs(kw));
-  }, [keyword, rules, onMatchChange]);
+      // 傳出正規化（保留大小寫）的關鍵字，讓 snippet 高亮與正規化後的摘要一致
+      onMatchChange(results, normWs(kw));
+    },
+    [rules, onMatchChange]
+  );
+
+  // 邊打邊搜（debounce 180ms）→ 結果隨時就緒，Enter/Shift+Enter 才能直接導覽
+  useEffect(() => {
+    const t = setTimeout(() => runSearch(keyword), 180);
+    return () => clearTimeout(t);
+  }, [keyword, runSearch]);
 
   const handleClear = useCallback(() => {
     setKeyword("");
@@ -153,15 +175,22 @@ export function RuleContentSearch({ rules, onMatchChange }: RuleContentSearchPro
   }, [onMatchChange]);
 
   return (
-    <Input.Search
-      placeholder="Search any values…"
+    <Input
+      ref={inputRef}
+      placeholder="搜尋任意值…（Ctrl+F 聚焦，Enter 下一筆）"
       style={{ width: "100%" }}
       value={keyword}
-      enterButton="Search"
       allowClear
       onChange={(e) => setKeyword(e.target.value)}
-      onSearch={handleSearch}
-      onClear={handleClear}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onNavigate?.(e.shiftKey ? -1 : 1);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          handleClear();
+        }
+      }}
     />
   );
 }

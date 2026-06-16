@@ -21,6 +21,7 @@ export default function DevCaseQuery() {
   const [impactVar, setImpactVar] = useState("");
   const impactResult = mode === "impact" && impactVar ? computeImpact(graph, impactVar) : null;
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setTracedLog(null); setExpandedBlocks(new Set()); setRuntimeValues({}); setHoverBlock(null); }, [ruleKey]);
 
   const handleTraceLog = useCallback((l: string | null) => { setTracedLog(l); setExpandedBlocks(new Set()); }, []);
@@ -59,7 +60,7 @@ export default function DevCaseQuery() {
             impactResult={impactResult}
             onTraceLog={handleTraceLog}
             onToggleBlock={handleToggle}
-            onRuntimeChange={setRuntimeValues}
+            onRuntimeValuesChange={setRuntimeValues}
             onHoverBlock={setHoverBlock}
             onFocusBlock={(b) => setHoverBlock(b)}
           />
@@ -68,7 +69,7 @@ export default function DevCaseQuery() {
 
       {/* 追蹤結果（模擬 canvas 會收到的資料） */}
       <div className={`flex-1 bg-slate-800 ${R.card} p-4 font-mono text-xs text-slate-300 overflow-auto`}>
-        <div className="text-slate-500 mb-2">tracedLog：<span className="text-red-300">{tracedLog ?? "—"}</span>　hover：<span className="text-sky-300">{hoverBlock ?? "—"}</span></div>
+        <div className="text-slate-500 mb-2">tracedLog：<span className="text-red-300">{tracedLog ?? "—"}</span>{"　"}hover：<span className="text-sky-300">{hoverBlock ?? "—"}</span></div>
         <div className="mb-2">
           <span className="text-yellow-400">logBlocks（橘框）</span>：{trace.logBlocks.join(", ") || "—"}
         </div>

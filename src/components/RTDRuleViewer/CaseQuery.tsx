@@ -33,13 +33,6 @@ const EMPTY_PATH: ReadonlySet<string> = new Set();
 const EMPTY_SET: Set<string> = new Set();
 
 // ─── Pure Utils ────────────────────────────────────────────────
-function parseRuntimeLog(log: string): Record<string, string> {
-  const result: Record<string, string> = {};
-  const re = /\((\w+):\s*([^)]+)\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(log)) !== null) result[m[1].trim()] = m[2].trim();
-  return result;
-}
 
 function parseLogName(input: string): string {
   const trimmed = input.trim();
@@ -67,6 +60,7 @@ type NodeShared = {
   hoverBlock: string | null;
   onToggleBlock: (block: string) => void;
   onHoverBlock: (block: string | null) => void;
+  onSetRuntimeValue: (varName: string, value: string) => void;
   onFocusBlock?: (blockName: string) => void;
   onOpenInspector?: (blockName: string) => void;
 };
@@ -92,6 +86,7 @@ function LayerNode({
     hoverBlock,
     onToggleBlock,
     onHoverBlock,
+    onSetRuntimeValue,
     onFocusBlock,
     onOpenInspector,
   } = ctx;
@@ -159,7 +154,7 @@ function LayerNode({
               : "cursor-default text-transparent pointer-events-none",
           )}
         >
-          {expandable ? (expanded ? "▼" : "▶") : ""}
+          {expandable ? (expanded ? "▾" : "▸") : ""}
         </button>
 
         <span className="text-[9px] font-mono text-white/40 shrink-0 tabular-nums">
@@ -176,20 +171,6 @@ function LayerNode({
         )}
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
-          {runtimeValue !== undefined && (
-            <span
-              className={cn(
-                "font-mono text-[10px] px-1.5 py-px rounded border",
-                fire === "yes"
-                  ? "bg-green-400/15 text-green-300 border-green-400/30"
-                  : fire === "no"
-                    ? "bg-white/5 text-slate-400 border-white/10"
-                    : "bg-yellow-400/15 text-yellow-300 border-yellow-400/25",
-              )}
-            >
-              = {runtimeValue}
-            </span>
-          )}
           {node.status === "root" && (
             <span className="text-[10px] text-slate-400 italic">root</span>
           )}
@@ -199,6 +180,23 @@ function LayerNode({
           {node.status === "shared" && (
             <span className="text-[10px] text-indigo-300/70">⇇ 共用</span>
           )}
+          <input
+            value={runtimeValue ?? ""}
+            onChange={(e) => onSetRuntimeValue(node.varName, e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="—"
+            title="填已知值（Runtime Log）；空白＝清除"
+            className={cn(
+              "w-14 text-right font-mono text-[10px] px-1 py-px rounded border outline-none transition-colors",
+              runtimeValue === undefined
+                ? "bg-white/5 border-white/10 text-slate-300 placeholder:text-white/25"
+                : fire === "yes"
+                  ? "bg-green-400/15 text-green-300 border-green-400/40"
+                  : fire === "no"
+                    ? "bg-white/8 text-slate-300 border-white/15"
+                    : "bg-yellow-400/15 text-yellow-300 border-yellow-400/30",
+            )}
+          />
         </div>
       </div>
 
@@ -281,8 +279,8 @@ export type CaseQueryProps = {
   impactResult: ImpactResult | null; // 由父層 computeImpact 算好
   onTraceLog: (logName: string | null) => void; // 選定 / 清除追蹤的 log
   onToggleBlock: (block: string) => void; // 展開 / 收合某 block 的上游
-  onRuntimeChange: (vals: Record<string, string>) => void;
   onHoverBlock: (block: string | null) => void;
+  onRuntimeValuesChange: (next: Record<string, string>) => void; // tracker 樹/chips 設已知值 → 回寫 runtimeValues
   onFocusBlock?: (blockName: string) => void;
   onOpenInspector?: (blockName: string) => void; // 雙擊 block 參照 → 開 inspector
 };
@@ -302,15 +300,21 @@ export function CaseQuery({
   impactResult,
   onTraceLog,
   onToggleBlock,
-  onRuntimeChange,
   onHoverBlock,
+  onRuntimeValuesChange,
   onFocusBlock,
   onOpenInspector,
 }: CaseQueryProps) {
   const [searchInput, setSearchInput] = useState("");
-  const [runtimeLog, setRuntimeLog] = useState("");
-  const [logInputOpen, setLogInputOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Var Impact 就地展開：哪條受影響 log 展開中 + 該樹的本地 block 展開狀態（獨立於 canvas / Trace）
+  const [openImpactLog, setOpenImpactLog] = useState<string | null>(null);
+  const [impactExpanded, setImpactExpanded] = useState<Set<string>>(new Set());
+
+  // tracedLog 變更時同步 searchInput（含外部觸發，如 canvas 右鍵）
+  useEffect(() => {
+    setSearchInput(tracedLog ? `[$${tracedLog}$]` : "");
+  }, [tracedLog]);
 
   const allLogNames = useMemo(() => [...graph.logs.keys()].sort(), [graph]);
   const allVarNames = useMemo(() => [...graph.vars.keys()].sort(), [graph]);
@@ -334,11 +338,6 @@ export function CaseQuery({
     () => (tracedLog ? (traceLog(graph, tracedLog, shared) ?? []) : []),
     [graph, tracedLog, shared],
   );
-
-  // 原始 runtime 文字 → 解析後上拋（canvas 與本樹共用）
-  useEffect(() => {
-    onRuntimeChange(parseRuntimeLog(runtimeLog));
-  }, [runtimeLog, onRuntimeChange]);
 
   function handleTrace(overrideName?: string) {
     const logName = overrideName ?? parseLogName(searchInput);
@@ -376,6 +375,44 @@ export function CaseQuery({
   const runtimeValueCount = Object.keys(runtimeValues).length;
   const totalL0 = layers.reduce((n, l) => n + l.children.length, 0);
 
+  // 設 / 清單一個已知變數（樹上 inline 與 chips 共用；空白＝清除該變數）
+  const setRuntimeValue = (name: string, value: string) => {
+    const next = { ...runtimeValues };
+    if (value.trim() === "") delete next[name];
+    else next[name] = value;
+    onRuntimeValuesChange(next);
+  };
+
+  // 已知變數 chips（Tracker 頂部；可單獨清除 / 一鍵清空）
+  const knownVarsBar =
+    runtimeValueCount > 0 ? (
+      <div className="flex flex-wrap items-center gap-1 shrink-0">
+        <span className="text-[10px] text-slate-400 shrink-0">
+          已知 {runtimeValueCount}
+        </span>
+        {Object.entries(runtimeValues).map(([k, v]) => (
+          <span
+            key={k}
+            className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-px rounded bg-green-400/10 border border-green-400/25 text-green-300"
+          >
+            {k}={v}
+            <button
+              onClick={() => setRuntimeValue(k, "")}
+              className="text-green-300/60 hover:text-green-200 cursor-pointer bg-transparent leading-none"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <button
+          onClick={() => onRuntimeValuesChange({})}
+          className="text-[10px] text-slate-400 hover:text-white cursor-pointer bg-transparent"
+        >
+          清空
+        </button>
+      </div>
+    ) : null;
+
   const nodeCtx: NodeShared = {
     graph,
     shared,
@@ -384,6 +421,7 @@ export function CaseQuery({
     hoverBlock,
     onToggleBlock,
     onHoverBlock,
+    onSetRuntimeValue: setRuntimeValue,
     onFocusBlock,
     onOpenInspector,
   };
@@ -402,7 +440,7 @@ export function CaseQuery({
               : "text-slate-400 hover:text-white hover:bg-white/7",
           )}
         >
-          {m === "trace" ? "反查 Trace" : "影響 Impact"}
+          {m === "trace" ? "Log Trace" : "Var Impact"}
         </button>
       ))}
     </div>
@@ -417,9 +455,35 @@ export function CaseQuery({
         ? allVarNames.filter((v) => v.toUpperCase().includes(kw)).slice(0, 30)
         : [];
     const res = impactResult;
+    // 就地展開：openImpactLog 的依賴樹（本地 block 展開狀態，獨立於 canvas / Trace）
+    const impactShared = openImpactLog
+      ? (collectLogClosure(graph, openImpactLog).shared ?? EMPTY_SET)
+      : EMPTY_SET;
+    const impactLayers = openImpactLog
+      ? (traceLog(graph, openImpactLog, impactShared) ?? [])
+      : [];
+    const impactNodeCtx: NodeShared = {
+      graph,
+      shared: impactShared,
+      runtimeValues,
+      expandedBlocks: impactExpanded,
+      hoverBlock,
+      onToggleBlock: (block) =>
+        setImpactExpanded((prev) => {
+          const n = new Set(prev);
+          if (n.has(block)) n.delete(block);
+          else n.add(block);
+          return n;
+        }),
+      onHoverBlock,
+      onSetRuntimeValue: setRuntimeValue,
+      onFocusBlock,
+      onOpenInspector,
+    };
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-2">
         {modeTabs}
+        {knownVarsBar}
         <AutoComplete
           className="shrink-0"
           style={{ width: "100%" }}
@@ -451,24 +515,86 @@ export function CaseQuery({
           {res?.found && res.logs.length > 0 && (
             <>
               <div className="shrink-0 text-slate-400 text-[10px] tabular-nums text-right">
-                {res.logs.length} 個受影響反藍（點擊跳去 Trace）
+                {res.logs.length} 個受影響反藍（點開看依賴）
               </div>
-              {res.logs.map((l) => (
-                <button
-                  key={l.logName}
-                  onClick={() => {
-                    onModeChange("trace");
-                    onTraceLog(l.logName);
-                  }}
-                  title={`追蹤 [$${l.logName}$]`}
-                  className="text-left px-2.5 py-2 rounded-lg border border-white/10 bg-white/4 hover:bg-white/8 cursor-pointer transition-colors"
-                >
-                  <AntiBlueBadge name={l.logName} />
-                  <div className="mt-1 font-mono text-[10px] text-white/45 truncate">
-                    {l.path.vars.join(" → ")} → 觸發
+              {res.logs.map((l) => {
+                const open = openImpactLog === l.logName;
+                return (
+                  <div
+                    key={l.logName}
+                    className="rounded-lg border border-white/10 bg-white/4 overflow-hidden"
+                  >
+                    <div className="flex items-center gap-1.5 px-2.5 py-2">
+                      <button
+                        onClick={() => {
+                          setOpenImpactLog(open ? null : l.logName);
+                          setImpactExpanded(new Set());
+                        }}
+                        className="flex items-center gap-1.5 text-left min-w-0 flex-1 cursor-pointer bg-transparent"
+                      >
+                        <span className="text-[9px] text-white/40 w-3 shrink-0 leading-none">
+                          {open ? "▾" : "▸"}
+                        </span>
+                        <AntiBlueBadge name={l.logName} />
+                        <span className="font-mono text-[10px] text-white/45 truncate min-w-0">
+                          {l.path.vars.join(" → ")}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          onModeChange("trace");
+                          onTraceLog(l.logName);
+                        }}
+                        title="改在 Trace 模式開啟"
+                        className="shrink-0 text-[10px] text-slate-400 hover:text-sky-300 cursor-pointer bg-transparent"
+                      >
+                        ↗ Trace
+                      </button>
+                    </div>
+                    {open && (
+                      <div className="px-2.5 pb-2 pt-2 border-t border-white/8 flex flex-col gap-2">
+                        {impactLayers.length === 0 ? (
+                          <div className="text-[10px] text-slate-400 italic px-1">
+                            此 LOG 的觸發條件無可追蹤變數
+                          </div>
+                        ) : (
+                          impactLayers.map((layer, li) => (
+                            <div
+                              key={`${layer.block}-${li}`}
+                              className="flex flex-col gap-1"
+                            >
+                              {impactLayers.length > 1 && (
+                                <div className="text-[10px] text-slate-400 px-0.5">
+                                  觸發於{" "}
+                                  <button
+                                    onClick={() => onFocusBlock?.(layer.block)}
+                                    onDoubleClick={() =>
+                                      onOpenInspector?.(layer.block)
+                                    }
+                                    className="font-mono text-sky-400/80 hover:text-sky-300 hover:underline cursor-pointer bg-transparent"
+                                  >
+                                    {layer.block}
+                                  </button>
+                                </div>
+                              )}
+                              {layer.children.map((node, ni) => (
+                                <LayerNode
+                                  key={`${node.varName}-${li}-${ni}`}
+                                  node={node}
+                                  path={EMPTY_PATH}
+                                  depth={0}
+                                  parentBlock={layer.block}
+                                  ctx={impactNodeCtx}
+                                />
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -495,47 +621,14 @@ export function CaseQuery({
       filterOption={false}
       defaultActiveFirstOption={false}
       onChange={(v) => setSearchInput(v ?? "")}
+      onSelect={(v) => handleTrace(parseLogName(v))}
     >
-      <Input.Search
-        placeholder="[$LOG_NAME$]"
-        enterButton="Trace"
+      <Input
+        placeholder="[$LOG_NAME$]（Enter 追蹤）"
         allowClear
-        onSearch={() => handleTrace()}
+        onPressEnter={() => handleTrace()}
       />
     </AutoComplete>
-  );
-
-  // ── Runtime Log Section ─────────────────────────────────────
-  const logInputSection = (
-    <div className="rounded-lg border border-white/10 bg-white/2 overflow-hidden shrink-0">
-      <button
-        onClick={() => setLogInputOpen((c) => !c)}
-        className="w-full flex items-center gap-2 px-2.5 py-1.5 hover:bg-white/4 transition-colors cursor-pointer text-left"
-      >
-        <span className="text-slate-400 text-xs">Runtime Log</span>
-        {runtimeValueCount > 0 && (
-          <span className="text-green-400 font-mono text-[10px] px-1.5 py-px rounded bg-green-400/10 border border-green-400/25">
-            {runtimeValueCount} vars · 自動展開命中路徑
-          </span>
-        )}
-        <span className="ml-auto text-slate-400 text-xs leading-none">
-          {logInputOpen ? "▼" : "▶"}
-        </span>
-      </button>
-      {logInputOpen && (
-        <div className="px-2.5 pb-2.5">
-          <textarea
-            className="w-full rounded px-2 py-1.5 bg-white/8 text-white border border-white/15
-              placeholder:text-white/20 text-xs outline-none focus:border-white/35 font-mono
-              resize-none leading-relaxed"
-            rows={3}
-            placeholder="(VariableA: 10) (VariableB: Y) ..."
-            value={runtimeLog}
-            onChange={(e) => setRuntimeLog(e.target.value)}
-          />
-        </div>
-      )}
-    </div>
   );
 
   // ── Idle ────────────────────────────────────────────────────
@@ -543,8 +636,8 @@ export function CaseQuery({
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-2">
         {modeTabs}
+        {knownVarsBar}
         {searchBar}
-        {logInputSection}
         <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-slate-400 text-xs text-center">
           <span className="text-xl opacity-20">[$]</span>
           選 / 輸入反藍 Log 開始追蹤
@@ -558,40 +651,47 @@ export function CaseQuery({
   // ── Log Mode ────────────────────────────────────────────────
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2">
-      {modeTabs}
+      {/* modeTabs + 操作按鈕同一列 */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        {(["trace", "impact"] as TrackerMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => onModeChange(m)}
+            className={cn(
+              "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
+              mode === m
+                ? "bg-white/15 text-white"
+                : "text-slate-400 hover:text-white hover:bg-white/7",
+            )}
+          >
+            {m === "trace" ? "Log Trace" : "Var Impact"}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={handleCopy}
+            title="複製此反藍的完整追蹤資訊（觸發點 + 依賴樹 + 相關 Block 定義 + roots），可貼給 AI 分析"
+            className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium cursor-pointer transition-colors border",
+              copied
+                ? "bg-green-500/20 text-green-300 border-green-500/40"
+                : "bg-white/8 text-slate-300 border-white/15 hover:bg-white/15 hover:text-white",
+            )}
+          >
+            {copied ? "✓ 已複製" : "複製邏輯結構"}
+          </button>
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-red-400 border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 cursor-pointer transition-colors"
+            title="取消追蹤，回到選擇 Log（canvas 高亮一併清除）"
+          >
+            ✕ 取消追蹤
+          </button>
+        </div>
+      </div>
+
+      {knownVarsBar}
       {searchBar}
-      {logInputSection}
-
-      {/* Breadcrumb + 複製 */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-slate-300 border border-white/15 bg-white/5 hover:bg-white/10 hover:text-white cursor-pointer transition-colors shrink-0"
-          title="取消追蹤，回到選擇 Log（canvas 高亮一併清除）"
-        >
-          ✕ 取消追蹤
-        </button>
-        <AntiBlueBadge name={tracedLog} active />
-
-        <button
-          onClick={handleCopy}
-          title="複製此反藍的完整追蹤資訊（觸發點 + 依賴樹 + 相關 Block 定義 + roots），可貼給 AI 分析"
-          className={cn(
-            "ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium shrink-0 cursor-pointer transition-colors border",
-            copied
-              ? "bg-green-500/20 text-green-300 border-green-500/40"
-              : "bg-white/8 text-slate-300 border-white/15 hover:bg-white/15 hover:text-white",
-          )}
-        >
-          {copied ? "✓ 已複製" : "複製結構"}
-        </button>
-      </div>
-
-      <div className="shrink-0 text-slate-400 text-[10px] tabular-nums text-right">
-        {totalL0 > 0
-          ? `L0 · ${totalL0} 變數（點節點 ▸ 或右鍵 canvas block 展開）`
-          : "無條件變數"}
-      </div>
 
       {/* Layer Tree */}
       <div className="flex-1 min-h-0 overflow-auto">

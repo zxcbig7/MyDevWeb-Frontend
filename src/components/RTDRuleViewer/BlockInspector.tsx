@@ -37,6 +37,8 @@ type BlockInspectorProps = {
   onFocus?: () => void;
   zIndex?: number;
   onViewImportData?: (tableName: string) => void;
+  hasRuntime?: boolean; // 有設 Runtime Log → 顯示「Log Value」鈕
+  onViewLogValue?: () => void; // 開該 block 的 Log Value 對照面板
   searchKeyword?: string;
   trackedLogName?: string;
 };
@@ -107,6 +109,8 @@ export function BlockInspector({
   onFocus,
   zIndex = 100,
   onViewImportData,
+  hasRuntime,
+  onViewLogValue,
   searchKeyword = "",
   trackedLogName = "",
 }: BlockInspectorProps) {
@@ -240,6 +244,16 @@ export function BlockInspector({
               className="text-[10px] px-2 py-0.5 rounded border border-blue-300 text-blue-500 hover:bg-blue-50 bg-transparent cursor-pointer"
             >
               View Data
+            </button>
+          )}
+          {hasRuntime && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewLogValue?.(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="對照此 block 變數在 Runtime Log 的數值（看邏輯時的已知值參考）"
+              className="text-[10px] px-2 py-0.5 rounded border border-amber-300 text-amber-600 hover:bg-amber-50 bg-transparent cursor-pointer"
+            >
+              Log Value
             </button>
           )}
           <button

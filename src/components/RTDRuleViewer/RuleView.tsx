@@ -24,7 +24,7 @@ import type {
   AlignOp,
   DistributeAxis,
 } from "./types";
-import { findIslandBlocks } from "./depGraph";
+import { findDeadBranchBlocks } from "./depGraph";
 import {
   buildBlocks,
   drawBlocks,
@@ -43,6 +43,7 @@ import {
 import { BlockTooltip } from "./BlockTooltip";
 import { BlockInspector } from "./BlockInspector";
 import { TableInspector } from "./tableinfo";
+import { LogValueInspector } from "./LogValueInspector";
 import { useImportTableResponse } from "./api";
 
 type RuleViewProps = {
@@ -56,6 +57,8 @@ type RuleViewProps = {
   previewEdges?: TrackerEdge[]; // 全展邊集，hover 預覽用
   hoverBlockId?: string | null; // 外部（側欄）hover 的 block → canvas 連動高亮
   useNewIcons?: boolean;
+  showDeadBranches?: boolean; // 顯示斷尾 block 警示（預設關）
+  runtimeValues?: Record<string, string>; // inspector Log Value 用
   layoutVersion?: number; // +1 → 重建 blocks（block 位置回原始 POSX/POSY）
   searchKeyword?: string;
   trackedLogName?: string;
@@ -118,6 +121,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       previewEdges = [],
       hoverBlockId = null,
       useNewIcons = true,
+      showDeadBranches = false,
+      runtimeValues,
       layoutVersion = 0,
       searchKeyword = "",
       trackedLogName = "",
@@ -148,19 +153,20 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       return m;
     }, [arrows]);
 
-    // ── 孤島 block：無人以它為 PREBLOCK（無下游、運算無效）→ 畫面警示 + console.warn。
-    //    與 Tracker 排除孤島共用同一定義（depGraph.findIslandBlocks）。DispatchScreen 豁免。
-    const islandBlockIds = useMemo(() => findIslandBlocks(rules), [rules]);
+    // ── 斷尾 block：無人以它為 PREBLOCK（無下游、運算無效）→ 畫面警示 + console.warn。
+    //    與 Tracker 排除斷尾共用同一定義（depGraph.findDeadBranchBlocks）。DispatchScreen 豁免。
+    const deadBranchBlockIds = useMemo(() => findDeadBranchBlocks(rules), [rules]);
 
     useEffect(() => {
-      if (islandBlockIds.size > 0)
+      if (deadBranchBlockIds.size > 0)
         console.warn(
-          `[RuleViewer] 偵測到 ${islandBlockIds.size} 個孤島 block（無下游、運算無效）：${[...islandBlockIds].join(", ")}`,
+          `[RuleViewer] 偵測到 ${deadBranchBlockIds.size} 個斷尾 block（無下游、運算無效）：${[...deadBranchBlockIds].join(", ")}`,
         );
-    }, [islandBlockIds]);
+    }, [deadBranchBlockIds]);
 
     // ── UI 狀態 ───────────────────────────────────────────
     const [inspectors, setInspectors] = useState<InspectorState[]>([]);
+    const [logValueBlock, setLogValueBlock] = useState<Block | null>(null); // Log Value 浮動面板（單一）
     const [focusStack, setFocusStack] = useState<string[]>([]);
     const [importTableName, setImportTableName] = useState<string | null>(null);
     const { data: importTableData, isLoading: importTableLoading } =
@@ -406,8 +412,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           useNewIcons,
         );
 
-        // ── 孤島 block 警示（恆顯，不受 trace/search 影響）：紅色虛線框 + 「⚠ 孤島」標籤，告知無下游、無作用 ──
-        if (islandBlockIds.size > 0) {
+        // ── 斷尾 block 警示（恆顯，不受 trace/search 影響）：紅色虛線框 + 「⚠ 斷尾」標籤，告知無下游、無作用 ──
+        if (showDeadBranches && deadBranchBlockIds.size > 0) {
           ctx.save();
           ctx.strokeStyle = "rgba(244,63,94,0.95)"; // rose-500
           ctx.fillStyle = "rgba(244,63,94,0.95)";
@@ -417,7 +423,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           ctx.textAlign = "center";
           ctx.textBaseline = "bottom";
           for (const b of blocks) {
-            if (!islandBlockIds.has(b.id)) continue;
+            if (!deadBranchBlockIds.has(b.id)) continue;
             ctx.setLineDash([5 / view.scale, 3 / view.scale]);
             ctx.shadowBlur = 6;
             ctx.beginPath();
@@ -425,7 +431,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.shadowBlur = 0;
-            ctx.fillText("⚠ 孤島", b.x + b.w / 2, b.y - 7 / view.scale);
+            ctx.fillText("⚠ 斷尾", b.x + b.w / 2, b.y - 7 / view.scale);
           }
           ctx.restore();
         }
@@ -550,7 +556,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
       [
         arrows,
         parentsOf,
-        islandBlockIds,
+        deadBranchBlockIds,
+        showDeadBranches,
         inspectedBlockIds,
         matchedBlockIds,
         selectedBlockId,
@@ -962,6 +969,7 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     // ── Rules 換了 / 按載入 → 清空 Inspectors + 選取 ───────────
     useEffect(() => {
       setInspectors([]);
+      setLogValueBlock(null);
       setFocusStack([]);
       setSelectedBlocks(new Set());
       marqueeRef.current = null;
@@ -1165,6 +1173,9 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                     prev.filter((i) => i.block.id !== block.id),
                   );
                   setFocusStack((prev) => prev.filter((id) => id !== block.id));
+                  setLogValueBlock((lv) =>
+                    lv?.id === block.id ? null : lv,
+                  );
                 }}
                 onFocus={() =>
                   setFocusStack((prev) => {
@@ -1173,9 +1184,37 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
                   })
                 }
                 onViewImportData={(tableName) => setImportTableName(tableName)}
+                hasRuntime={
+                  !!runtimeValues && Object.keys(runtimeValues).length > 0
+                }
+                onViewLogValue={() =>
+                  setLogValueBlock((prev) =>
+                    prev?.id === block.id ? null : block,
+                  )
+                }
               />
             );
           })}
+          {logValueBlock && runtimeValues && (() => {
+            const insp = inspectors.find((i) => i.block.id === logValueBlock.id);
+            const baseX = insp?.x ?? sizeRef.current.w / 2 - 185;
+            const baseY = insp?.y ?? sizeRef.current.h / 3;
+            // w-90 (360px) inspector + 8px gap; LogValueInspector w-64 (256px)
+            const lvX = Math.max(0, Math.min(baseX + 368, sizeRef.current.w - 264));
+            const lvY = Math.max(0, baseY);
+            return (
+              <LogValueInspector
+                key={logValueBlock.id}
+                block={logValueBlock}
+                runtimeValues={runtimeValues}
+                wrapperRef={canvasStageRef}
+                inspectorDraggingRef={inspectorDraggingRef}
+                initialX={lvX}
+                initialY={lvY}
+                onClose={() => setLogValueBlock(null)}
+              />
+            );
+          })()}
           {importTableName && (
             <TableInspector
               tableName={importTableName}

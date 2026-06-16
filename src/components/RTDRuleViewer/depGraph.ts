@@ -59,27 +59,27 @@ export function resolveDefs(graph: DepGraph, varName: string, refBlock: string):
   return node.defs.filter((d) => anc.has(d.block));
 }
 
-// ─── 孤島偵測（topology 單一來源）───────────────────────────
+// ─── 斷尾偵測（topology 單一來源）───────────────────────────
 /**
- * 孤島 block：沒有任何 block 以它為 PREBLOCK（＝無下游、運算結果無人取用，等於無效）。
+ * 斷尾 block：沒有任何 block 以它為 PREBLOCK（＝無下游、運算結果無人取用，等於無效）。
  * DispatchScreen 為終端 sink，本就無下游 → 豁免。
- * Tracker 所有演算法一律不分析孤島（見 buildDepGraph）；Search（RuleContentSearch）仍可搜到。
+ * Tracker 所有演算法一律不分析斷尾（見 buildDepGraph）；Search（RuleContentSearch）仍可搜到。
  */
-export function findIslandBlocks(rules: RuleData[]): Set<string> {
+export function findDeadBranchBlocks(rules: RuleData[]): Set<string> {
   const referenced = new Set<string>();
   for (const r of rules) for (const p of r.PREBLOCK ?? []) referenced.add(p);
-  const islands = new Set<string>();
+  const deadBranches =new Set<string>();
   for (const r of rules)
     if (r.BLOCK_TYPE !== BlockTypes.DispatchScreen && !referenced.has(r.BLOCK_NAME))
-      islands.add(r.BLOCK_NAME);
-  return islands;
+      deadBranches.add(r.BLOCK_NAME);
+  return deadBranches;
 }
 
 // ─── 建圖 ───────────────────────────────────────────────────
 export function buildDepGraph(rules: RuleData[]): DepGraph {
   const vars = new Map<string, VarNode>();
   const logs: DepGraph["logs"] = new Map();
-  const islands = findIslandBlocks(rules);   // Tracker 不分析孤島（無下游、無效）
+  const deadBranches =findDeadBranchBlocks(rules);   // Tracker 不分析斷尾（無下游、無效）
 
   const ensureVar = (name: string): VarNode => {
     let node = vars.get(name);
@@ -88,7 +88,7 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
   };
 
   for (const r of rules) {
-    if (islands.has(r.BLOCK_NAME)) continue;   // 孤島不進依賴圖（log / var def 皆略過）
+    if (deadBranches.has(r.BLOCK_NAME)) continue;   // 斷尾不進依賴圖（log / var def 皆略過）
     for (const v of r.VALUES ?? []) {
       const expr = v.VALUE;
       if (!expr) continue;
