@@ -426,25 +426,8 @@ export function CaseQuery({
     onOpenInspector,
   };
 
-  // ── 模式切換（trace 反查 / impact 影響）──────────────────────
-  const modeTabs = (
-    <div className="flex gap-0.5 shrink-0">
-      {(["trace", "impact"] as TrackerMode[]).map((m) => (
-        <button
-          key={m}
-          onClick={() => onModeChange(m)}
-          className={cn(
-            "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
-            mode === m
-              ? "bg-white/15 text-white"
-              : "text-slate-400 hover:text-white hover:bg-white/7",
-          )}
-        >
-          {m === "trace" ? "Log Trace" : "Var Impact"}
-        </button>
-      ))}
-    </div>
-  );
+  // 模式（trace / impact）由 RuleViewer 頂層 tab 切換（Viewer | Tracker | Var Impact）；
+  // CaseQuery 內不再有 modeTabs，onModeChange 僅供內部「↗ Trace」跳轉用。
 
   // ── Impact 模式（變數 → 受影響反藍）─ spec ① ────────────────
   if (mode === "impact") {
@@ -482,8 +465,6 @@ export function CaseQuery({
     };
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-2">
-        {modeTabs}
-        {knownVarsBar}
         <AutoComplete
           className="shrink-0"
           style={{ width: "100%" }}
@@ -494,6 +475,7 @@ export function CaseQuery({
           placeholder="輸入變數名（DB 欄位 / 中間變數）"
           onChange={(v) => onImpactVarChange(v ?? "")}
         />
+        {knownVarsBar}
 
         <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-1.5">
           {!typed && (
@@ -635,7 +617,6 @@ export function CaseQuery({
   if (!tracedLog) {
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-2">
-        {modeTabs}
         {knownVarsBar}
         {searchBar}
         <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-slate-400 text-xs text-center">
@@ -651,22 +632,8 @@ export function CaseQuery({
   // ── Log Mode ────────────────────────────────────────────────
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2">
-      {/* modeTabs + 操作按鈕同一列 */}
+      {/* 操作按鈕（複製 / 取消追蹤）；模式切換已移至頂層 tab */}
       <div className="flex items-center gap-0.5 shrink-0">
-        {(["trace", "impact"] as TrackerMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => onModeChange(m)}
-            className={cn(
-              "px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
-              mode === m
-                ? "bg-white/15 text-white"
-                : "text-slate-400 hover:text-white hover:bg-white/7",
-            )}
-          >
-            {m === "trace" ? "Log Trace" : "Var Impact"}
-          </button>
-        ))}
         <div className="ml-auto flex items-center gap-1.5">
           <button
             onClick={handleCopy}

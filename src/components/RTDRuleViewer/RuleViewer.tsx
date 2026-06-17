@@ -907,18 +907,40 @@ export default function RuleViewer() {
             {/* 分頁標頭 */}
             <div className="flex items-center justify-between gap-2 shrink-0">
               <div className="flex gap-0.5">
-                {(["search", "tracker"] as RightTab[]).map((tab) => (
+                {[
+                  {
+                    label: "Viewer",
+                    active: rightTab === "search",
+                    onClick: () => handleTabChange("search"),
+                  },
+                  {
+                    label: "Tracker",
+                    active: rightTab === "tracker" && !isImpact,
+                    onClick: () => {
+                      handleTabChange("tracker");
+                      setTrackerMode("trace");
+                    },
+                  },
+                  {
+                    label: "Var Impact",
+                    active: rightTab === "tracker" && isImpact,
+                    onClick: () => {
+                      handleTabChange("tracker");
+                      setTrackerMode("impact");
+                    },
+                  },
+                ].map((t) => (
                   <button
-                    key={tab}
-                    onClick={() => handleTabChange(tab)}
+                    key={t.label}
+                    onClick={t.onClick}
                     className={cn(
                       "px-3 py-1 rounded text-xs font-semibold cursor-pointer transition-colors",
-                      rightTab === tab
+                      t.active
                         ? "bg-white/15 text-white"
                         : "text-slate-400 hover:text-white hover:bg-white/7",
                     )}
                   >
-                    {tab === "search" ? "Viewer" : "Tracker"}
+                    {t.label}
                   </button>
                 ))}
               </div>

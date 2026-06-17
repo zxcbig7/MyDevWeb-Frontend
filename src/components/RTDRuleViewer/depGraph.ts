@@ -50,7 +50,7 @@ function buildAncestors(rules: RuleData[]): Map<string, Set<string>> {
   return result;
 }
 
-/** 變數 V 被 block refBlock 引用時的合法來源：COLUMN1==V 且其 block 在 refBlock 的 PREBLOCK 上游。 */
+/** 變數 V 被 block refBlock 引用時的合法來源：產出 block 的 KEY==V 且其 block 在 refBlock 的 PREBLOCK 上游。 */
 export function resolveDefs(graph: DepGraph, varName: string, refBlock: string): VarDef[] {
   const node = graph.vars.get(varName);
   if (!node) return [];
@@ -94,9 +94,10 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
       if (!expr) continue;
       const clauses = parseAPF(expr);
 
-      // (a) Function 定義：COLUMN1 為單一變數名 → 它依賴整個表達式引用的變數
-      //     只認 Function（Index 的 COLUMN1 是 join key、Database 是 root，皆不算運算）
-      const out = v.COLUMN1?.trim();
+      // (a) Function 定義：輸出變數名取自 KEY（真實 schema：Function 的 COLUMN1/COLUMN2 為 null，
+      //     輸出變數放 KEY）→ 它依賴整個表達式引用的變數。dev 舊 mock 仍把變數放 COLUMN1 → 留 fallback 相容。
+      //     只認 Function（Index 的 KEY 是 index 名、Database 的 KEY 是表別名，皆不算運算）
+      const out = (v.KEY || v.COLUMN1)?.trim();
       if (r.BLOCK_TYPE === "Function" && out && isSingleIdent(out)) {
         const depMap = new Map<string, DepRef>();
         for (const cl of clauses)                       // 條件位置優先
@@ -421,8 +422,9 @@ export function buildLogReport(
     const grp = r.BLOCK_GROUP ? `, group ${r.BLOCK_GROUP}` : "";
     out.push("", `### ${r.BLOCK_NAME}  (${r.BLOCK_TYPE}${grp})`);
     for (const v of r.VALUES ?? []) {
-      if (!v.VALUE && !v.COLUMN1) continue;
-      const label = v.COLUMN1 ? `${v.COLUMN1} =` : "·";
+      if (!v.VALUE && !v.COLUMN1 && !v.KEY) continue;
+      const outVar = v.COLUMN1 || v.KEY; // Function 輸出變數放 KEY（COLUMN1 為 dev 舊 mock）
+      const label = outVar ? `${outVar} =` : "·";
       out.push("```", `${label} ${v.VALUE ?? ""}`.trim(), "```");
     }
   }

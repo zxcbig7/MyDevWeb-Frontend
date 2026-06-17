@@ -119,12 +119,12 @@ export const useRuleResponse = (fab: string | null, phase: string | null) =>
  *     "BLOCK_TYPE":  "Filter",        // 對應 /public/RTDIcons 的圖片名稱
  *     "BLOCK_GROUP": "G1",
  *     "BLOCK_SEQ":   "1",
- *     "KEY":         "SomeKey",       // 可為 null
+ *     "KEY":         "OUTPUT_VAR",    // Function：輸出變數名；Database：表別名；Index：index 名；可為 null
  *     "POSX":        100,             // Canvas 畫布 X 座標（px）
  *     "POSY":        200,             // Canvas 畫布 Y 座標（px）
  *     "PREBLOCK":    "DataSource1",   // 前置 Block 名稱，多個用逗號分隔（最多取前 2 個）；可為 null
- *     "COLUMN1":     "OUTPUT_VAR",    // 輸出變數名稱；可為 null
- *     "COLUMN2":     "SOURCE_COL",    // 來源欄位；可為 null
+ *     "COLUMN1":     "COL_LIST",      // Database：欄位清單；Index：主線 join key；Function：null
+ *     "COLUMN2":     "SOURCE_COL",    // Index：副線 join key；Function：null
  *     "VALUE":       "IF $LOG$ THEN", // 條件表達式（後端已將 VALUE1~5 合併）；可為 null
  *     "CLAIM_TIME":  null             // 最後更新時間；可為 null
  *   },
