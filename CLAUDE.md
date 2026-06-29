@@ -14,13 +14,22 @@ React 19 + TypeScript strict 前端。RuleViewer / Notes / SQL 工具 + Google O
 - **axios + SWR**：資料層（讀 SWR、寫 axios）
 - react-icons（已裝）；**新 icon 一律 lucide-react**（functional UI icon）
 - react-router-dom 7（route-level lazy，見 `src/App.tsx`）
-- design-tokens：`design-tokens/tokens.css` + `tokens.ts`（顏色/spacing/圓角單一來源）
+- 主 app（`src/`）design token：圓角 `src/lib/radius.ts`、間距 `src/lib/spacing.ts`（皆為靜態 Tailwind class 字串，`src/index.css` `@theme` 放 CSS var）
+- `design-tokens/`（root）：**僅** `apps/blog` / `apps/devconsole` 子 app 用，**主 app 不 import**（勿混用）
 </tech_stack>
 
 <paved_stack>
 照規範庫 `<paved_stack>`，本專案落地細節：
 
 **Styling** — Tailwind + `cn()` 為主；antd 元件用其 props/theme 調，少數覆寫才用 className。圓角用 `--radius-btn/card/panel`（`src/index.css` ↔ `src/lib/radius.ts`），NEVER hard-code 色票。
+
+**Spacing（間距三鐵則，見 `src/lib/spacing.ts`）**
+
+- NEVER 在子元件寫 `mb-*`/`mt-*` 把自己往外推 — ALWAYS 由父層 flex/grid 的 `gap` 給間距 — Why: 間距寫子層 = N 個分散決定、換 grid 就壞、最後一個多一截；寫父層一處管全部
+- NEVER half-step（`gap-1.5`/`py-0.5`）或 inline `style={{ padding }}` 硬 px — ALWAYS 走 4px grid 整數階
+- 三層級節奏（越外層越大）：`tight`(8) `<` `default`(16) `<` `loose`(24/32)，用 `GAP`/`PAD` 常數或 layout primitive
+- 排版優先用 `src/components/layout` 的 `<Stack>`/`<Row>`/`<Grid>`（已內建父層 gap），個別元件少直接寫 spacing class
+- antd 間距/圓角的單一控制點在 `src/App.tsx` 的 `ConfigProvider`，NEVER 各元件 inline 蓋 antd 間距
 
 **Components（Hybrid）** — 重量級 widget 用 antd；layout/卡片/按鈕/自訂視覺用 Tailwind。要炫砲/動效從 `frontend-resources.md` 的 shadcn/HyperUI/Aceternity **貼進來改寫成 Tailwind**，不新增 runtime dep。
 

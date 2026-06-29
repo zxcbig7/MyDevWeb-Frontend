@@ -1,8 +1,19 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { ConfigProvider } from "antd";
 import HomePage from "./pages/layout/HomeLayout";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
+
+// antd 間距 / 圓角的單一控制點 —— antd 元件走自己的 token，與 Tailwind 脫鉤是「父子間距疊加」主因。
+// sizeUnit/sizeStep = 4 即 antd 預設（此處不改視覺），但從此 antd 的 padding/margin 派生值都從這裡長出來。
+// 要讓 antd 間距對齊 Tailwind 4px grid（src/lib/spacing.ts）或圓角對齊 radius.ts，改這裡即可，逐步驗證視覺。
+const ANTD_THEME = {
+  token: {
+    sizeUnit: 4,
+    sizeStep: 4,
+  },
+};
 
 // Route-level code splitting — each page loads only when navigated to
 const AuthPage              = lazy(() => import("./pages/auth/AuthPage"));
@@ -34,51 +45,53 @@ const devPages = import.meta.env.DEV
 
 function App() {
   return (
-    <AuthProvider>
-      <Suspense>
-        <Routes>
-          {/* 獨立頁面：不含 sidebar 佈局，不需登入 */}
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
+    <ConfigProvider theme={ANTD_THEME}>
+      <AuthProvider>
+        <Suspense>
+          <Routes>
+            {/* 獨立頁面：不含 sidebar 佈局，不需登入 */}
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
-          {/* 主佈局（含 sidebar）*/}
-          <Route path="/" element={<HomePage />}>
-            {/* 預設進來導到 homepage */}
-            <Route index element={<Navigate to="homepage" replace />} />
+            {/* 主佈局（含 sidebar）*/}
+            <Route path="/" element={<HomePage />}>
+              {/* 預設進來導到 homepage */}
+              <Route index element={<Navigate to="homepage" replace />} />
 
-            {/* 公開頁面：不需登入 */}
-            <Route path="homepage" element={<Homepage />} />
-            <Route path="about" element={<AboutPage />} />
-            <Route path="notes" element={<NotesList />} />
-            <Route path="notes/graph" element={<NoteGraph />} />
-            <Route path="notes/*" element={<NoteArticle />} />
+              {/* 公開頁面：不需登入 */}
+              <Route path="homepage" element={<Homepage />} />
+              <Route path="about" element={<AboutPage />} />
+              <Route path="notes" element={<NotesList />} />
+              <Route path="notes/graph" element={<NoteGraph />} />
+              <Route path="notes/*" element={<NoteArticle />} />
 
-            {/* 私人頁面：需要登入 */}
-            <Route path="ruleviewer" element={<ProtectedRoute><RuleViewer /></ProtectedRoute>} />
+              {/* 私人頁面：需要登入 */}
+              <Route path="ruleviewer" element={<ProtectedRoute><RuleViewer /></ProtectedRoute>} />
 
-            {/* Dev harness 路由 —— dev-only，production 不掛載 */}
-            {devPages && (
-              <>
-                <Route path="dev/rule-view"       element={<ProtectedRoute><devPages.DevRuleView /></ProtectedRoute>} />
-                <Route path="dev/dropdown-search" element={<ProtectedRoute><devPages.DevRuleDropdownSearch /></ProtectedRoute>} />
-                <Route path="dev/content-search"  element={<ProtectedRoute><devPages.DevRuleContentSearch /></ProtectedRoute>} />
-                <Route path="dev/block-inspector" element={<ProtectedRoute><devPages.DevBlockInspector /></ProtectedRoute>} />
-                <Route path="dev/block-tooltip"   element={<ProtectedRoute><devPages.DevBlockTooltip /></ProtectedRoute>} />
-                <Route path="dev/case-query"      element={<ProtectedRoute><devPages.DevCaseQuery /></ProtectedRoute>} />
-                <Route path="dev/table-inspector" element={<ProtectedRoute><devPages.DevTableInspector /></ProtectedRoute>} />
-              </>
-            )}
+              {/* Dev harness 路由 —— dev-only，production 不掛載 */}
+              {devPages && (
+                <>
+                  <Route path="dev/rule-view"       element={<ProtectedRoute><devPages.DevRuleView /></ProtectedRoute>} />
+                  <Route path="dev/dropdown-search" element={<ProtectedRoute><devPages.DevRuleDropdownSearch /></ProtectedRoute>} />
+                  <Route path="dev/content-search"  element={<ProtectedRoute><devPages.DevRuleContentSearch /></ProtectedRoute>} />
+                  <Route path="dev/block-inspector" element={<ProtectedRoute><devPages.DevBlockInspector /></ProtectedRoute>} />
+                  <Route path="dev/block-tooltip"   element={<ProtectedRoute><devPages.DevBlockTooltip /></ProtectedRoute>} />
+                  <Route path="dev/case-query"      element={<ProtectedRoute><devPages.DevCaseQuery /></ProtectedRoute>} />
+                  <Route path="dev/table-inspector" element={<ProtectedRoute><devPages.DevTableInspector /></ProtectedRoute>} />
+                </>
+              )}
 
-            <Route path="sql-visualizer" element={<ProtectedRoute><SQLVisualizer /></ProtectedRoute>} />
-            <Route path="sudoku"         element={<ProtectedRoute><SudokuSolver /></ProtectedRoute>} />
-            <Route path="tailwind"       element={<ProtectedRoute><TailwindCheatsheet /></ProtectedRoute>} />
+              <Route path="sql-visualizer" element={<ProtectedRoute><SQLVisualizer /></ProtectedRoute>} />
+              <Route path="sudoku"         element={<ProtectedRoute><SudokuSolver /></ProtectedRoute>} />
+              <Route path="tailwind"       element={<ProtectedRoute><TailwindCheatsheet /></ProtectedRoute>} />
 
-            {/* Error Pages */}
-            <Route path="*" element={<ErrorPage statusCode={404} />} />
-          </Route>
-        </Routes>
-      </Suspense>
-    </AuthProvider>
+              {/* Error Pages */}
+              <Route path="*" element={<ErrorPage statusCode={404} />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </ConfigProvider>
   );
 }
 

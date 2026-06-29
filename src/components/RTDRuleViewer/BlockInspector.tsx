@@ -66,7 +66,7 @@ const TYPE_CATEGORY: Partial<Record<BlockType, BlockCategory>> = {
   Index: "tableop", Join: "tableop", MacroFunction: "tableop", Procedure: "tableop", Union: "tableop",
   // Function (藍色) — Row 2-3
   Batch: "function", Compress: "function", Cumulate: "function", Delta: "function",
-  Duration: "function", EventMaker: "function", Filter: "function", Function: "function",
+  Duration: "function", EventMaker: "function", Function: "function",
   HyperLink: "function", LoopBegin: "function", LoopEnd: "function", Percentage: "function",
   Product: "function", Rule: "function", Select: "function", Snapshot: "function",
   Sort: "function", TempMaker: "function",
@@ -717,7 +717,7 @@ const BODY_REGISTRY: Partial<Record<string, BodyComponent>> = {
   // Join:        FunctionBody,
 
   // Function
-  // Filter:      FunctionBody,
+  // Select:      FunctionBody,
 
   // Output
   // Table:       ProcessBody,

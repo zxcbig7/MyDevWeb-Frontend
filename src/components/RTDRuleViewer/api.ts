@@ -12,19 +12,19 @@ import type * as RTDDTO from "./types";
 // 統一 baseURL / timeout / 通用 headers
 // withCredentials: true → 跨域請求時自動帶上 Cookie（SSO / session）
 const client = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE,
-    timeout: 10000,
-    withCredentials: true,
-    headers: {
-        Cid: import.meta.env.VITE_CID,
-        Account: "ruleviewer-frontend",
-    },
+  baseURL: import.meta.env.VITE_API_BASE,
+  timeout: 10000,
+  withCredentials: true,
+  headers: {
+    Cid: import.meta.env.VITE_CID,
+    Account: "ruleviewer-frontend",
+  },
 });
 
 //
 async function fetcher<T>(url: string): Promise<T> {
-    const res = await client.get<T>(url);
-    return res.data;
+  const res = await client.get<T>(url);
+  return res.data;
 }
 
 // ── API 回應信封 ──────────────────────────────────────────────
@@ -43,10 +43,10 @@ async function fetcher<T>(url: string): Promise<T> {
 // ├─ message ─ string   錯誤時的說明文字（success=true 時可為 "OK" 或 ""）
 // └─ data    ─ T[]      實際資料陣列，無資料時回傳 [] 而非 null
 interface APIResponse<T> {
-    data: T[];
-    success: boolean;
-    message: string;
-    code: number;
+  data: T[];
+  success: boolean;
+  message: string;
+  code: number;
 }
 
 // ── 通用 SWR Hook ─────────────────────────────────────────────
@@ -55,9 +55,17 @@ interface APIResponse<T> {
 // revalidateOnFocus: false → 切回頁面時不自動重新驗證（不打 API）
 
 function useAPI<T>(url: string | null) {
-    const { data, error, isLoading, isValidating, mutate } =
-        useSWR<APIResponse<T>, Error>(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
-    return { data: data?.data ?? null, error: error ?? null, isLoading, isValidating, mutate };
+  const { data, error, isLoading, isValidating, mutate } = useSWR<
+    APIResponse<T>,
+    Error
+  >(url, (u) => fetcher<APIResponse<T>>(u), { revalidateOnFocus: false });
+  return {
+    data: data?.data ?? null,
+    error: error ?? null,
+    isLoading,
+    isValidating,
+    mutate,
+  };
 }
 
 /**
@@ -70,9 +78,9 @@ function useAPI<T>(url: string | null) {
  * ]
  */
 export const usePhaseResponse = (fab: string | null) =>
-    useAPI<RTDDTO.PhaseDTO>(
-        fab ? `/api/${encodeURIComponent(fab)}/RuleViewer/phases` : null
-    );
+  useAPI<RTDDTO.PhaseDTO>(
+    fab ? `/api/${encodeURIComponent(fab)}/RuleViewer/phases` : null,
+  );
 
 /**
  * 取得指定 Phase 的 EQP-Rule 對照表；fab / phase 任一為 null 時不打 API
@@ -86,9 +94,11 @@ export const usePhaseResponse = (fab: string | null) =>
  * 同一台 EQP 可對應多條 Rule，同一條 Rule 也可被多台 EQP 使用
  */
 export const useEQPRuleResponse = (fab: string | null, phase: string | null) =>
-    useAPI<RTDDTO.EqpRuleListDTO>(
-        fab && phase ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/eqprules` : null
-    );
+  useAPI<RTDDTO.EqpRuleListDTO>(
+    fab && phase
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/eqprules`
+      : null,
+  );
 
 /**
  * 取得指定 Phase 的 Rule 清單；fab / phase 任一為 null 時不打 API
@@ -101,9 +111,11 @@ export const useEQPRuleResponse = (fab: string | null, phase: string | null) =>
  * ]
  */
 export const useRuleResponse = (fab: string | null, phase: string | null) =>
-    useAPI<RTDDTO.RuleListDTO>(
-        fab && phase ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/rules` : null
-    );
+  useAPI<RTDDTO.RuleListDTO>(
+    fab && phase
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/rules`
+      : null,
+  );
 
 /**
  * 取得指定 Phase + Rule 的詳細資料（所有 Block 展開成多列）；fab / phase / ruleName 任一為 null 時不打 API
@@ -115,8 +127,8 @@ export const useRuleResponse = (fab: string | null, phase: string | null) =>
  *   {
  *     "PHASE":       "APF",
  *     "RULE_NAME":   "RULE_A",
- *     "BLOCK_NAME":  "Filter1",       // 同一個 Block 若有多個條件，同名出現多列
- *     "BLOCK_TYPE":  "Filter",        // 對應 /public/RTDIcons 的圖片名稱
+ *     "BLOCK_NAME":  "Select1",       // 同一個 Block 若有多個條件，同名出現多列
+ *     "BLOCK_TYPE":  "Select",        // 對應 /public/RTDIcons 的圖片名稱
  *     "BLOCK_GROUP": "G1",
  *     "BLOCK_SEQ":   "1",
  *     "KEY":         "OUTPUT_VAR",    // Function：輸出變數名；Database：表別名；Index：index 名；可為 null
@@ -131,34 +143,65 @@ export const useRuleResponse = (fab: string | null, phase: string | null) =>
  *   ...
  * ]
  */
-export const useRuleInfoResponse = (fab: string | null, phase: string | null, ruleName: string | null) =>
-    useAPI<RTDDTO.RuleInfoDTO>(
-        fab && phase && ruleName
-            ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
-            : null
-    );
+export const useRuleInfoResponse = (
+  fab: string | null,
+  phase: string | null,
+  ruleName: string | null,
+) =>
+  useAPI<RTDDTO.RuleInfoDTO>(
+    fab && phase && ruleName
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/${encodeURIComponent(phase)}/${encodeURIComponent(ruleName)}`
+      : null,
+  );
 
-
-export const useResourceDataResponse = (fab: string | null, imfileName: string | null) =>
-    useAPI<RTDDTO.RuleInfoDTO>(
-        fab && imfileName ? `/api/${encodeURIComponent(fab)}/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
-            : null
-    );
+export const useResourceDataResponse = (
+  fab: string | null,
+  imfileName: string | null,
+) =>
+  useAPI<RTDDTO.RuleInfoDTO>(
+    fab && imfileName
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/IMFILE/${encodeURIComponent(imfileName)}`
+      : null,
+  );
 
 // 單一物件信封（import endpoint 回傳非陣列）
 interface SingleAPIResponse<T> {
-    data: T;
-    success: boolean;
-    message: string;
-    code: number;
+  data: T;
+  success: boolean;
+  message: string;
+  code: number;
 }
 
 // 取得指定 Import Table 的資料；fab / tableName 任一為 null 時不打 API
-export const useImportTableResponse = (fab: string | null, tableName: string | null) => {
-    const { data, error, isLoading } = useSWR<SingleAPIResponse<RTDDTO.ImportTableDTO>>(
-        fab && tableName ? `/api/${encodeURIComponent(fab)}/RuleViewer/ImportFile/${encodeURIComponent(tableName)}` : null,
-        (u) => fetcher<SingleAPIResponse<RTDDTO.ImportTableDTO>>(u),
-        { revalidateOnFocus: false }
-    );
-    return { data: data?.data ?? null, error: error ?? null, isLoading };
+export const useImportTableResponse = (
+  fab: string | null,
+  tableName: string | null,
+) => {
+  const { data, error, isLoading } = useSWR<
+    SingleAPIResponse<RTDDTO.ImportTableDTO>
+  >(
+    fab && tableName
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/ImportFile/${encodeURIComponent(tableName)}`
+      : null,
+    (u) => fetcher<SingleAPIResponse<RTDDTO.ImportTableDTO>>(u),
+    { revalidateOnFocus: false },
+  );
+  return { data: data?.data ?? null, error: error ?? null, isLoading };
+};
+
+// 取得 general-col 寬表（每列 [TABLE_NAME, TYPE, COL1..COL25]）；fab / tableName 任一為 null 時不打 API
+export const useGeneralTableResponse = (
+  fab: string | null,
+  tableName: string | null,
+) => {
+  const { data, error, isLoading } = useSWR<
+    SingleAPIResponse<RTDDTO.GeneralTableDTO>
+  >(
+    fab && tableName
+      ? `/api/${encodeURIComponent(fab)}/RuleViewer/GeneralTable/${encodeURIComponent(tableName)}`
+      : null,
+    (u) => fetcher<SingleAPIResponse<RTDDTO.GeneralTableDTO>>(u),
+    { revalidateOnFocus: false },
+  );
+  return { data: data?.data ?? null, error: error ?? null, isLoading };
 };

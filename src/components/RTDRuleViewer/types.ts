@@ -29,6 +29,13 @@ export interface ImportTableDTO {
   Rows: string[][];
 }
 
+// general-col 寬表：每列 [TABLE_NAME, TYPE, COL1..COL25]
+// TYPE ∈ "columns"（欄名）/ "type"（型別）/ "data"（資料列）；資料欄最多 25
+export interface GeneralTableDTO {
+  TableName: string;
+  Raw: string[][];
+}
+
 export interface RuleInfoDTO {
   PHASE: string | null;
   RULE_NAME: string | null;
@@ -80,6 +87,7 @@ export const BlockTypes = {
   BoxPlot: "BoxPlot",
   Compress: "Compress",
   Cumulate: "Cumulate",
+  ColumnFilter: "ColumnFilter",
   Data: "Data",
   DataSource: "DataSource",
   Delta: "Delta",

@@ -44,7 +44,8 @@ import { BlockTooltip } from "./BlockTooltip";
 import { BlockInspector } from "./BlockInspector";
 import { TableInspector } from "./tableinfo";
 import { LogValueInspector } from "./LogValueInspector";
-import { useImportTableResponse } from "./api";
+import { useGeneralTableResponse } from "./api";
+import { parseGeneralColTable } from "./generalTable";
 
 type RuleViewProps = {
   fab?: string | null; // route /api/{fab}/... — import table fetch 需要
@@ -169,19 +170,16 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
     const [logValueBlock, setLogValueBlock] = useState<Block | null>(null); // Log Value 浮動面板（單一）
     const [focusStack, setFocusStack] = useState<string[]>([]);
     const [importTableName, setImportTableName] = useState<string | null>(null);
-    const { data: importTableData, isLoading: importTableLoading } =
-      useImportTableResponse(fab, importTableName);
-    const importTableRows = useMemo(() => {
-      if (!importTableData) return null;
-      return importTableData.Rows.map((row: string[]) =>
-        Object.fromEntries(
-          importTableData.Columns.map((col: string, i: number) => [
-            col,
-            row[i],
-          ]),
-        ),
-      );
-    }, [importTableData]);
+    const { data: generalTableData, isLoading: importTableLoading } =
+      useGeneralTableResponse(fab, importTableName);
+    // general-col 寬表 → pivot 成 { columns, rows } 餵 TableInspector
+    const parsedImportTable = useMemo(
+      () =>
+        generalTableData
+          ? parseGeneralColTable(generalTableData.Raw, generalTableData.TableName)
+          : null,
+      [generalTableData],
+    );
     const [hoveredBlock, setHoveredBlock] = useState<Block | null>(null);
     const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
       null,
@@ -1218,7 +1216,8 @@ export const RuleView = forwardRef<RuleViewHandle, RuleViewProps>(
           {importTableName && (
             <TableInspector
               tableName={importTableName}
-              data={importTableRows}
+              data={parsedImportTable?.rows ?? null}
+              columnOrderHint={parsedImportTable?.columns}
               isLoading={importTableLoading}
               initialX={Math.max(0, (sizeRef.current.w - 700) / 2)}
               initialY={Math.max(0, (sizeRef.current.h - 500) / 2)}

@@ -13,25 +13,39 @@
 // ============================================================
 
 import { BlockTypes, type RuleData, type EqpRuleListDTO } from "./types";
-import { STRESS_RULES } from "./stressRule";   // 後端 DEV/STRESS mock 的前端快照
+import { STRESS_RULES } from "./stressRule"; // 後端 DEV/STRESS mock 的前端快照
 
 // ── DEV Phase（主副線視覺測試） ───────────────────────────────
 export const DEV_MOCK_PHASE = "DEV";
 export const DEV_MOCK_RULE_NAME = "__DEV_Example__";
 export const DEV_MOCK_RULE_NAME_ICON = "__DEV_Example_ICONS__";
 
-
 // #region 各種 Block 類型示例（10 欄 grid，每格 100px）
-function iconBlock(name: string, type: string, col: number, row: number): RuleData {
+function iconBlock(
+  name: string,
+  type: string,
+  col: number,
+  row: number,
+): RuleData {
   return {
-    PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME_ICON,
-    BLOCK_NAME: name, BLOCK_TYPE: type,
-    BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    POSX: col * 100, POSY: row * 100,
-    PREBLOCK: null, VALUES: [
+    PHASE: "DEV",
+    RULE_NAME: DEV_MOCK_RULE_NAME_ICON,
+    BLOCK_NAME: name,
+    BLOCK_TYPE: type,
+    BLOCK_GROUP: "G1",
+    BLOCK_SEQ: "1",
+    POSX: col * 100,
+    POSY: row * 100,
+    PREBLOCK: null,
+    VALUES: [
       { KEY: "Key Test", COLUMN1: null, COLUMN2: null, VALUE: '"Key Test"' },
       { KEY: "Key Test", COLUMN1: "Col1", COLUMN2: null, VALUE: '"Key Test"' },
-      { KEY: "Key Test", COLUMN1: "Col2", COLUMN2: "Col3", VALUE: '"Key Test"' },
+      {
+        KEY: "Key Test",
+        COLUMN1: "Col2",
+        COLUMN2: "Col3",
+        VALUE: '"Key Test"',
+      },
     ],
   };
 }
@@ -62,11 +76,12 @@ export const DEV_MOCK_RULE_ICON: RuleData[] = [
   iconBlock("Duration", BlockTypes.Duration, 4, 2),
   iconBlock("EventMaker", BlockTypes.EventMaker, 5, 2),
   iconBlock("Filter", BlockTypes.Filter, 6, 2),
-  iconBlock("Function", BlockTypes.Function, 7, 2),
-  iconBlock("HyperLink", BlockTypes.HyperLink, 8, 2),
-  iconBlock("LoopBegin", BlockTypes.LoopBegin, 9, 2),
-  iconBlock("LoopEnd", BlockTypes.LoopEnd, 0, 3),
-  iconBlock("Percentage", BlockTypes.Percentage, 1, 3),
+  iconBlock("ColumnFilter", BlockTypes.ColumnFilter, 7, 2),
+  iconBlock("Function", BlockTypes.Function, 8, 2),
+  iconBlock("HyperLink", BlockTypes.HyperLink, 9, 2),
+  iconBlock("LoopBegin", BlockTypes.LoopBegin, 0, 3),
+  iconBlock("LoopEnd", BlockTypes.LoopEnd, 1, 3),
+  iconBlock("Percentage", BlockTypes.Percentage, 2, 3),
   iconBlock("Product", BlockTypes.Product, 2, 3),
   iconBlock("Rule", BlockTypes.Rule, 3, 3),
   iconBlock("Select", BlockTypes.Select, 4, 3),
@@ -100,7 +115,7 @@ export const DEV_MOCK_RULE_ICON: RuleData[] = [
 
 // ── APF Phase 定義 ────────────────────────────────────────────
 export const MOCK_PHASES = ["DEV", "APF_FORMAT"] as const;
-export type MockPhase = typeof MOCK_PHASES[number];
+export type MockPhase = (typeof MOCK_PHASES)[number];
 
 export const MOCK_RULES_BY_PHASE: Record<MockPhase, string[]> = {
   DEV: ["APF_NORMALIZER", "APF_FIELD_MAPPER", "APF_RECIPE_BUILDER"],
@@ -109,41 +124,93 @@ export const MOCK_RULES_BY_PHASE: Record<MockPhase, string[]> = {
 
 // ── EQP ↔ Rule 對照表（所有 Phase 平鋪） ────────────────────
 export const MOCK_EQP_RULES: EqpRuleListDTO[] = [
-  { PHASE: DEV_MOCK_PHASE, EQP_ID: "TOOL-DEV-MOCKRULE", RULE_NAME: DEV_MOCK_RULE_NAME },
-  { PHASE: DEV_MOCK_PHASE, EQP_ID: "TOOL-DEV-IconRule", RULE_NAME: DEV_MOCK_RULE_NAME_ICON },
+  {
+    PHASE: DEV_MOCK_PHASE,
+    EQP_ID: "TOOL-DEV-MOCKRULE",
+    RULE_NAME: DEV_MOCK_RULE_NAME,
+  },
+  {
+    PHASE: DEV_MOCK_PHASE,
+    EQP_ID: "TOOL-DEV-IconRule",
+    RULE_NAME: DEV_MOCK_RULE_NAME_ICON,
+  },
   { PHASE: "APF_FORMAT", EQP_ID: "APF-FMT-001", RULE_NAME: "APF_NORMALIZER" },
   { PHASE: "APF_FORMAT", EQP_ID: "APF-FMT-002", RULE_NAME: "APF_FIELD_MAPPER" },
-  { PHASE: "APF_FORMAT", EQP_ID: "APF-FMT-003", RULE_NAME: "APF_RECIPE_BUILDER" },
-  { PHASE: "APF_FORMAT", EQP_ID: "APF-FMT-004", RULE_NAME: "APF_RECIPE_BUILDER" },
+  {
+    PHASE: "APF_FORMAT",
+    EQP_ID: "APF-FMT-003",
+    RULE_NAME: "APF_RECIPE_BUILDER",
+  },
+  {
+    PHASE: "APF_FORMAT",
+    EQP_ID: "APF-FMT-004",
+    RULE_NAME: "APF_RECIPE_BUILDER",
+  },
   { PHASE: "APF_FORMAT", EQP_ID: "APF-FMT-004", RULE_NAME: "APF_FIELD_MAPPER" },
 ];
 
 // DEV 資料整理
 export const DEV_MOCK_RULES: RuleData[] = [
   {
-    PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
-    BLOCK_NAME: "Repository1", BLOCK_TYPE: BlockTypes.Repository, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    POSX: 300, POSY: 100, PREBLOCK: null, VALUES: [
-      { KEY: "test.apf", COLUMN1: "col1,col2,col3", COLUMN2: null, VALUE: null },
-    ],
-  },
-  {
-    PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
-    BLOCK_NAME: "MacroImport01", BLOCK_TYPE: BlockTypes.MacroImport, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    POSX: 400, POSY: 100, PREBLOCK: null, VALUES: [],
-  },
-  {
-    PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
-    BLOCK_NAME: "Index01", BLOCK_TYPE: BlockTypes.Index, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    POSX: 400, POSY: 300, PREBLOCK: ["MacroImport01", "Repository1"],
+    PHASE: "DEV",
+    RULE_NAME: DEV_MOCK_RULE_NAME,
+    BLOCK_NAME: "Repository1",
+    BLOCK_TYPE: BlockTypes.Repository,
+    BLOCK_GROUP: "G1",
+    BLOCK_SEQ: "1",
+    POSX: 300,
+    POSY: 100,
+    PREBLOCK: null,
     VALUES: [
-      { KEY: "test.txt", COLUMN1: "col1,col2,col3", COLUMN2: "col1,col2,col3", VALUE: null },
+      {
+        KEY: "test.apf",
+        COLUMN1: "col1,col2,col3",
+        COLUMN2: null,
+        VALUE: null,
+      },
     ],
   },
   {
-    PHASE: "DEV", RULE_NAME: DEV_MOCK_RULE_NAME,
-    BLOCK_NAME: "Function1", BLOCK_TYPE: BlockTypes.Function, BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-    POSX: 600, POSY: 300, PREBLOCK: ["Index01"],
+    PHASE: "DEV",
+    RULE_NAME: DEV_MOCK_RULE_NAME,
+    BLOCK_NAME: "MacroImport01",
+    BLOCK_TYPE: BlockTypes.MacroImport,
+    BLOCK_GROUP: "G1",
+    BLOCK_SEQ: "1",
+    POSX: 400,
+    POSY: 100,
+    PREBLOCK: null,
+    VALUES: [],
+  },
+  {
+    PHASE: "DEV",
+    RULE_NAME: DEV_MOCK_RULE_NAME,
+    BLOCK_NAME: "Index01",
+    BLOCK_TYPE: BlockTypes.Index,
+    BLOCK_GROUP: "G1",
+    BLOCK_SEQ: "1",
+    POSX: 400,
+    POSY: 300,
+    PREBLOCK: ["MacroImport01", "Repository1"],
+    VALUES: [
+      {
+        KEY: "test.txt",
+        COLUMN1: "col1,col2,col3",
+        COLUMN2: "col1,col2,col3",
+        VALUE: null,
+      },
+    ],
+  },
+  {
+    PHASE: "DEV",
+    RULE_NAME: DEV_MOCK_RULE_NAME,
+    BLOCK_NAME: "Function1",
+    BLOCK_TYPE: BlockTypes.Function,
+    BLOCK_GROUP: "G1",
+    BLOCK_SEQ: "1",
+    POSX: 600,
+    POSY: 300,
+    PREBLOCK: ["Index01"],
     VALUES: [
       { KEY: "test.txt", COLUMN1: "col1", COLUMN2: null, VALUE: "null" },
       { KEY: "test.txt", COLUMN1: "col2", COLUMN2: null, VALUE: "null" },
@@ -151,8 +218,6 @@ export const DEV_MOCK_RULES: RuleData[] = [
     ],
   },
 ];
-
-
 
 // ── HOLD_DECISION：Tracker / Runtime Log 壓力測試用複雜鏈 ──────
 //
@@ -193,48 +258,122 @@ const hd = (
   preblock: string[] | null,
   values: { COLUMN1: string | null; VALUE: string | null }[],
 ): RuleData => ({
-  PHASE: "DEV", RULE_NAME: HOLD_DECISION_RULE,
-  BLOCK_NAME: blockName, BLOCK_TYPE: blockType,
-  BLOCK_GROUP: "G1", BLOCK_SEQ: "1",
-  POSX: posx, POSY: posy, PREBLOCK: preblock,
-  VALUES: values.map((v) => ({ KEY: null, COLUMN1: v.COLUMN1, COLUMN2: null, VALUE: v.VALUE })),
+  PHASE: "DEV",
+  RULE_NAME: HOLD_DECISION_RULE,
+  BLOCK_NAME: blockName,
+  BLOCK_TYPE: blockType,
+  BLOCK_GROUP: "G1",
+  BLOCK_SEQ: "1",
+  POSX: posx,
+  POSY: posy,
+  PREBLOCK: preblock,
+  VALUES: values.map((v) => ({
+    KEY: null,
+    COLUMN1: v.COLUMN1,
+    COLUMN2: null,
+    VALUE: v.VALUE,
+  })),
 });
 
 export const HOLD_DECISION_RULES: RuleData[] = [
   // 來源（roots 由「從未被任一 Function 定義」自動判定，這裡只當資料流起點）
   hd("DATA_SRC", BlockTypes.Repository, 100, 350, null, [
-    { COLUMN1: "HOLD_FLAG,LOT_GRADE,WAIT_HR,QUEUE_DEPTH,CONSTRAINT_FLAG,HOLD_PRIORITY", VALUE: null },
+    {
+      COLUMN1:
+        "HOLD_FLAG,LOT_GRADE,WAIT_HR,QUEUE_DEPTH,CONSTRAINT_FLAG,HOLD_PRIORITY",
+      VALUE: null,
+    },
   ]),
 
   // L4 來源：HOLD_SEVERITY ← HOLD_FLAG, LOT_GRADE
-  hd("FN_SEVERITY", BlockTypes.Function, 320, 200, ["DATA_SRC"], [
-    { COLUMN1: "HOLD_SEVERITY", VALUE: 'IF HOLD_FLAG == "Y" AND LOT_GRADE == "A" THEN "SEV1" ELSE IF HOLD_FLAG == "Y" THEN "SEV2" ELSE "SEV3"' },
-  ]),
+  hd(
+    "FN_SEVERITY",
+    BlockTypes.Function,
+    320,
+    200,
+    ["DATA_SRC"],
+    [
+      {
+        COLUMN1: "HOLD_SEVERITY",
+        VALUE:
+          'IF HOLD_FLAG == "Y" AND LOT_GRADE == "A" THEN "SEV1" ELSE IF HOLD_FLAG == "Y" THEN "SEV2" ELSE "SEV3"',
+      },
+    ],
+  ),
 
   // 副線：WIP_RISK ← WAIT_HR, QUEUE_DEPTH
-  hd("FN_WIP", BlockTypes.Function, 320, 500, ["DATA_SRC"], [
-    { COLUMN1: "WIP_RISK", VALUE: 'IF WAIT_HR > 120 AND QUEUE_DEPTH > 50 THEN "HIGH" ELSE IF WAIT_HR > 60 THEN "MED" ELSE "LOW"' },
-  ]),
+  hd(
+    "FN_WIP",
+    BlockTypes.Function,
+    320,
+    500,
+    ["DATA_SRC"],
+    [
+      {
+        COLUMN1: "WIP_RISK",
+        VALUE:
+          'IF WAIT_HR > 120 AND QUEUE_DEPTH > 50 THEN "HIGH" ELSE IF WAIT_HR > 60 THEN "MED" ELSE "LOW"',
+      },
+    ],
+  ),
 
   // L3：HOLD_RISK ← HOLD_SEVERITY, CONSTRAINT_FLAG
-  hd("FN_HOLD_RISK", BlockTypes.Function, 540, 200, ["FN_SEVERITY"], [
-    { COLUMN1: "HOLD_RISK", VALUE: 'IF HOLD_SEVERITY == "SEV1" AND CONSTRAINT_FLAG == "Y" THEN "HIGH" ELSE IF HOLD_SEVERITY == "SEV2" THEN "MED" ELSE "LOW"' },
-  ]),
+  hd(
+    "FN_HOLD_RISK",
+    BlockTypes.Function,
+    540,
+    200,
+    ["FN_SEVERITY"],
+    [
+      {
+        COLUMN1: "HOLD_RISK",
+        VALUE:
+          'IF HOLD_SEVERITY == "SEV1" AND CONSTRAINT_FLAG == "Y" THEN "HIGH" ELSE IF HOLD_SEVERITY == "SEV2" THEN "MED" ELSE "LOW"',
+      },
+    ],
+  ),
 
   // L2：RISK_SCORE ← HOLD_RISK(主), WIP_RISK(副), HOLD_PRIORITY(root)。PREBLOCK 兩個來源＝主+副線
-  hd("FN_RISK", BlockTypes.Function, 760, 350, ["FN_HOLD_RISK", "FN_WIP"], [
-    { COLUMN1: "RISK_SCORE", VALUE: 'IF HOLD_RISK == "HIGH" AND WIP_RISK == "HIGH" THEN "90" ELSE IF HOLD_RISK == "MED" OR HOLD_PRIORITY == "P1" THEN "70" ELSE "30"' },
-  ]),
+  hd(
+    "FN_RISK",
+    BlockTypes.Function,
+    760,
+    350,
+    ["FN_HOLD_RISK", "FN_WIP"],
+    [
+      {
+        COLUMN1: "RISK_SCORE",
+        VALUE:
+          'IF HOLD_RISK == "HIGH" AND WIP_RISK == "HIGH" THEN "90" ELSE IF HOLD_RISK == "MED" OR HOLD_PRIORITY == "P1" THEN "70" ELSE "30"',
+      },
+    ],
+  ),
 
   // L1：URGENCY ← RISK_SCORE, WIP_RISK(再次引用→共用), HOLD_PRIORITY(root)
-  hd("FN_URGENCY", BlockTypes.Function, 980, 350, ["FN_RISK"], [
-    { COLUMN1: "URGENCY", VALUE: 'IF RISK_SCORE >= 80 OR WIP_RISK == "HIGH" AND HOLD_PRIORITY == "P1" THEN "CRITICAL" ELSE IF RISK_SCORE >= 50 THEN "HIGH" ELSE "NORMAL"' },
-  ]),
+  hd(
+    "FN_URGENCY",
+    BlockTypes.Function,
+    980,
+    350,
+    ["FN_RISK"],
+    [
+      {
+        COLUMN1: "URGENCY",
+        VALUE:
+          'IF RISK_SCORE >= 80 OR WIP_RISK == "HIGH" AND HOLD_PRIORITY == "P1" THEN "CRITICAL" ELSE IF RISK_SCORE >= 50 THEN "HIGH" ELSE "NORMAL"',
+      },
+    ],
+  ),
 
   // log 觸發 1：URGENCY 為 CRITICAL → [$LOT_ON_HOLD$]
-  hd("ACT_HOLD", BlockTypes.Action, 1200, 300, ["FN_URGENCY"], [
-    { COLUMN1: null, VALUE: 'IF URGENCY == "CRITICAL" THEN [$LOT_ON_HOLD$]' },
-  ]),
+  hd(
+    "ACT_HOLD",
+    BlockTypes.Action,
+    1200,
+    300,
+    ["FN_URGENCY"],
+    [{ COLUMN1: null, VALUE: 'IF URGENCY == "CRITICAL" THEN [$LOT_ON_HOLD$]' }],
+  ),
 
   // log 觸發 2：同一 log 第二觸發點（HOLD_PRIORITY 直接命中 P0）→ 演示多觸發
   hd("ACT_HOLD_P0", BlockTypes.Action, 1200, 480, null, [
@@ -242,9 +381,20 @@ export const HOLD_DECISION_RULES: RuleData[] = [
   ]),
 
   // 第二條 log：[$EQP_BLOCKED$] ← WIP_RISK, QUEUE_DEPTH（較短的獨立鏈）
-  hd("ACT_BLOCK", BlockTypes.Action, 540, 600, ["FN_WIP"], [
-    { COLUMN1: null, VALUE: 'IF WIP_RISK == "HIGH" AND QUEUE_DEPTH > 50 THEN [$EQP_BLOCKED$]' },
-  ]),
+  hd(
+    "ACT_BLOCK",
+    BlockTypes.Action,
+    540,
+    600,
+    ["FN_WIP"],
+    [
+      {
+        COLUMN1: null,
+        VALUE:
+          'IF WIP_RISK == "HIGH" AND QUEUE_DEPTH > 50 THEN [$EQP_BLOCKED$]',
+      },
+    ],
+  ),
 ];
 
 // ── 變數資料來源 Mock（實際由後端 API 提供） ──────────────────
@@ -261,78 +411,136 @@ export type VariableSource = {
 
 // CaseQuery 實驗用
 export const MOCK_VAR_SOURCES: Record<string, VariableSource> = {
-  LOT_ID: { variable: "LOT_ID", varType: "INPUT", description: "呼叫端傳入的批次 ID" },
-  EQUIP_CODE: { variable: "EQUIP_CODE", varType: "INPUT", description: "呼叫端傳入的設備代碼" },
-  EQUIP_ID: { variable: "EQUIP_ID", varType: "INPUT", description: "呼叫端傳入的設備 ID" },
-  RECIPE_NAME: { variable: "RECIPE_NAME", varType: "INPUT", description: "呼叫端傳入的 Recipe 名稱" },
-  STEP_ID: { variable: "STEP_ID", varType: "INPUT", description: "呼叫端傳入的製程步驟 ID" },
-  SOURCE_PATH: { variable: "SOURCE_PATH", varType: "INPUT", description: "呼叫端傳入的 APF 原始資料路徑" },
-  OUTPUT_FORMAT: { variable: "OUTPUT_FORMAT", varType: "INPUT", description: "呼叫端指定的輸出格式" },
+  LOT_ID: {
+    variable: "LOT_ID",
+    varType: "INPUT",
+    description: "呼叫端傳入的批次 ID",
+  },
+  EQUIP_CODE: {
+    variable: "EQUIP_CODE",
+    varType: "INPUT",
+    description: "呼叫端傳入的設備代碼",
+  },
+  EQUIP_ID: {
+    variable: "EQUIP_ID",
+    varType: "INPUT",
+    description: "呼叫端傳入的設備 ID",
+  },
+  RECIPE_NAME: {
+    variable: "RECIPE_NAME",
+    varType: "INPUT",
+    description: "呼叫端傳入的 Recipe 名稱",
+  },
+  STEP_ID: {
+    variable: "STEP_ID",
+    varType: "INPUT",
+    description: "呼叫端傳入的製程步驟 ID",
+  },
+  SOURCE_PATH: {
+    variable: "SOURCE_PATH",
+    varType: "INPUT",
+    description: "呼叫端傳入的 APF 原始資料路徑",
+  },
+  OUTPUT_FORMAT: {
+    variable: "OUTPUT_FORMAT",
+    varType: "INPUT",
+    description: "呼叫端指定的輸出格式",
+  },
   FILE_SIZE: {
-    variable: "FILE_SIZE", varType: "COMPUTED",
-    sourceTable: "FILE_SYSTEM", sourceColumn: "FILE_SIZE_BYTES",
+    variable: "FILE_SIZE",
+    varType: "COMPUTED",
+    sourceTable: "FILE_SYSTEM",
+    sourceColumn: "FILE_SIZE_BYTES",
     filterConditions: "FILE_PATH = :source_path",
-    sqlHint: "SELECT FILE_SIZE_BYTES\nFROM FILE_SYSTEM\nWHERE FILE_PATH = :source_path",
+    sqlHint:
+      "SELECT FILE_SIZE_BYTES\nFROM FILE_SYSTEM\nWHERE FILE_PATH = :source_path",
   },
   RECIPE_VER: {
-    variable: "RECIPE_VER", varType: "COMPUTED",
-    sourceTable: "RECIPE_MASTER", sourceColumn: "VERSION",
-    filterConditions: "RECIPE_NAME = :recipe_name\nAND EQUIP_CODE = :equip_code\nAND EFFECTIVE_DATE <= SYSDATE",
-    sqlHint: "SELECT VERSION\nFROM RECIPE_MASTER\nWHERE RECIPE_NAME = :recipe_name\n  AND EQUIP_CODE = :equip_code\n  AND EFFECTIVE_DATE <= SYSDATE\nORDER BY EFFECTIVE_DATE DESC\nFETCH FIRST 1 ROWS ONLY",
+    variable: "RECIPE_VER",
+    varType: "COMPUTED",
+    sourceTable: "RECIPE_MASTER",
+    sourceColumn: "VERSION",
+    filterConditions:
+      "RECIPE_NAME = :recipe_name\nAND EQUIP_CODE = :equip_code\nAND EFFECTIVE_DATE <= SYSDATE",
+    sqlHint:
+      "SELECT VERSION\nFROM RECIPE_MASTER\nWHERE RECIPE_NAME = :recipe_name\n  AND EQUIP_CODE = :equip_code\n  AND EFFECTIVE_DATE <= SYSDATE\nORDER BY EFFECTIVE_DATE DESC\nFETCH FIRST 1 ROWS ONLY",
   },
   LOT_GRADE: {
-    variable: "LOT_GRADE", varType: "COMPUTED",
-    sourceTable: "WIP_LOT", sourceColumn: "GRADE",
+    variable: "LOT_GRADE",
+    varType: "COMPUTED",
+    sourceTable: "WIP_LOT",
+    sourceColumn: "GRADE",
     filterConditions: "LOT_ID = :lot_id",
     sqlHint: "SELECT GRADE\nFROM WIP_LOT\nWHERE LOT_ID = :lot_id",
   },
   HOLD_FLAG: {
-    variable: "HOLD_FLAG", varType: "COMPUTED",
-    sourceTable: "WIP_LOT", sourceColumn: "HOLD_FLAG",
+    variable: "HOLD_FLAG",
+    varType: "COMPUTED",
+    sourceTable: "WIP_LOT",
+    sourceColumn: "HOLD_FLAG",
     filterConditions: "LOT_ID = :lot_id",
     sqlHint: "SELECT HOLD_FLAG\nFROM WIP_LOT\nWHERE LOT_ID = :lot_id",
   },
   EQUIP_STATUS: {
-    variable: "EQUIP_STATUS", varType: "COMPUTED",
-    sourceTable: "EQP_STATUS", sourceColumn: "STATUS",
-    filterConditions: "EQUIP_CODE = :equip_code\nAND RECORD_TIME = (\n  SELECT MAX(RECORD_TIME) FROM EQP_STATUS\n  WHERE EQUIP_CODE = :equip_code\n)",
-    sqlHint: "SELECT STATUS\nFROM EQP_STATUS\nWHERE EQUIP_CODE = :equip_code\n  AND RECORD_TIME = (\n    SELECT MAX(RECORD_TIME) FROM EQP_STATUS\n    WHERE EQUIP_CODE = :equip_code\n  )",
+    variable: "EQUIP_STATUS",
+    varType: "COMPUTED",
+    sourceTable: "EQP_STATUS",
+    sourceColumn: "STATUS",
+    filterConditions:
+      "EQUIP_CODE = :equip_code\nAND RECORD_TIME = (\n  SELECT MAX(RECORD_TIME) FROM EQP_STATUS\n  WHERE EQUIP_CODE = :equip_code\n)",
+    sqlHint:
+      "SELECT STATUS\nFROM EQP_STATUS\nWHERE EQUIP_CODE = :equip_code\n  AND RECORD_TIME = (\n    SELECT MAX(RECORD_TIME) FROM EQP_STATUS\n    WHERE EQUIP_CODE = :equip_code\n  )",
   },
   WAIT_HR: {
-    variable: "WAIT_HR", varType: "COMPUTED",
-    sourceTable: "WIP_QUEUE", sourceColumn: "WAIT_HOURS",
+    variable: "WAIT_HR",
+    varType: "COMPUTED",
+    sourceTable: "WIP_QUEUE",
+    sourceColumn: "WAIT_HOURS",
     filterConditions: "LOT_ID = :lot_id AND STAGE = :stage",
-    sqlHint: "SELECT WAIT_HOURS\nFROM WIP_QUEUE\nWHERE LOT_ID = :lot_id\n  AND STAGE = :stage",
+    sqlHint:
+      "SELECT WAIT_HOURS\nFROM WIP_QUEUE\nWHERE LOT_ID = :lot_id\n  AND STAGE = :stage",
   },
   MAX_WAIT_HR: {
-    variable: "MAX_WAIT_HR", varType: "COMPUTED",
-    sourceTable: "STAGE_CONFIG", sourceColumn: "MAX_WAIT_HOURS",
+    variable: "MAX_WAIT_HR",
+    varType: "COMPUTED",
+    sourceTable: "STAGE_CONFIG",
+    sourceColumn: "MAX_WAIT_HOURS",
     filterConditions: "STAGE = :stage AND LOT_GRADE = :lot_grade",
-    sqlHint: "SELECT MAX_WAIT_HOURS\nFROM STAGE_CONFIG\nWHERE STAGE = :stage\n  AND LOT_GRADE = :lot_grade",
+    sqlHint:
+      "SELECT MAX_WAIT_HOURS\nFROM STAGE_CONFIG\nWHERE STAGE = :stage\n  AND LOT_GRADE = :lot_grade",
   },
   QUEUE_DEPTH: {
-    variable: "QUEUE_DEPTH", varType: "COMPUTED",
-    sourceTable: "EQP_QUEUE", sourceColumn: "QUEUE_COUNT",
+    variable: "QUEUE_DEPTH",
+    varType: "COMPUTED",
+    sourceTable: "EQP_QUEUE",
+    sourceColumn: "QUEUE_COUNT",
     filterConditions: "EQUIP_CODE = :equip_code",
-    sqlHint: "SELECT QUEUE_COUNT\nFROM EQP_QUEUE\nWHERE EQUIP_CODE = :equip_code",
+    sqlHint:
+      "SELECT QUEUE_COUNT\nFROM EQP_QUEUE\nWHERE EQUIP_CODE = :equip_code",
   },
   MAX_QUEUE: {
-    variable: "MAX_QUEUE", varType: "COMPUTED",
-    sourceTable: "EQP_CONFIG", sourceColumn: "MAX_QUEUE_SIZE",
+    variable: "MAX_QUEUE",
+    varType: "COMPUTED",
+    sourceTable: "EQP_CONFIG",
+    sourceColumn: "MAX_QUEUE_SIZE",
     filterConditions: "EQUIP_CODE = :equip_code",
-    sqlHint: "SELECT MAX_QUEUE_SIZE\nFROM EQP_CONFIG\nWHERE EQUIP_CODE = :equip_code",
+    sqlHint:
+      "SELECT MAX_QUEUE_SIZE\nFROM EQP_CONFIG\nWHERE EQUIP_CODE = :equip_code",
   },
   APPLY_STATUS: {
-    variable: "APPLY_STATUS", varType: "COMPUTED",
-    sourceTable: "RECIPE_APPLY_LOG", sourceColumn: "STATUS",
+    variable: "APPLY_STATUS",
+    varType: "COMPUTED",
+    sourceTable: "RECIPE_APPLY_LOG",
+    sourceColumn: "STATUS",
     filterConditions: "RECIPE_NAME = :recipe_name AND EQUIP_CODE = :equip_code",
-    sqlHint: "SELECT STATUS\nFROM RECIPE_APPLY_LOG\nWHERE RECIPE_NAME = :recipe_name\n  AND EQUIP_CODE = :equip_code\nORDER BY APPLY_TIME DESC\nFETCH FIRST 1 ROWS ONLY",
+    sqlHint:
+      "SELECT STATUS\nFROM RECIPE_APPLY_LOG\nWHERE RECIPE_NAME = :recipe_name\n  AND EQUIP_CODE = :equip_code\nORDER BY APPLY_TIME DESC\nFETCH FIRST 1 ROWS ONLY",
   },
 };
 
 // ── 統一查詢入口 ──────────────────────────────────────────────
 export const MOCK_RULE_DATA: Record<string, RuleData[]> = {
-  "DEV": DEV_MOCK_RULES,
-  "HOLD_DECISION": HOLD_DECISION_RULES,
-  "STRESS": STRESS_RULES,   // 後端 DEV/STRESS（34 blocks，副線/副副線深鏈，6 logs）
+  DEV: DEV_MOCK_RULES,
+  HOLD_DECISION: HOLD_DECISION_RULES,
+  STRESS: STRESS_RULES, // 後端 DEV/STRESS（34 blocks，副線/副副線深鏈，6 logs）
 };

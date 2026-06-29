@@ -35,6 +35,7 @@ export type TableRow = Record<string, unknown>;
 export type TableInspectorProps = {
   tableName: string;
   data: TableRow[] | null;
+  columnOrderHint?: string[]; // 指定欄位顯示順序（無則由 data keys 推導）
   isLoading?: boolean;
   initialX: number;
   initialY: number;
@@ -135,6 +136,7 @@ function DraggableColumnHeader({
 export function TableInspector({
   tableName,
   data,
+  columnOrderHint,
   isLoading = false,
   initialX,
   initialY,
@@ -227,12 +229,18 @@ export function TableInspector({
   // 從資料第一列動態產生欄位定義
   const columns = useMemo<ColumnDef<TableRow, unknown>[]>(() => {
     if (!data || data.length === 0) return [];
-    // 收集所有 row 的 key 以處理稀疏資料
-    const keySet = new Set<string>();
-    for (const row of data) {
-      for (const key of Object.keys(row)) keySet.add(key);
+    // 欄序：優先用 columnOrderHint（general-col 解析時的定義順序）；否則收集所有 row 的 key（處理稀疏資料）
+    let keys: string[];
+    if (columnOrderHint && columnOrderHint.length > 0) {
+      keys = columnOrderHint;
+    } else {
+      const keySet = new Set<string>();
+      for (const row of data) {
+        for (const key of Object.keys(row)) keySet.add(key);
+      }
+      keys = [...keySet];
     }
-    return [...keySet].map((key) => ({
+    return keys.map((key) => ({
       id: key,
       accessorKey: key,
       header: key,
@@ -245,7 +253,7 @@ export function TableInspector({
       minSize: 80,
       filterFn: "includesString" as const,
     }));
-  }, [data]);
+  }, [data, columnOrderHint]);
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
