@@ -26,6 +26,7 @@ import {
   collectLogClosure,
   buildLogReport,
   resolveDefs,
+  resolveColumnSources,
   evalSnippet,
 } from "./depGraph";
 
@@ -39,6 +40,14 @@ function parseLogName(input: string): string {
   const m = trimmed.match(/^\[?\$?([A-Z][A-Z0-9_]*)\$?\]?$/);
   return m ? m[1] : trimmed.toUpperCase();
 }
+
+/** Trace 模式資料來源摘要：同一「來源 block + 表名」聚合其被引用的 root 欄位 */
+type SourceGroup = {
+  block: string;
+  blockType: string;
+  table: string | null;
+  columns: string[];
+};
 
 // ─── Layer 顏色（依深度循環） ──────────────────────────────────
 const LAYER_STYLES: [border: string, bg: string][] = [
@@ -94,6 +103,11 @@ function LayerNode({
   const defBlocks = useMemo(
     () => resolveDefs(graph, node.varName, parentBlock).map((d) => d.block),
     [graph, node.varName, parentBlock],
+  );
+  // root 變數 → 溯源到資料型 block（TABLE / DATA / MACRO…），badge 顯示表名 + 可點跳
+  const rootSources = useMemo(
+    () => (node.status === "root" ? resolveColumnSources(graph, node.varName, parentBlock) : []),
+    [graph, node.status, node.varName, parentBlock],
   );
   const expandable =
     (node.status === "normal" || node.status === "shared") &&
@@ -171,9 +185,22 @@ function LayerNode({
         )}
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
-          {node.status === "root" && (
-            <span className="text-[10px] text-slate-400 italic">root</span>
-          )}
+          {node.status === "root" &&
+            (rootSources.length > 0 ? (
+              <button
+                onClick={() => onFocusBlock?.(rootSources[0].block)}
+                onDoubleClick={() => onOpenInspector?.(rootSources[0].block)}
+                title={rootSources
+                  .map((s) => `${s.table ? `${s.table}.` : ""}${s.column} @ ${s.block} (${s.blockType})`)
+                  .join("\n")}
+                className="text-[10px] font-mono text-amber-300/80 hover:text-amber-200 hover:underline cursor-pointer bg-transparent leading-none"
+              >
+                root ← {rootSources[0].table ?? rootSources[0].block}
+                {rootSources.length > 1 && ` +${rootSources.length - 1}`}
+              </button>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">root</span>
+            ))}
           {node.status === "cycle" && (
             <span className="text-[10px] text-orange-400/70">↩ 循環</span>
           )}
@@ -307,6 +334,7 @@ export function CaseQuery({
 }: CaseQueryProps) {
   const [searchInput, setSearchInput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [srcOpen, setSrcOpen] = useState(true); // Trace 模式「資料來源」摘要區收合
   // Var Impact 就地展開：哪條受影響 log 展開中 + 該樹的本地 block 展開狀態（獨立於 canvas / Trace）
   const [openImpactLog, setOpenImpactLog] = useState<string | null>(null);
   const [impactExpanded, setImpactExpanded] = useState<Set<string>>(new Set());
@@ -338,6 +366,31 @@ export function CaseQuery({
     () => (tracedLog ? (traceLog(graph, tracedLog, shared) ?? []) : []),
     [graph, tracedLog, shared],
   );
+
+  // closure 的 root 來源依「來源 block + 表名」分組（Trace 模式資料來源摘要用）
+  const sourceGroups = useMemo(() => {
+    const byKey = new Map<string, SourceGroup>();
+    const unknown: string[] = [];
+    for (const [varName, srcs] of closure?.rootSources ?? []) {
+      if (srcs.length === 0) {
+        unknown.push(varName);
+        continue;
+      }
+      for (const s of srcs) {
+        const k = `${s.block}|${s.table ?? ""}`;
+        let g = byKey.get(k);
+        if (!g) {
+          g = { block: s.block, blockType: s.blockType, table: s.table, columns: [] };
+          byKey.set(k, g);
+        }
+        g.columns.push(varName);
+      }
+    }
+    for (const g of byKey.values()) g.columns.sort();
+    unknown.sort();
+    const groups = [...byKey.values()].sort((a, b) => a.block.localeCompare(b.block));
+    return { groups, unknown };
+  }, [closure]);
 
   function handleTrace(overrideName?: string) {
     const logName = overrideName ?? parseLogName(searchInput);
@@ -438,6 +491,8 @@ export function CaseQuery({
         ? allVarNames.filter((v) => v.toUpperCase().includes(kw)).slice(0, 30)
         : [];
     const res = impactResult;
+    // 搜尋的變數本身是 DB 欄位 → 顯示來源 TABLE.column（impact 無 refBlock 上下文 → 全域索引）
+    const typedSources = res?.found ? (graph.columnSources.get(typed) ?? []) : [];
     // 就地展開：openImpactLog 的依賴樹（本地 block 展開狀態，獨立於 canvas / Trace）
     const impactShared = openImpactLog
       ? (collectLogClosure(graph, openImpactLog).shared ?? EMPTY_SET)
@@ -475,6 +530,25 @@ export function CaseQuery({
           placeholder="輸入變數名（DB 欄位 / 中間變數）"
           onChange={(v) => onImpactVarChange(v ?? "")}
         />
+        {typedSources.length > 0 && (
+          <div className="shrink-0 flex flex-wrap items-baseline gap-1.5 text-[10px] text-slate-400 px-0.5">
+            <span className="shrink-0">來源</span>
+            {typedSources.map((s) => (
+              <button
+                key={`${s.block}|${s.column}`}
+                onClick={() => onFocusBlock?.(s.block)}
+                onDoubleClick={() => onOpenInspector?.(s.block)}
+                title={`${s.block} (${s.blockType}) · 點擊跳到 block · 雙擊開 inspector`}
+                onMouseEnter={() => onHoverBlock(s.block)}
+                onMouseLeave={() => onHoverBlock(null)}
+                className="font-mono text-amber-300/80 hover:text-amber-200 hover:underline cursor-pointer bg-transparent leading-none"
+              >
+                {s.table ? `${s.table}.` : ""}
+                {s.column} @ {s.block}
+              </button>
+            ))}
+          </div>
+        )}
         {knownVarsBar}
 
         <div className="flex-1 min-h-0 overflow-auto flex flex-col gap-1.5">
@@ -659,6 +733,62 @@ export function CaseQuery({
 
       {knownVarsBar}
       {searchBar}
+
+      {/* 資料來源摘要：closure 內 root 變數溯源到的 TABLE / 欄位 */}
+      {(sourceGroups.groups.length > 0 || sourceGroups.unknown.length > 0) && (
+        <div className="shrink-0 rounded-lg border border-white/10 bg-white/4 px-2 py-1.5 flex flex-col gap-1">
+          <button
+            onClick={() => setSrcOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-[10px] text-slate-400 cursor-pointer bg-transparent text-left leading-none"
+          >
+            <span className="text-[9px] w-3 text-white/40">
+              {srcOpen ? "▾" : "▸"}
+            </span>
+            <span className="font-medium">資料來源</span>
+            <span className="tabular-nums text-white/40">
+              {sourceGroups.groups.length} 表 ·{" "}
+              {sourceGroups.groups.reduce((n, g) => n + g.columns.length, 0)} 欄位
+              {sourceGroups.unknown.length > 0 &&
+                ` · ${sourceGroups.unknown.length} 來源不明`}
+            </span>
+          </button>
+          {srcOpen && (
+            <div className="flex flex-col gap-0.5 pl-4">
+              {sourceGroups.groups.map((g) => (
+                <div
+                  key={`${g.block}|${g.table ?? ""}`}
+                  className="flex items-baseline gap-1.5 text-[10px] min-w-0"
+                  onMouseEnter={() => onHoverBlock(g.block)}
+                  onMouseLeave={() => onHoverBlock(null)}
+                >
+                  <button
+                    onClick={() => onFocusBlock?.(g.block)}
+                    onDoubleClick={() => onOpenInspector?.(g.block)}
+                    title={`${g.block} (${g.blockType}) · 點擊跳到 block · 雙擊開 inspector`}
+                    className="font-mono text-amber-300/80 font-semibold hover:text-amber-200 hover:underline cursor-pointer bg-transparent shrink-0 leading-none"
+                  >
+                    {g.table ?? g.block}
+                  </button>
+                  <span className="px-1 py-px rounded bg-white/5 text-slate-400 text-[9px] shrink-0">
+                    {g.blockType}
+                  </span>
+                  <span className="font-mono text-white/50 min-w-0 break-all">
+                    {g.columns.join(", ")}
+                  </span>
+                </div>
+              ))}
+              {sourceGroups.unknown.length > 0 && (
+                <div className="flex items-baseline gap-1.5 text-[10px] min-w-0">
+                  <span className="text-slate-400 italic shrink-0">來源不明</span>
+                  <span className="font-mono text-white/40 min-w-0 break-all">
+                    {sourceGroups.unknown.join(", ")}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Layer Tree */}
       <div className="flex-1 min-h-0 overflow-auto">

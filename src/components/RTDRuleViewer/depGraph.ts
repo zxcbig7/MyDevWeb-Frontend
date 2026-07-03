@@ -9,7 +9,7 @@
 // ============================================================
 
 import type {
-  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState, ImpactResult,
+  RuleData, DepGraph, DepRef, VarNode, VarDef, ExpandedDef, ViewNode, ViewStatus, TrackerEdge, FireState, ImpactResult, ColumnSource,
 } from "./types";
 import { BlockTypes } from "./types";
 import { parseAPF, extractVars } from "./apfParse";
@@ -17,16 +17,30 @@ import { parseCond, evalCond } from "./apfEval";
 
 export type LogClosure = {
   vars: Set<string>;                 // 自此 log 可達的所有變數
-  blocks: Set<string>;               // 牽涉到的 block（trigger + 各變數定義 block）
+  blocks: Set<string>;               // 牽涉到的 block（trigger + 各變數定義 block + root 資料來源 block）
   refCount: Map<string, number>;     // 各變數在 closure 內的被引用次數
   shared: Set<string>;               // refCount ≥ 2 的變數（樹上會多處出現）
+  rootSources: Map<string, ColumnSource[]>; // closure 內 root 變數 → 資料來源（空陣列 = 上游找不到資料型 block）
 };
 
-// 從某 [$LOG$] 取第一層：各 trigger 的觸發條件變數（refBlock = trigger block）
-const LOG_RE = /\[\$([A-Z][A-Z0-9_]*)\$\]/g;
+// log token 偵測：以 [$ 開頭，名稱取到「第二個 $」為止（不靠 ]）。
+// 名稱後可接動態 payload（字串拼接 "[$ABC$" + VAR + "]"）→ payload 與結尾 ] 一律忽略。
+// 例：[$LOG$] → LOG；"[$ABC$" + VAR1 + "]" → ABC（動態變體歸為同一個 log）。
+const LOG_RE = /\[\$([^$\]"]+)\$/g;
 
 // 即時展開某變數的下一層：依定義 block 分組的子節點（refBlock = 引用此變數的 block）
 const isSingleIdent = (s: string): boolean => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
+
+// 資料來源型 block：root 變數溯源目標（Table / Data / Database / MacroImport / MacroFunction…）。
+// 慣例：KEY = 表別名 / 檔名，COLUMN1 = 逗號分隔欄位清單（見 api.ts schema 註解）。
+const DATA_SOURCE_TYPES: ReadonlySet<string> = new Set<string>([
+  BlockTypes.Repository, BlockTypes.Data, BlockTypes.DataSource, BlockTypes.Import,
+  BlockTypes.MacroImport, BlockTypes.MacroParameter, BlockTypes.SQL, BlockTypes.Tag,
+  BlockTypes.Table, BlockTypes.MacroFunction, BlockTypes.Procedure,
+]);
+
+const splitColumns = (s: string | null): string[] =>
+  (s ?? "").split(",").map((c) => c.trim()).filter(Boolean);
 
 // 每個 block 沿 PREBLOCK 反向 BFS 可達的上游 block 集合（含跨 INDEX join 進來的副線）。
 // 用來把「變數來源」限制在「真的會流進引用 block」的上游，排除同名但不在資料流上的孤兒。
@@ -79,6 +93,7 @@ export function findDeadBranchBlocks(rules: RuleData[]): Set<string> {
 export function buildDepGraph(rules: RuleData[]): DepGraph {
   const vars = new Map<string, VarNode>();
   const logs: DepGraph["logs"] = new Map();
+  const columnSources: DepGraph["columnSources"] = new Map();
   const deadBranches =findDeadBranchBlocks(rules);   // Tracker 不分析斷尾（無下游、無效）
 
   const ensureVar = (name: string): VarNode => {
@@ -89,6 +104,19 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
 
   for (const r of rules) {
     if (deadBranches.has(r.BLOCK_NAME)) continue;   // 斷尾不進依賴圖（log / var def 皆略過）
+
+    // 資料來源型 block：把宣告的欄位（COLUMN1 清單）建成 欄位 → 來源 索引（root 溯源用）
+    if (DATA_SOURCE_TYPES.has(r.BLOCK_TYPE)) {
+      for (const v of r.VALUES ?? []) {
+        const table = v.KEY?.trim() || null;
+        for (const col of splitColumns(v.COLUMN1)) {
+          let list = columnSources.get(col);
+          if (!list) { list = []; columnSources.set(col, list); }
+          list.push({ block: r.BLOCK_NAME, blockType: r.BLOCK_TYPE, table, column: col });
+        }
+      }
+    }
+
     for (const v of r.VALUES ?? []) {
       const expr = v.VALUE;
       if (!expr) continue;
@@ -115,7 +143,8 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
         LOG_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = LOG_RE.exec(cl.result)) !== null) {
-          const logName = m[1];
+          const logName = m[1].trim();
+          if (!logName) continue;
           const deps = extractVars(cl.cond, "cond");
           let entry = logs.get(logName);
           if (!entry) { entry = { logName, triggers: [] }; logs.set(logName, entry); }
@@ -127,7 +156,15 @@ export function buildDepGraph(rules: RuleData[]): DepGraph {
   }
 
   const roots = [...vars.values()].filter((n) => n.defs.length === 0).map((n) => n.name).sort();
-  return { vars, logs, roots, ancestors: buildAncestors(rules) };
+  return { vars, logs, roots, ancestors: buildAncestors(rules), columnSources };
+}
+
+/** root 變數 V 被 refBlock 引用時的資料來源：資料型 block 欄位清單含 V，且該 block 在 refBlock 的 PREBLOCK 上游。 */
+export function resolveColumnSources(graph: DepGraph, varName: string, refBlock: string): ColumnSource[] {
+  const list = graph.columnSources.get(varName);
+  const anc = graph.ancestors.get(refBlock);
+  if (!list || !anc) return [];
+  return list.filter((s) => anc.has(s.block));
 }
 
 // ─── lazy 投影：trace / expand ──────────────────────────────
@@ -347,6 +384,7 @@ export function collectLogClosure(graph: DepGraph, logName: string): LogClosure 
   const vars = new Set<string>();
   const blocks = new Set<string>();
   const refCount = new Map<string, number>();
+  const rootSources = new Map<string, ColumnSource[]>();
   const bump = (v: string) => refCount.set(v, (refCount.get(v) ?? 0) + 1);
 
   const entry = graph.logs.get(logName);
@@ -363,14 +401,22 @@ export function collectLogClosure(graph: DepGraph, logName: string): LogClosure 
   }
   while (queue.length) {
     const { varName, refBlock } = queue.shift()!;
-    for (const def of resolveDefs(graph, varName, refBlock)) {
+    const defs = resolveDefs(graph, varName, refBlock);
+    if (defs.length === 0) {
+      // root（上游無定義）→ 溯源到資料型 block（TABLE / DATA / MACRO…），來源 block 一併進 closure
+      const srcs = resolveColumnSources(graph, varName, refBlock);
+      rootSources.set(varName, srcs);
+      for (const s of srcs) blocks.add(s.block);
+      continue;
+    }
+    for (const def of defs) {
       blocks.add(def.block);
       for (const d of def.deps) enqueue(d.varName, def.block);
     }
   }
 
   const shared = new Set([...refCount].filter(([, c]) => c >= 2).map(([k]) => k));
-  return { vars, blocks, refCount, shared };
+  return { vars, blocks, refCount, shared, rootSources };
 }
 
 // ─── 一鍵複製：給 AI 分析的完整 context pack ────────────────
@@ -421,6 +467,16 @@ export function buildLogReport(
     if (!r) continue;
     const grp = r.BLOCK_GROUP ? `, group ${r.BLOCK_GROUP}` : "";
     out.push("", `### ${r.BLOCK_NAME}  (${r.BLOCK_TYPE}${grp})`);
+    // 資料來源型 block：列 Table + Columns（KEY = 表別名 / 檔名，COLUMN1 = 欄位清單）
+    if (DATA_SOURCE_TYPES.has(r.BLOCK_TYPE)) {
+      for (const v of r.VALUES ?? []) {
+        if (!v.KEY && !v.COLUMN1) continue;
+        out.push(`- Table：\`${v.KEY?.trim() || "(未命名)"}\``);
+        const cols = splitColumns(v.COLUMN1);
+        if (cols.length) out.push(`  - Columns：${cols.join(", ")}`);
+      }
+      continue;
+    }
     for (const v of r.VALUES ?? []) {
       if (!v.VALUE && !v.COLUMN1 && !v.KEY) continue;
       const outVar = v.COLUMN1 || v.KEY; // Function 輸出變數放 KEY（COLUMN1 為 dev 舊 mock）
@@ -429,10 +485,16 @@ export function buildLogReport(
     }
   }
 
-  // root 變數
-  const roots = graph.roots.filter((r) => closure.refCount.has(r));
+  // root 變數（closure 內上游無定義者，含資料來源 TABLE / column）
+  const roots = [...closure.rootSources.keys()].sort();
   if (roots.length) {
-    out.push("", "## Root 變數（DB / 外部輸入，無上游）", roots.join(", "));
+    out.push("", "## Root 變數（DB / 外部輸入，無上游）");
+    for (const name of roots) {
+      const srcs = closure.rootSources.get(name) ?? [];
+      out.push(srcs.length
+        ? `- ${name} ← ${srcs.map(fmtSource).join("、")}`
+        : `- ${name}（來源不明：上游找不到資料型 block）`);
+    }
   }
 
   // runtime 值
@@ -444,6 +506,16 @@ export function buildLogReport(
   return out.join("\n");
 }
 
+/** 單一來源顯示字串："LOT_LIST.HOLD_FLAG @ DB_MAIN(Database)"（無表名時省略前綴）*/
+const fmtSource = (s: ColumnSource): string =>
+  `${s.table ? `${s.table}.` : ""}${s.column} @ ${s.block}(${s.blockType})`;
+
+/** root 標註的來源後綴：""（找不到）或 " ← LOT_LIST.HOLD_FLAG @ DB_MAIN(Database)"（多來源以 | 串接）*/
+function fmtRootSources(graph: DepGraph, varName: string, refBlock: string): string {
+  const srcs = resolveColumnSources(graph, varName, refBlock);
+  return srcs.length ? ` ← ${srcs.map(fmtSource).join(" | ")}` : "";
+}
+
 /** 遞迴把單一變數及其上游畫成 ASCII 樹（refBlock 限定來源，path 判環，shared 只完整展開一次）*/
 function renderVarText(
   graph: DepGraph, dep: DepRef, refBlock: string, prefix: string, isLast: boolean,
@@ -453,7 +525,7 @@ function renderVarText(
   const branch = isLast ? "└─ " : "├─ ";
   // shared 變數第二次出現就不再展開，避免報告冗長
   const repeat = status === "shared" && expanded.has(dep.varName);
-  const tag = status === "root" ? "  [root]"
+  const tag = status === "root" ? `  [root${fmtRootSources(graph, dep.varName, refBlock)}]`
     : status === "cycle" ? "  [↩循環]"
     : repeat ? "  [共用，見上]"
     : status === "shared" ? "  [共用]" : "";

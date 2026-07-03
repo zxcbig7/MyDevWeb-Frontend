@@ -33,6 +33,7 @@ graph TD
     AP["apfParse.ts (205)<br/>APF tokenizer / clause / 變數萃取"]
     AE["apfEval.ts (233)<br/>條件 AST + 三值評估"]
     CQ["CaseQuery.tsx (608)<br/>Tracker 側欄：Trace + Impact"]
+    LRM["LogReportsModal.tsx (223)<br/>一鍵全量反藍報告 Modal"]
   end
 
   subgraph canvas
@@ -63,6 +64,8 @@ graph TD
   RV --> RDS
   RV --> RCS
   RV --> CQ
+  RV --> LRM
+  LRM -->|buildLogReport 迭代 graph.logs| DG
   CQ --> DG
   DG --> AP
   DG -->|evalSnippet 委派| AE
@@ -78,14 +81,15 @@ graph TD
 
 | 檔案 | 行數 | 職責 | 備註 |
 |------|------|------|------|
-| `RuleViewer.tsx` | 907 | 主入口；持有全部跨元件狀態；**selection vs loaded 分離**；**URL deep link 還原+同步**；canvas 與側欄受控同步；**Runtime Log 常駐折疊區（持有 runtimeLog→runtimeValues，跨 Viewer/Tracker）**；TopBar **breadcrumb＝複製連結鈕 + 斷尾顯示開關（showDeadBranches，預設關）** | rule 只依 loaded 三元組抓；runtimeValues 傳 CaseQuery(著色/inline 編輯)＋RuleView(Log Value)；樹/chips 改值經 `handleRuntimeValuesChange` 寫 runtimeValues + `serializeRuntimeValues` 同步貼上框；showDeadBranches 傳 RuleView gate 警示 |
-| `types.ts` | 256 | DTO / RuleData / Block / Arrow / DepGraph / ViewNode / **TrackerMode / ImpactResult / ImpactPath** 全型別 | `Repository: "Database"` 為 icon 對應，刻意不一致 |
+| `RuleViewer.tsx` | 1110 | 主入口；持有全部跨元件狀態；**selection vs loaded 分離**；**URL deep link 還原+同步**；canvas 與側欄受控同步；**Runtime Log 常駐折疊區（持有 runtimeLog→runtimeValues，跨 Viewer/Tracker）**；TopBar **breadcrumb＝複製連結鈕 + 反藍報告鈕（開 LogReportsModal，log 數 badge）+ 斷尾顯示開關（showDeadBranches，預設關）** | rule 只依 loaded 三元組抓；runtimeValues 傳 CaseQuery(著色/inline 編輯)＋RuleView(Log Value)＋LogReportsModal；樹/chips 改值經 `handleRuntimeValuesChange` 寫 runtimeValues + `serializeRuntimeValues` 同步貼上框；showDeadBranches 傳 RuleView gate 警示 |
+| `LogReportsModal.tsx` | 223 | **一鍵全量反藍報告**：迭代 `graph.logs` 全部 [$LOG$]，逐一 `buildLogReport`，獨立 antd Modal 一張張翻閱（左側清單 + 上/下一張 + ←→ 鍵盤翻頁 + 複製單張/全部） | 當前張才產報告（useMemo lazy）；「複製全部」才全量迭代串接；帶 runtimeValues；換 rule 自動關閉重置 |
+| `types.ts` | 291 | DTO / RuleData / Block / Arrow / DepGraph / ViewNode / **TrackerMode / ImpactResult / ImpactPath / ColumnSource** 全型別 | `Repository: "Database"` 為 icon 對應，刻意不一致 |
 | `api.ts` | 162 | axios client + `useAPI<T>` 信封拆解 + 6 個 SWR hooks（全部首參吃 `fab`，路徑 `/api/{fab}/RuleViewer/...`，fab 為 null 不打 API）| 後端 route `[Route("api/{fab}/[controller]")]`；fab 目前後端不驗證（隨便輸入）|
 | `dataTransform.ts` | 52 | DTO 多列 → 以 baseName 合併為 RuleData（PREBLOCK split、去 `[n]` 後綴、取前 2）| |
 | `apfParse.ts` | 205 | APF DSL：tokenize（上色共用）/ parseAPF（IF-THEN-ELSE clause）/ extractVars（跳字串註解 $log$ 函式名）| Tracker 解析正確性的根基 |
 | `apfEval.ts` | 233 | APF 條件三值評估：lex（括號/AND/OR/NOT，跳字串註解、函式整段標 unknown）+ 遞迴下降 parseCond + evalCond（三值邏輯）| 自帶 lexer，不依賴 apfParse；evalSnippet 委派它 |
-| `depGraph.ts` | 467 | 整條 rule 建一次 DAG（**buildDepGraph 跳過斷尾** → Tracker 全演算法不含斷尾）；**findDeadBranchBlocks（斷尾定義單一來源）**；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS）**；evalSnippet（委派 apfEval）；buildLogReport；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
-| `CaseQuery.tsx` | 750 | Tracker 側欄：**Log Trace / Var Impact**；搜尋用 antd `AutoComplete`+`Input.Search`；LayerNode 受控樹 + trigger badge + 一鍵複製；**Var Impact 就地內嵌展開**；**樹節點 inline 填已知值（任何變數）→ 即時 fired 著色 + 頂部「已知變數」chips（清除/清空）** | runtimeValues 純讀 prop；改值經 `onRuntimeValuesChange` 回拋 RuleViewer（再 serialize 回貼上框） |
+| `depGraph.ts` | 549 | 整條 rule 建一次 DAG（**buildDepGraph 跳過斷尾** → Tracker 全演算法不含斷尾）；**findDeadBranchBlocks（斷尾定義單一來源）**；**columnSources 欄位索引 + resolveColumnSources（root 溯源到 TABLE/DATA/MACRO… 資料型 block，PREBLOCK scoped）**；traceLog / expandVar lazy 投影；computeTrace（canvas 邊）；**computeImpact（反向 BFS）**；evalSnippet（委派 apfEval）；buildLogReport（root 帶 TABLE.column、來源 block 列 Table/Columns）；dumpDepGraph | `dumpDepGraph` 無 UI 掛載點 |
+| `CaseQuery.tsx` | 865 | Tracker 側欄：**Log Trace / Var Impact**；搜尋用 antd `AutoComplete`+`Input.Search`；LayerNode 受控樹 + trigger badge + 一鍵複製；**root badge 溯源顯示「root ← 表名」（點跳來源 block / 雙擊開 inspector）**；**Trace 模式「資料來源」摘要面板（rootSources 依 block+表名分組列欄位，可收合 / 點跳 / hover 連動 canvas）**；**Impact 模式搜尋變數為 DB 欄位時顯示來源 TABLE.column**；**Var Impact 就地內嵌展開**；**樹節點 inline 填已知值（任何變數）→ 即時 fired 著色 + 頂部「已知變數」chips（清除/清空）** | runtimeValues 純讀 prop；改值經 `onRuntimeValuesChange` 回拋 RuleViewer（再 serialize 回貼上框） |
 | `RuleView.tsx` | 1321 | Canvas：繪製/pan/zoom/hover/雙擊/右鍵、inspector 管理、tracker 邊沿 PREBLOCK recolor（非疊線；dim 不到隱形）、group 框選/拖曳/對齊；**斷尾警示受 `showDeadBranches` gate**；**Log Value：BlockInspector 觸發 → 單一 `LogValueInspector` 浮動面板** | 收 `fab`/`showDeadBranches`/`runtimeValues` prop |
 | `BlockInspector.tsx` | 788 | 浮動詳情面板：Shell + 依類型 Body + 搜尋/Tracker 高亮；**有 runtime 時 header 多「Log Value」鈕（onViewLogValue）** | |
 | `LogValueInspector.tsx` | 138 | 浮動小面板：對照某 block 的變數（COLUMN1/2 + VALUE 引用）在 Runtime Log 的數值（有值綠 / 缺「—」）| 自帶輕量拖曳 shell；單一實例（仿 import TableInspector）|
@@ -105,7 +109,7 @@ graph TD
 
 | Module | Public symbols | 被誰用 |
 |--------|----------------|--------|
-| `depGraph.ts` | `buildDepGraph` `findDeadBranchBlocks` `resolveDefs` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、RuleView（findDeadBranchBlocks 畫警示）、Dev |
+| `depGraph.ts` | `buildDepGraph` `findDeadBranchBlocks` `resolveDefs` `resolveColumnSources` `traceLog` `expandVar` `computeTrace` `computeImpact` `evalSnippet` `collectLogClosure` `buildLogReport` `dumpDepGraph` `LogClosure` | RuleViewer（build/trace/impact）、CaseQuery、RuleView（findDeadBranchBlocks 畫警示）、Dev |
 | `apfParse.ts` | `tokenize` `HIGHLIGHT_RE` `parseAPF` `extractVars` `Token` `Clause` | depGraph、BlockInspector |
 | `apfEval.ts` | `parseCond` `evalCond` `CondNode` `CmpOp` | depGraph（evalSnippet 委派）、apfEval.test |
 | `api.ts` | `usePhaseResponse` `useEQPRuleResponse` `useRuleResponse` `useRuleInfoResponse` `useResourceDataResponse` `useImportTableResponse`（全部首參 `fab`）| RuleViewer、RuleView |
@@ -116,6 +120,7 @@ graph TD
 | `canvasUtils.ts` | `drawGrid` `drawMinimap` `snap` `getWorldBounds` `GRID_SIZE` | RuleView |
 | `RuleViewer.tsx` | `default RuleViewer` | App routes |
 | `RuleView.tsx` | `RuleView`（forwardRef `RuleViewHandle`: `focusBlockById` / `openInspectorById`）| RuleViewer、DevRuleView |
+| `LogReportsModal.tsx` | `LogReportsModal` `LogReportsModalProps` | RuleViewer（TopBar 反藍報告鈕） |
 | `CaseQuery.tsx` | `CaseQuery` `CaseQueryProps` | RuleViewer、DevCaseQuery |
 | `types.ts` | 全型別 + `BlockTypes` `Sides` | 模組內全部 |
 
@@ -125,13 +130,13 @@ graph TD
 2. **建圖**：`buildDepGraph(rules)`（`useMemo`，整條 rule 一次）→ vars / logs / roots / ancestors（PREBLOCK 反向 BFS）
 3. **追蹤**：輸入 `[$LOG$]` → `traceLog` 第一層 → 點節點 / 右鍵 canvas block → `expandedBlocks`（block-keyed，canvas 與側欄共用）→ `computeTrace` 算 canvas 邊
 4. **Runtime**：貼 `(VAR: value)` log → `parseRuntimeLog` → `evalSnippet` 逐邊判 fired → 自動展開命中路徑
-5. **輸出**：`buildLogReport` → clipboard → 貼給 AI 分析
+5. **輸出**：`buildLogReport` → clipboard → 貼給 AI 分析；TopBar「反藍報告」→ `LogReportsModal` 迭代全部 [$LOG$] 一張張翻閱 / 全量複製
 
 ## 已知風險 / Gap
 
 | 項 | 說明 |
 |----|------|
-| 測試僅含純函式 | vitest 已建（`npm test`）；apfEval(12) + computeImpact(6) 已測；UI 互動（impact 面板 / canvas 高亮 / URL 還原 / trigger badge）仍靠 F5 目視 |
+| 測試僅含純函式 | vitest 已建（`npm test`）；apfEval(12) + computeImpact(6) + rootSources(5) 已測；UI 互動（impact 面板 / canvas 高亮 / URL 還原 / trigger badge）仍靠 F5 目視 |
 | `_gen_stress.mjs` 失蹤 | stressRule.ts 標頭指向的生成器不存在 → 與後端 RTDMockData.cs 漂移無從重生 |
 | ~~api.ts 註解 drift~~ | ✅ 已修：改為據實「一律打後端、無 mock fallback」 |
 | mock 改 dev-only | `devMock.ts`/`stressRule.ts` + 7 個 `/dev/*` 頁以 `import.meta.env.DEV` gate（App.tsx 路由、HomeLayout 選單）；barrel 不再 re-export mock → production bundle 零 mock（build 已驗證） |

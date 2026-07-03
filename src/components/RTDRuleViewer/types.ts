@@ -204,12 +204,21 @@ export type LogEntry = {
   triggers: { block: string; clauseCond: string; deps: DepRef[] }[];
 };
 
+/** root 變數的資料來源：資料型 block（Database / Data / MacroImport / MacroFunction…）宣告的欄位 */
+export type ColumnSource = {
+  block: string; // BLOCK_NAME
+  blockType: string; // Database / Data / Import / MacroImport / MacroFunction…
+  table: string | null; // KEY（表別名 / 檔名），可為 null
+  column: string; // 欄位名（= 變數名）
+};
+
 /** 整條 rule 的依賴圖 */
 export type DepGraph = {
   vars: Map<string, VarNode>;
   logs: Map<string, LogEntry>;
   roots: string[]; // 全域 root（無任何 Function 定義 = DB 欄位），已排序
   ancestors: Map<string, Set<string>>; // 每個 block 沿 PREBLOCK 反向可達的上游 block 集合
+  columnSources: Map<string, ColumnSource[]>; // 欄位名 → 宣告它的資料型 block（root 溯源用）
 };
 
 // ── 顯示用節點（即時算，不存）──────────────────────────────

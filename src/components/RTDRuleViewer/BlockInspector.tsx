@@ -630,7 +630,8 @@ function computeMatchMask(code: string, keyword: string): boolean[] {
 function computeLogConditionMask(code: string, logName: string): boolean[] {
   const mask = new Array<boolean>(code.length).fill(false);
   if (!logName) return mask;
-  const needle = `$${logName}$`;
+  // 名稱錨在 [$NAME$ 前綴：靜態 [$NAME$] 與動態 "[$NAME$"+VAR+"]" 皆命中
+  const needle = `[$${logName}$`;
 
   // 收集結構關鍵字位置（IF / THEN / ELSE）
   const kws: { text: string; start: number; end: number }[] = [];

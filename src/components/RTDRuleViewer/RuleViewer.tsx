@@ -23,6 +23,7 @@ import { RuleView } from "./RuleView";
 import { RuleDropdownSearch } from "./RuleDropdownSearch";
 import { type MatchResult, RuleContentSearch } from "./RuleContentSearch";
 import { CaseQuery } from "./CaseQuery";
+import { LogReportsModal } from "./LogReportsModal";
 
 type RightTab = "search" | "tracker" | "helper";
 
@@ -183,6 +184,8 @@ export default function RuleViewer() {
   const [hoverBlock, setHoverBlock] = useState<string | null>(null);
   const [trackerMode, setTrackerMode] = useState<TrackerMode>("trace");
   const [impactVar, setImpactVar] = useState<string>("");
+  // 一鍵全量反藍報告 Modal（迭代 graph.logs 全部 [$LOG$]）
+  const [reportsOpen, setReportsOpen] = useState(false);
   // 右側分頁（= 當前作用功能：Viewer / Tracker）。提前宣告，供 canvas HL gate 用
   const [rightTab, setRightTab] = useState<RightTab>("search");
 
@@ -380,6 +383,7 @@ export default function RuleViewer() {
     setHoverBlock(null);
     setTrackerMode("trace");
     setImpactVar("");
+    setReportsOpen(false);
   }, [loadedRule]);
 
   // ── URL deep link（spec ②）─────────────────────────────────
@@ -721,6 +725,26 @@ export default function RuleViewer() {
         )}
 
         <div className="ml-auto shrink-0 flex items-center gap-2">
+          {loadedRule && (
+            <button
+              onClick={() => setReportsOpen(true)}
+              disabled={graph.logs.size === 0}
+              title="一鍵迭代此 Rule 全部 [$LOG$]，逐一產出反藍追蹤報告"
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors",
+                graph.logs.size === 0
+                  ? "text-slate-500 border-white/10 bg-white/4 cursor-not-allowed"
+                  : "text-slate-300 border-white/15 bg-white/5 hover:bg-white/10 hover:text-white cursor-pointer",
+              )}
+            >
+              反藍報告
+              {graph.logs.size > 0 && (
+                <span className="font-mono text-[10px]">
+                  {graph.logs.size}
+                </span>
+              )}
+            </button>
+          )}
           {loadedRule && (
             <button
               onClick={() => setRuntimeOpen((o) => !o)}
@@ -1072,6 +1096,15 @@ export default function RuleViewer() {
           </div>
         </div>
       </div>
+
+      {/* ── 一鍵全量反藍報告（獨立彈跳視窗）── */}
+      <LogReportsModal
+        open={reportsOpen}
+        graph={graph}
+        rules={rules}
+        runtimeValues={runtimeValues}
+        onClose={() => setReportsOpen(false)}
+      />
     </div>
   );
 }

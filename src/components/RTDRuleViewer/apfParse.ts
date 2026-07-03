@@ -179,7 +179,7 @@ export function extractVars(text: string, role: "cond" | "result"): DepRef[] {
       while (i < n && text[i] !== "\n") i++;
       continue;
     }
-    if (c === "$") {                                   // $LOG$ 標記：跳到對應 $
+    if (c === "$") {                                   // log 標記：跳到對應的第二個 $（[$NAME$…] 一律成對）
       i++;
       while (i < n && text[i] !== "$") i++;
       i++;
